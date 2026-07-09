@@ -21,7 +21,7 @@ const EMPTY = {
 };
 
 export function Leasing() {
-  const { leasing, setLeasing, showToast } = useApp();
+  const { addLeasing, updateLeasing, leasing, showToast } = useApp();
   const [search, setSearch]     = useState('');
   const [showModal, setShow]    = useState(false);
   const [editItem, setEdit]     = useState(null);
@@ -50,16 +50,21 @@ export function Leasing() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!validate()) return;
+    setSaving(true);
+    let ok;
     if (editItem) {
-      setLeasing(prev => prev.map(l => l.id === editItem.id ? { ...l, ...form } : l));
-      showToast(`Data leasing ${form.name} berhasil diperbarui`);
+      ok = await updateLeasing(editItem.id, form);
+      if (ok) showToast(`Data leasing ${form.name} berhasil diperbarui`);
     } else {
-      setLeasing(prev => [...prev, { ...form, id: leasing.length + 1, minPinjaman: Number(form.minPinjaman), maxPinjaman: Number(form.maxPinjaman) }]);
-      showToast(`Leasing ${form.name} berhasil ditambahkan`);
+      ok = await addLeasing(form);
+      if (ok) showToast(`Leasing ${form.name} berhasil ditambahkan`);
     }
-    setShow(false);
+    setSaving(false);
+    if (ok) setShow(false);
   };
 
 
@@ -108,7 +113,7 @@ export function Leasing() {
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShow(false)}>Batal</button>
-            <button className="btn btn-primary" onClick={handleSave}>Simpan</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</button>
           </>
         }
       >

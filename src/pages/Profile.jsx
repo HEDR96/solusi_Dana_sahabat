@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabaseClient';
 import { User, Mail, Shield, KeyRound, Save } from 'lucide-react';
 
 const ROLE_LABEL = {
@@ -24,6 +25,7 @@ export function Profile() {
   const [confirmPw, setConfirmPw] = useState('');
   const [pwErrors, setPwErrors] = useState({});
   const [pwSaved, setPwSaved] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
   if (!currentUser) return null;
 
@@ -38,7 +40,7 @@ export function Profile() {
     updateProfile({ name: name.trim(), email: email.trim() });
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     const e = {};
     if (!currentPw.trim()) e.currentPw = 'Password saat ini wajib diisi';
     if (!newPw.trim()) e.newPw = 'Password baru wajib diisi';
@@ -46,8 +48,16 @@ export function Profile() {
     if (confirmPw !== newPw) e.confirmPw = 'Konfirmasi password tidak cocok';
     setPwErrors(e);
     if (Object.keys(e).length > 0) return;
+    setPwLoading(true);
+    // Verify current password first
+    const { error: authErr } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
+    if (authErr) { setPwErrors({ currentPw: 'Password saat ini tidak valid' }); setPwLoading(false); return; }
+    // Update to new password
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) { setPwErrors({ newPw: error.message }); setPwLoading(false); return; }
     setCurrentPw(''); setNewPw(''); setConfirmPw('');
     setPwSaved(true);
+    setPwLoading(false);
     setTimeout(() => setPwSaved(false), 2000);
   };
 
@@ -122,8 +132,8 @@ export function Profile() {
               </Field>
             </div>
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-              <button className={`btn ${pwSaved ? 'btn-success' : 'btn-primary'}`} onClick={handleChangePassword}>
-                <KeyRound size={15} /> {pwSaved ? 'Password Diperbarui!' : 'Perbarui Password'}
+              <button className={`btn ${pwSaved ? 'btn-success' : 'btn-primary'}`} onClick={handleChangePassword} disabled={pwLoading}>
+                <KeyRound size={15} /> {pwLoading ? 'Memverifikasi...' : pwSaved ? 'Password Diperbarui!' : 'Perbarui Password'}
               </button>
             </div>
           </div>

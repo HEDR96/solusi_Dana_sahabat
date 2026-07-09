@@ -61,29 +61,16 @@ function Section({ icon: Icon, title, children }) {
 
 export function Settings() {
   const app = useApp();
-  const { darkMode, setDarkMode, showToast } = app;
+  const { darkMode, setDarkMode, settings, saveSettings } = app;
   const fileInputRef = useRef(null);
-  const [settings, setSettings] = useState({
-    companyName: 'PT. Mitra Dana Indonesia',
-    address: 'Jl. Sudirman No.100, Jakarta Pusat',
-    phone: '021-5555-1234',
-    email: 'info@mitradana.co.id',
-    commissionRate: 1.5,
-    slaProses: 7,
-    slaReview: 3,
-    notifBerkasBaru: true,
-    notifStatusUbah: true,
-    notifSurveyHariIni: true,
-    notifKomisiUnpaid: true,
-    notifBerkasAging: true,
-    autoCommission: true,
-  });
+  const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
 
-  const sf = key => val => setSettings(p => ({ ...p, [key]: val }));
-  const toggle = key => () => setSettings(p => ({ ...p, [key]: !p[key] }));
+  const sf = key => val => setLocalSettings(p => ({ ...p, [key]: val }));
+  const toggle = key => () => setLocalSettings(p => ({ ...p, [key]: !p[key] }));
 
   const handleSave = () => {
+    saveSettings(localSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -140,23 +127,23 @@ export function Settings() {
         {/* Company profile */}
         <Section icon={SettingsIcon} title="Profil Perusahaan">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Nama Perusahaan" name="companyName" value={settings.companyName} onChange={sf('companyName')} />
-            <Field label="Alamat" name="address" value={settings.address} onChange={sf('address')} />
-            <Field label="Telepon" name="phone" value={settings.phone} onChange={sf('phone')} />
-            <Field label="Email" name="email" type="email" value={settings.email} onChange={sf('email')} />
+            <Field label="Nama Perusahaan" name="companyName" value={localSettings.companyName} onChange={sf('companyName')} />
+            <Field label="Alamat" name="address" value={localSettings.address} onChange={sf('address')} />
+            <Field label="Telepon" name="phone" value={localSettings.phone} onChange={sf('phone')} />
+            <Field label="Email" name="email" type="email" value={localSettings.email} onChange={sf('email')} />
           </div>
         </Section>
 
         {/* Commission & SLA */}
         <Section icon={Percent} title="Aturan Komisi & SLA">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Rate Komisi Default (%)" value={settings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
-            <Field label="SLA Proses Berkas (hari)" value={settings.slaProses} type="number" onChange={sf('slaProses')} suffix=" hari" />
-            <Field label="SLA Review Admin (hari)" value={settings.slaReview} type="number" onChange={sf('slaReview')} suffix=" hari" />
+            <Field label="Rate Komisi Default (%)" value={localSettings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
+            <Field label="SLA Proses Berkas (hari)" value={localSettings.slaProses} type="number" onChange={sf('slaProses')} suffix=" hari" />
+            <Field label="SLA Review Admin (hari)" value={localSettings.slaReview} type="number" onChange={sf('slaReview')} suffix=" hari" />
             <Toggle
               label="Hitung Komisi Otomatis"
               desc="Komisi dibuat otomatis saat pengajuan approve"
-              value={settings.autoCommission}
+              value={localSettings.autoCommission}
               onChange={toggle('autoCommission')}
             />
           </div>
@@ -164,11 +151,11 @@ export function Settings() {
 
         {/* Notifications */}
         <Section icon={Bell} title="Pengaturan Notifikasi">
-          <Toggle label="Berkas Baru Masuk" desc="Notifikasi setiap ada berkas baru" value={settings.notifBerkasBaru} onChange={toggle('notifBerkasBaru')} />
-          <Toggle label="Perubahan Status" desc="Notifikasi setiap status berkas berubah" value={settings.notifStatusUbah} onChange={toggle('notifStatusUbah')} />
-          <Toggle label="Jadwal Survey Hari Ini" desc="Pengingat survey yang terjadwal hari ini" value={settings.notifSurveyHariIni} onChange={toggle('notifSurveyHariIni')} />
-          <Toggle label="Komisi Belum Dibayar" desc="Pengingat komisi yang belum dibayarkan" value={settings.notifKomisiUnpaid} onChange={toggle('notifKomisiUnpaid')} />
-          <Toggle label="Berkas Aging" desc="Alert untuk berkas yang terlalu lama diproses" value={settings.notifBerkasAging} onChange={toggle('notifBerkasAging')} />
+          <Toggle label="Berkas Baru Masuk" desc="Notifikasi setiap ada berkas baru" value={localSettings.notifBerkasBaru} onChange={toggle('notifBerkasBaru')} />
+          <Toggle label="Perubahan Status" desc="Notifikasi setiap status berkas berubah" value={localSettings.notifStatusUbah} onChange={toggle('notifStatusUbah')} />
+          <Toggle label="Jadwal Survey Hari Ini" desc="Pengingat survey yang terjadwal hari ini" value={localSettings.notifSurveyHariIni} onChange={toggle('notifSurveyHariIni')} />
+          <Toggle label="Komisi Belum Dibayar" desc="Pengingat komisi yang belum dibayarkan" value={localSettings.notifKomisiUnpaid} onChange={toggle('notifKomisiUnpaid')} />
+          <Toggle label="Berkas Aging" desc="Alert untuk berkas yang terlalu lama diproses" value={localSettings.notifBerkasAging} onChange={toggle('notifBerkasAging')} />
         </Section>
 
         {/* Appearance */}

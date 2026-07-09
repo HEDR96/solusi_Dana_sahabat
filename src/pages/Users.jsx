@@ -43,12 +43,13 @@ const EMPTY_USER = { name: '', email: '', password: '', role: 'admin', status: '
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Users() {
-  const { users, setUsers, agents, showToast } = useApp();
+  const { users, createUser, updateUserProfile, agents, showToast } = useApp();
   const [showModal, setShow]        = useState(false);
   const [editUser, setEdit]         = useState(null);
   const [selectedRole, setSelRole]  = useState('super-admin');
   const [form, setForm]             = useState(EMPTY_USER);
   const [errors, setErrors]         = useState({});
+  const [saving, setSaving]         = useState(false);
 
   const openEdit = useCallback(user => { setEdit(user); setForm({ ...user, password: '' }); setErrors({}); setShow(true); }, []);
   const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setShow(true); }, []);
@@ -65,17 +66,18 @@ export function Users() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
-    const { password, ...rest } = form;
+    setSaving(true);
+    let ok;
     if (editUser) {
-      setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...rest } : u));
-      showToast(`Data user ${form.name} berhasil diperbarui`);
+      ok = await updateUserProfile(editUser.id, form);
+      if (ok) showToast(`Data user ${form.name} berhasil diperbarui`);
     } else {
-      setUsers(prev => [...prev, { ...rest, id: users.length + 1, lastLogin: '-' }]);
-      showToast(`User ${form.name} berhasil ditambahkan`);
+      ok = await createUser(form);
     }
-    setShow(false);
+    setSaving(false);
+    if (ok) setShow(false);
   };
 
   const sf = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
@@ -166,7 +168,7 @@ export function Users() {
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShow(false)}>Batal</button>
-            <button className="btn btn-primary" onClick={handleSave}>Simpan</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</button>
           </>
         }
       >

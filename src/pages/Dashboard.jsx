@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { useApp } from '../context/AppContext';
-import { formatRupiah, agentPerformance, monthlyStats } from '../data/dummyData';
+import { formatRupiah } from '../data/dummyData';
+import { useMemo } from 'react';
 import { SECTIONS, canAccessSection } from '../data/permissions';
 import { TrendBadge } from '../components/UI/TrendBadge';
 import {
@@ -125,8 +126,22 @@ export function Dashboard() {
 
   const conversionRate = s.total > 0 ? ((s.approve / s.total) * 100).toFixed(1) : 0;
 
-  const currentMonth  = monthlyStats[monthlyStats.length - 1];
-  const previousMonth = monthlyStats[monthlyStats.length - 2];
+  const monthlyStats = useMemo(() => {
+    const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const y = d.getFullYear(), m = d.getMonth();
+      const mo = applications.filter(a => {
+        const ad = new Date(a.inputDate);
+        return ad.getFullYear() === y && ad.getMonth() === m;
+      });
+      return { month: MONTHS[m], berkas: mo.length, approve: mo.filter(a => a.status === 'approve').length, reject: mo.filter(a => a.status === 'reject').length };
+    });
+  }, [applications]);
+
+  const currentMonth  = monthlyStats[monthlyStats.length - 1] || { berkas: 0, approve: 0 };
+  const previousMonth = monthlyStats[monthlyStats.length - 2] || { berkas: 0, approve: 0 };
 
   const pieData = [
     { name: 'Pending', value: s.pending },
@@ -151,7 +166,7 @@ export function Dashboard() {
   ].filter(Boolean);
 
   return (
-    <Layout title="Dashboard" subtitle={`Selamat datang — Ringkasan aktivitas per hari ini, 7 Juli 2026`}>
+    <Layout title="Dashboard" subtitle={`Selamat datang — Ringkasan aktivitas per hari ini, ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`}>
       {/* ── KPI row: ringkasan hasil berkas ── */}
       <div style={{ marginBottom: secondaryCards.length ? 14 : 20 }}>
         <p className="dashboard-row-label">Ringkasan Berkas</p>

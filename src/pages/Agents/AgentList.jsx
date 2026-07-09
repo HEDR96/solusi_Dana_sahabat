@@ -39,7 +39,7 @@ const EMPTY = {
 };
 
 export function AgentList() {
-  const { agents, setAgents, showToast } = useApp();
+  const { agents, addAgent, updateAgent, showToast } = useApp();
   const navigate = useNavigate();
   const [search, setSearch]       = useState('');
   const [filterStatus, setStatus] = useState('all');
@@ -83,17 +83,22 @@ export function AgentList() {
     return Object.keys(e).length === 0;
   }, [form]);
 
-  const handleSave = useCallback(() => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
     if (!validate()) return;
+    setSaving(true);
+    let ok;
     if (editItem) {
-      setAgents(prev => prev.map(a => a.id === editItem.id ? { ...a, ...form } : a));
-      showToast(`Data agen ${form.name} berhasil diperbarui`);
+      ok = await updateAgent(editItem.id, form);
+      if (ok) showToast(`Data agen ${form.name} berhasil diperbarui`);
     } else {
-      setAgents(prev => [...prev, { ...form, id: `AGT${String(prev.length + 1).padStart(3, '0')}`, totalApprove: 0, totalReject: 0, totalBerkas: 0 }]);
-      showToast(`Agen ${form.name} berhasil ditambahkan`);
+      ok = await addAgent(form);
+      if (ok) showToast(`Agen ${form.name} berhasil ditambahkan`);
     }
-    setShowModal(false);
-  }, [editItem, form, setAgents, showToast, validate]);
+    setSaving(false);
+    if (ok) setShowModal(false);
+  }, [editItem, form, addAgent, updateAgent, showToast, validate]);
 
   return (
     <Layout title="Daftar Agen" subtitle={`${agents.filter(a => a.status === 'aktif').length} agen aktif dari ${agents.length} total`}>
@@ -229,7 +234,7 @@ export function AgentList() {
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button>
-            <button className="btn btn-primary" onClick={handleSave}>{editItem ? 'Simpan Perubahan' : 'Tambah Agen'}</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Menyimpan...' : (editItem ? 'Simpan Perubahan' : 'Tambah Agen')}</button>
           </>
         }
       >

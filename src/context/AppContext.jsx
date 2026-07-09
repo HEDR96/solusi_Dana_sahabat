@@ -1,7 +1,18 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { users as initialUsers } from '../data/dummyData';
 import { ToastStack } from '../components/UI/Toast';
 import { supabase } from '../lib/supabaseClient';
+
+const DEFAULT_SETTINGS = {
+  companyName: 'PT. Mitra Dana Indonesia',
+  address: 'Jl. Sudirman No.100, Jakarta Pusat',
+  phone: '021-5555-1234',
+  email: 'info@mitradana.co.id',
+  commissionRate: 1.5,
+  slaProses: 7, slaReview: 3,
+  notifBerkasBaru: true, notifStatusUbah: true,
+  notifSurveyHariIni: true, notifKomisiUnpaid: true, notifBerkasAging: true,
+  autoCommission: true,
+};
 
 const AppContext = createContext(null);
 
@@ -27,6 +38,7 @@ const mapLeasing = r => ({
   id: r.id, name: r.name, branch: r.branch, pic: r.pic, contact: r.contact,
   email: r.email, products: r.products, rate: r.rate, tenors: r.tenors,
   minPinjaman: r.min_pinjaman, maxPinjaman: r.max_pinjaman, status: r.status,
+  syarat: r.syarat || '', notes: r.notes || '',
 });
 const mapCommission = r => ({
   id: r.id, appId: r.app_id, customerName: r.customer_name,
@@ -97,7 +109,11 @@ export function AppProvider({ children }) {
   const [commissions, setCommissions] = useState([]);
   const [agents, setAgents] = useState([]);
   const [leasing, setLeasing] = useState([]);
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
+  const [settings, setSettings] = useState(() => {
+    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('erp-settings') || '{}') }; }
+    catch { return DEFAULT_SETTINGS; }
+  });
   const [notifications, setNotifications] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [statusLogs, setStatusLogs] = useState([]);
@@ -220,8 +236,8 @@ export function AppProvider({ children }) {
       const commRow = {
         app_id: appId, customer_name: app.customerName, agent_id: app.agentId, agent_name: app.agentName,
         leasing_name: app.leasingName, approve_pinjaman: app.pinjaman,
-        approve_date: new Date().toISOString().split('T')[0], commission_rate: 1.5,
-        commission_amount: Math.round(app.pinjaman * 0.015), status: 'unpaid',
+        approve_date: new Date().toISOString().split('T')[0], commission_rate: settings.commissionRate,
+        commission_amount: Math.round(app.pinjaman * (settings.commissionRate / 100)), status: 'unpaid',
         payment_date: null, payment_method: null, notes: '',
       };
       const { data: commData } = await supabase.from('commissions').insert(commRow).select().single();
@@ -276,6 +292,106 @@ export function AppProvider({ children }) {
     showToast('Aktivitas berhasil dicatat');
   };
 
+  const saveSettings = useCallback((newSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('erp-settings', JSON.stringify(newSettings));
+    showToast('Pengaturan berhasil disimpan');
+  }, [showToast]);
+
+  const addAgent = async (data) => {
+    const newId = `AGT${String(agents.length + 1).padStart(3, '0')}`;
+    const row = {
+      id: newId, name: data.name, phone: data.phone, email: data.email,
+      city: data.city, address: data.address, nik: data.nik, status: data.status,
+      join_date: data.joinDate, bank: data.bank, account_number: data.accountNumber,
+      account_name: data.accountName, target: Number(data.target), notes: data.notes,
+      total_approve: 0, total_reject: 0, total_berkas: 0,
+    };
+    const { data: inserted, error } = await supabase.from('agents').insert(row).select().single();
+    if (error) { showToast('Gagal menyimpan agen: ' + error.message, 'error'); return false; }
+    setAgents(prev => [...prev, mapAgent(inserted)]);
+    await addAuditLog('Tambah Agen', `Agen baru: ${data.name} (${newId})`);
+    return true;
+  };
+
+  const updateAgent = async (id, data) => {
+    const row = {
+      name: data.name, phone: data.phone, email: data.email,
+      city: data.city, address: data.address, nik: data.nik, status: data.status,
+      join_date: data.joinDate, bank: data.bank, account_number: data.accountNumber,
+      account_name: data.accountName, target: Number(data.target), notes: data.notes,
+    };
+    const { error } = await supabase.from('agents').update(row).eq('id', id);
+    if (error) { showToast('Gagal memperbarui agen: ' + error.message, 'error'); return false; }
+    setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data, target: Number(data.target) } : a));
+    await addAuditLog('Edit Agen', `Update data agen: ${data.name} (${id})`);
+    return true;
+  };
+
+  const addLeasing = async (data) => {
+    const row = {
+      name: data.name, branch: data.branch, pic: data.pic, contact: data.contact,
+      email: data.email, products: data.products, rate: data.rate, tenors: data.tenors,
+      min_pinjaman: Number(data.minPinjaman), max_pinjaman: Number(data.maxPinjaman),
+      status: data.status, syarat: data.syarat || '', notes: data.notes || '',
+    };
+    const { data: inserted, error } = await supabase.from('leasing_partners').insert(row).select().single();
+    if (error) { showToast('Gagal menyimpan leasing: ' + error.message, 'error'); return false; }
+    setLeasing(prev => [...prev, mapLeasing(inserted)]);
+    await addAuditLog('Tambah Leasing', `Mitra leasing baru: ${data.name}`);
+    return true;
+  };
+
+  const updateLeasing = async (id, data) => {
+    const row = {
+      name: data.name, branch: data.branch, pic: data.pic, contact: data.contact,
+      email: data.email, products: data.products, rate: data.rate, tenors: data.tenors,
+      min_pinjaman: Number(data.minPinjaman), max_pinjaman: Number(data.maxPinjaman),
+      status: data.status, syarat: data.syarat || '', notes: data.notes || '',
+    };
+    const { error } = await supabase.from('leasing_partners').update(row).eq('id', id);
+    if (error) { showToast('Gagal memperbarui leasing: ' + error.message, 'error'); return false; }
+    setLeasing(prev => prev.map(l => l.id === id ? { ...l, ...data, minPinjaman: Number(data.minPinjaman), maxPinjaman: Number(data.maxPinjaman) } : l));
+    await addAuditLog('Edit Leasing', `Update mitra leasing: ${data.name} (${id})`);
+    return true;
+  };
+
+  const createUser = async (data) => {
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email.trim(),
+      password: data.password,
+    });
+    if (error) { showToast('Gagal membuat akun: ' + error.message, 'error'); return false; }
+    const userId = authData.user?.id;
+    if (!userId) { showToast('Gagal mendapatkan ID user baru', 'error'); return false; }
+    const { error: profErr } = await supabase.from('profiles').upsert({
+      id: userId, name: data.name.trim(), email: data.email.trim(),
+      role: data.role, status: data.status, agent_id: data.agentId || null,
+    });
+    if (profErr) { showToast('Profil gagal dibuat: ' + profErr.message, 'error'); return false; }
+    setUsers(prev => [...prev, { id: userId, name: data.name.trim(), email: data.email.trim(), role: data.role, status: data.status, agentId: data.agentId || null, lastLogin: '-' }]);
+    await addAuditLog('Buat User', `User baru: ${data.name} (${data.role})`);
+    // If email confirmation disabled, signUp auto-logs in as new user — sign out so admin stays
+    if (authData.session) {
+      await supabase.auth.signOut();
+      showToast('User berhasil dibuat. Silakan login ulang sebagai admin.', 'info');
+    } else {
+      showToast(`User ${data.name} berhasil dibuat — link konfirmasi dikirim ke email`);
+    }
+    return true;
+  };
+
+  const updateUserProfile = async (id, data) => {
+    const { error } = await supabase.from('profiles').update({
+      name: data.name.trim(), email: data.email.trim(),
+      role: data.role, status: data.status, agent_id: data.agentId || null,
+    }).eq('id', id);
+    if (error) { showToast('Gagal memperbarui user: ' + error.message, 'error'); return false; }
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+    await addAuditLog('Edit User', `Update user: ${data.name}`);
+    return true;
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const isOwnScoped = currentUser?.role === 'agen';
@@ -296,9 +412,10 @@ export function AppProvider({ children }) {
       visibleApplications, visibleCommissions, visibleActivities,
       commissions, setCommissions, payCommission,
       agentActivities, setAgentActivities, addActivity,
-      agents, setAgents,
-      leasing, setLeasing,
-      users, setUsers,
+      agents, setAgents, addAgent, updateAgent,
+      leasing, setLeasing, addLeasing, updateLeasing,
+      users, setUsers, createUser, updateUserProfile,
+      settings, saveSettings,
       notifications, setNotifications, markNotifRead, unreadCount,
       auditLogs, setAuditLogs, statusLogs, setStatusLogs,
       darkMode, setDarkMode,
