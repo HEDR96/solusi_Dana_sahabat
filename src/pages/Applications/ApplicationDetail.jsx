@@ -4,6 +4,7 @@ import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
 import { Modal } from '../../components/UI/Modal';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabaseClient';
 import { formatRupiah, STATUSES } from '../../data/dummyData';
 import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight } from 'lucide-react';
 
@@ -23,8 +24,14 @@ export function ApplicationDetail() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
+  const authHeader = async () => {
+    const { data } = await supabase.auth.getSession();
+    return { Authorization: `Bearer ${data?.session?.access_token || ''}` };
+  };
+
   const loadDocs = () => {
-    fetch(`/api/gdrive?appId=${id}`)
+    authHeader()
+      .then(h => fetch(`/api/gdrive?appId=${id}`, { headers: h }))
       .then(r => r.json())
       .then(d => setGdocs(d.files || []))
       .catch(() => {});
@@ -58,7 +65,7 @@ export function ApplicationDetail() {
       const safeType = docType.toLowerCase().replace(/\s+/g, '-');
       const resp = await fetch('/api/gdrive', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({
           filename: `${id}_${safeType}_${Date.now()}.jpg`,
           contentType: 'image/jpeg',

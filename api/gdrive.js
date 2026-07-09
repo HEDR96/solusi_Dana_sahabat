@@ -5,6 +5,23 @@
 //   GDRIVE_FOLDER_ID     — ID folder tujuan (dari URL folder Drive)
 const crypto = require('crypto');
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://jltdidqhdqdsyiakdaqy.supabase.co';
+const SUPABASE_ANON = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdGRpZHFoZHFkc3lpYWtkYXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDQ4MzcsImV4cCI6MjA5MzIyMDgzN30.IxAEaotwiKoNpIBlXtq9t9x_n0hOPujlddstAA2TPGo';
+
+// Hanya user Supabase yang login boleh pakai endpoint ini
+async function verifySupabaseUser(req) {
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON, Authorization: auth },
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 let cachedToken = null;
 
 async function getAccessToken() {
@@ -41,11 +58,16 @@ async function getAccessToken() {
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const folderId = process.env.GDRIVE_FOLDER_ID;
   if (!folderId) return res.status(500).json({ error: 'GDRIVE_FOLDER_ID belum diset' });
+
+  // Tolak request tanpa login Supabase yang valid
+  if (!(await verifySupabaseUser(req))) {
+    return res.status(401).json({ error: 'Tidak terautentikasi' });
+  }
 
   try {
     const token = await getAccessToken();

@@ -58,8 +58,19 @@ const mapActivity = r => ({
   type: r.type, description: r.description, outcome: r.outcome,
   relatedAppId: r.related_app_id,
 });
+// "x menit lalu" dihitung dari created_at; fallback ke teks lama jika kolom belum ada
+function relativeTime(iso) {
+  if (!iso) return null;
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'Baru saja';
+  if (mins < 60) return `${mins} menit lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
+}
 const mapNotif = r => ({
-  id: r.id, type: r.type, message: r.message, time: r.time_ago,
+  id: r.id, type: r.type, message: r.message,
+  time: relativeTime(r.created_at) || r.time_ago,
   read: r.read, link: r.link,
 });
 const mapAuditLog = r => ({
@@ -249,7 +260,9 @@ export function AppProvider({ children }) {
   };
 
   const addApplication = async (data) => {
-    const newId = `BRK${String(2026000 + applications.length + 1).padStart(7, '0')}`;
+    // ID dari sequence DB (anti-tabrakan); fallback ke hitung lokal jika RPC belum ada
+    const { data: rpcId } = await supabase.rpc('next_brk_id');
+    const newId = rpcId || `BRK${String(2026000 + applications.length + 1).padStart(7, '0')}`;
     const row = {
       id: newId, status: 'pending', agent_id: data.agentId, agent_name: data.agentName,
       customer_name: data.customerName, nik: data.nik, phone: data.phone, city: data.city,
