@@ -77,7 +77,7 @@ export function Topbar({ title, subtitle }) {
       </div>
 
       {/* Search */}
-      <div ref={searchRef} style={{ position: 'relative' }}>
+      <div ref={searchRef} className="topbar-search-wrap" style={{ position: 'relative' }}>
         <div className="search-input" style={{ display: 'flex' }}>
           <Search size={14} color="var(--c-94a3b8)" style={{ flexShrink: 0 }} />
           <input
@@ -97,7 +97,7 @@ export function Topbar({ title, subtitle }) {
         {showResults && q && (
           <div className="anim-scale-in" style={{
             position: 'absolute', left: 0, top: 'calc(100% + 8px)',
-            width: 380, background: 'var(--surface)',
+            width: 'min(380px, calc(100vw - 24px))', background: 'var(--surface)',
             border: '1px solid var(--border)', borderRadius: 16,
             boxShadow: '0 16px 48px rgba(0,0,0,.12)',
             zIndex: 60, overflow: 'hidden',
@@ -171,7 +171,7 @@ export function Topbar({ title, subtitle }) {
         {showNotif && (
           <div className="anim-scale-in" style={{
             position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-            width: 360, background: 'var(--surface)',
+            width: 'min(360px, calc(100vw - 24px))', background: 'var(--surface)',
             border: '1px solid var(--border)', borderRadius: 16,
             boxShadow: '0 16px 48px rgba(0,0,0,.12)',
             zIndex: 60, overflow: 'hidden',
@@ -237,7 +237,7 @@ export function Topbar({ title, subtitle }) {
         {showUserMenu && (
           <div className="anim-scale-in" style={{
             position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-            width: 200, background: 'var(--surface)',
+            width: 'min(200px, calc(100vw - 24px))', background: 'var(--surface)',
             border: '1px solid var(--border)', borderRadius: 14,
             boxShadow: '0 16px 48px rgba(0,0,0,.12)',
             zIndex: 60, overflow: 'hidden', padding: 6,

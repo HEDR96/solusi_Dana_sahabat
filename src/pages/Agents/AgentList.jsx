@@ -238,7 +238,7 @@ export function AgentList() {
           </>
         }
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="form-grid">
           <F label="Nama Lengkap" error={errors.name}><input className="input" value={form.name} onChange={e => set('name')(e.target.value)} style={errors.name ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Nomor HP" error={errors.phone}><input className="input" value={form.phone} onChange={e => set('phone')(e.target.value)} style={errors.phone ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Email"><input className="input" type="email" value={form.email} onChange={e => set('email')(e.target.value)} /></F>
@@ -250,12 +250,12 @@ export function AgentList() {
               <option value="nonaktif">Nonaktif</option>
             </select>
           </F>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <F label="Alamat"><input className="input" value={form.address} onChange={e => set('address')(e.target.value)} /></F>
           </div>
-          <div style={{ gridColumn: 'span 2', borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+          <div className="span-2" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-64748b)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rekening Bank</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-grid" style={{ gap: 12 }}>
               <F label="Nama Bank"><input className="input" value={form.bank} onChange={e => set('bank')(e.target.value)} /></F>
               <F label="Nomor Rekening"><input className="input" value={form.accountNumber} onChange={e => set('accountNumber')(e.target.value)} /></F>
               <F label="Nama Pemilik Rekening"><input className="input" value={form.accountName} onChange={e => set('accountName')(e.target.value)} /></F>
@@ -263,7 +263,7 @@ export function AgentList() {
             </div>
           </div>
           <F label="Tanggal Bergabung"><input className="input" type="date" value={form.joinDate} onChange={e => set('joinDate')(e.target.value)} /></F>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <F label="Catatan"><textarea className="input textarea" value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} /></F>
           </div>
         </div>

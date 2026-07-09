@@ -481,7 +481,9 @@ input[type="checkbox"] {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-xs);
 }
 .table-head { background: var(--surface-alt); border-bottom: 1px solid var(--border); }
@@ -529,14 +531,6 @@ input[type="checkbox"] {
 .modal-lg  { max-width: min(820px, 96vw); }
 .modal-xl  { max-width: min(1080px, 98vw); }
 
-@media (max-width: 480px) {
-  .modal-backdrop { padding: 8px; align-items: flex-end; }
-  .modal { border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: 92dvh; }
-  .modal-body { padding: 16px; }
-  .modal-header { padding: 16px; }
-  .modal-footer { padding: 12px 16px; }
-}
-
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 24px;
@@ -561,10 +555,23 @@ input[type="checkbox"] {
 .modal-footer {
   padding: 14px 24px;
   border-top: 1px solid var(--border-light);
-  display: flex; gap: 8px; justify-content: flex-end;
+  display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
   background: var(--surface-alt);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   flex-shrink: 0;
+}
+
+/* Modal responsive — MUST come after class definitions to override padding */
+@media (max-width: 480px) {
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal { border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: 93dvh; }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 14px 16px; }
+  .modal-footer { padding: 12px 16px; }
+  .modal-footer .btn { flex: 1; justify-content: center; min-width: 100px; }
+  /* Collapse 2-col form grids inside modals to single column */
+  .modal-body .form-grid { grid-template-columns: 1fr !important; }
+  .modal-body .form-grid .span-2 { grid-column: span 1 !important; }
 }
 
 /* ── Notifications dot ─────────────────────────── */
@@ -737,10 +744,20 @@ input[type="checkbox"] {
   .main-content { margin-left: 0 !important; }
   .page-content { padding: 16px; }
   .mobile-menu-btn { display: flex; }
-  .search-input { width: 100%; max-width: 220px; }
+  .search-input { width: 100%; max-width: 200px; }
+  /* Page titles: truncate so they don't push icons off-screen */
+  .topbar > div:nth-child(2) h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+  .topbar > div:nth-child(2) p  { display: none; }
 
   .rgrid-sidebar-l, .rgrid-sidebar-r, .rgrid-detail, .rgrid-charts { grid-template-columns: 1fr; }
   .rgrid-3, .rgrid-4, .rgrid-6 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  /* Hide topbar search entirely on very small screens — too cramped */
+  .topbar-search-wrap { display: none !important; }
+  /* Collapse ALL 2-col page grids (not just inside modals) */
+  .rgrid-2 { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 480px) {

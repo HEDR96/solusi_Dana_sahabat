@@ -61,7 +61,7 @@ export function Simulation() {
 
   return (
     <Layout title="Simulasi Angsuran" subtitle="Hitung estimasi cicilan dan bandingkan antar leasing">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="rgrid rgrid-2" style={{ gap: 20, alignItems: 'start' }}>
         {/* Form */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>

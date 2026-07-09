@@ -331,8 +331,8 @@ export function ApplicationList() {
           </>
         }
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={{ gridColumn: 'span 2' }}>
+        <div className="form-grid">
+          <div className="span-2">
             <F label="Nama Nasabah" error={errors.customerName}><input className="input" value={form.customerName} onChange={e => set('customerName')(e.target.value)} placeholder="Nama lengkap sesuai KTP" style={errors.customerName ? { borderColor: '#ef4444' } : undefined} /></F>
           </div>
           <F label="NIK / Nomor KTP" error={errors.nik}><input className="input" value={form.nik} onChange={e => set('nik')(e.target.value)} placeholder="16 digit NIK" style={errors.nik ? { borderColor: '#ef4444' } : undefined} /></F>
@@ -372,17 +372,17 @@ export function ApplicationList() {
               </select>
             </F>
           )}
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <F label="Alamat Lengkap"><input className="input" value={form.address} onChange={e => set('address')(e.target.value)} placeholder="Alamat sesuai KTP" /></F>
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <F label="Catatan Tambahan">
               <textarea className="input textarea" value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} placeholder="Catatan khusus untuk admin..." />
             </F>
           </div>
 
           {/* Upload section */}
-          <div style={{ gridColumn: 'span 2', background: 'var(--surface-alt)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)' }}>
+          <div className="span-2" style={{ background: 'var(--surface-alt)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-374151)', marginBottom: 10 }}>Dokumen yang Diupload</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'].map(doc => (

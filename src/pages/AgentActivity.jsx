@@ -207,7 +207,7 @@ export function AgentActivity() {
           </>
         }
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="form-grid" style={{ gap: 14 }}>
           <F label="Tanggal" error={errors.date}>
             <input className="input" type="date" value={form.date} onChange={e => sf('date')(e.target.value)} style={errors.date ? { borderColor: '#ef4444' } : undefined} />
           </F>

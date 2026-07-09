@@ -117,15 +117,15 @@ export function Leasing() {
           </>
         }
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div style={{ gridColumn: 'span 2' }}>
+        <div className="form-grid" style={{ gap: 14 }}>
+          <div className="span-2">
             <LF label="Nama Leasing" name="name" form={form} sf={sf} errors={errors} />
           </div>
           <LF label="Cabang/Kota" name="branch" form={form} sf={sf} errors={errors} />
           <LF label="PIC Leasing" name="pic" form={form} sf={sf} errors={errors} />
           <LF label="Nomor Kontak" name="contact" form={form} sf={sf} errors={errors} />
           <LF label="Email" name="email" type="email" form={form} sf={sf} errors={errors} />
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <LF label="Produk Pinjaman" name="products" form={form} sf={sf} errors={errors} />
           </div>
           <LF label="Rate/Bunga (%)" name="rate" form={form} sf={sf} errors={errors} />
@@ -139,11 +139,11 @@ export function Leasing() {
               <option value="nonaktif">Nonaktif</option>
             </select>
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <label className="label">Syarat Dokumen</label>
             <textarea className="input textarea" value={form.syarat || ''} onChange={e => sf('syarat')(e.target.value)} rows={2} />
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="span-2">
             <label className="label">Catatan Kerja Sama</label>
             <textarea className="input textarea" value={form.notes || ''} onChange={e => sf('notes')(e.target.value)} rows={2} />
           </div>
