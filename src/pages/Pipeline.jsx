@@ -19,7 +19,7 @@ export function Pipeline() {
   return (
     <Layout
       title="Pipeline Berkas"
-      subtitle={`${applications.length} berkas aktif · Pantau progress setiap tahap`}
+      subtitle={`${applications.filter(a => !['approve','cancel','reject'].includes(a.status)).length} berkas aktif · Pantau progress setiap tahap`}
       actions={
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface-alt2)', borderRadius: 8, padding: 3 }}>
           <button className={`btn btn-sm${view === 'kanban' ? ' btn-primary' : ' btn-ghost'}`} style={{ gap: 5 }} onClick={() => setView('kanban')}>

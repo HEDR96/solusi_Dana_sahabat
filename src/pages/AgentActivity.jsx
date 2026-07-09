@@ -46,10 +46,10 @@ export function AgentActivity() {
   }).sort((a, b) => b.date.localeCompare(a.date));
 
   const stats = {
-    total: activities.length,
-    prospekBaru: activities.filter(a => a.outcome === 'prospek-baru').length,
-    menghasilkan: activities.filter(a => a.outcome === 'menghasilkan-berkas').length,
-    followUp: activities.filter(a => a.outcome === 'follow-up-lanjutan').length,
+    total: filtered.length,
+    prospekBaru: filtered.filter(a => a.outcome === 'prospek-baru').length,
+    menghasilkan: filtered.filter(a => a.outcome === 'menghasilkan-berkas').length,
+    followUp: filtered.filter(a => a.outcome === 'follow-up-lanjutan').length,
   };
 
   const openAdd = () => {
@@ -156,7 +156,7 @@ export function AgentActivity() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={isAgen ? 5 : 6}>
                   <div className="empty-state">
                     <div className="empty-icon">📋</div>
                     <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-0f172a)' }}>Belum ada aktivitas tercatat</p>

@@ -18,7 +18,7 @@ const EVENT_COLORS = {
 export function CalendarPage() {
   const { visibleApplications: applications } = useApp();
   const navigate = useNavigate();
-  const TODAY = new Date(2026, 6, 7);
+  const TODAY = new Date();
   const [currentDate, setCurrentDate] = useState(TODAY);
   const [selectedDay, setSelectedDay] = useState(null);
 
@@ -44,7 +44,8 @@ export function CalendarPage() {
   while (d <= calEnd) { days.push(d); d = addDays(d, 1); }
 
   const selectedEvents = selectedDay ? getEventsForDay(selectedDay) : [];
-  const upcomingSurveys = applications.filter(a => a.surveyDate >= '2026-07-07' && ['janji-survey', 'survey'].includes(a.status));
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const upcomingSurveys = applications.filter(a => a.surveyDate >= todayStr && ['janji-survey', 'survey'].includes(a.status));
 
   return (
     <Layout title="Kalender Aktivitas" subtitle="Lihat jadwal survey dan progress berkas">

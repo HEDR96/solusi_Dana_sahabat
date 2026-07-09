@@ -62,6 +62,7 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/activities" element={<ProtectedRoute><AgentActivity /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
     </Routes>
   );
 }

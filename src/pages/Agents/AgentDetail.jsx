@@ -35,12 +35,14 @@ export function AgentDetail() {
   const totalKomisi  = agentComm.reduce((s, c) => s + c.commissionAmount, 0);
   const paidKomisi   = agentComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
   const unpaidKomisi = agentComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0);
-  const rate = agent.totalBerkas > 0 ? Math.round((agent.totalApprove / agent.totalBerkas) * 100) : 0;
+  const realApprove = agentApps.filter(a => a.status === 'approve').length;
+  const realReject  = agentApps.filter(a => a.status === 'reject').length;
+  const rate = agentApps.length > 0 ? Math.round((realApprove / agentApps.length) * 100) : 0;
 
   const statItems = [
     { label: 'Total Berkas', value: agentApps.length, icon: FileText, color: '#3b82f6', bg: '#eff6ff' },
-    { label: 'Approve', value: agent.totalApprove, icon: CheckCircle, color: '#22c55e', bg: '#f0fdf4' },
-    { label: 'Reject', value: agent.totalReject, icon: XCircle, color: '#ef4444', bg: '#fef2f2' },
+    { label: 'Approve', value: realApprove, icon: CheckCircle, color: '#22c55e', bg: '#f0fdf4' },
+    { label: 'Reject', value: realReject, icon: XCircle, color: '#ef4444', bg: '#fef2f2' },
     { label: 'Conversion', value: `${rate}%`, icon: Target, color: '#f59e0b', bg: '#fffbeb' },
   ];
 

@@ -17,7 +17,14 @@ export function Simulation() {
     return Math.round(pokok / tenor + flat);
   };
 
+  const [calcError, setCalcError] = useState('');
+
   const calculate = () => {
+    if (!form.harga || form.harga <= 0) { setCalcError('Harga kendaraan harus lebih dari 0'); return; }
+    if (form.uangMuka >= form.harga) { setCalcError('Uang muka tidak boleh melebihi harga kendaraan'); return; }
+    if (!form.tenor || form.tenor <= 0) { setCalcError('Tenor harus lebih dari 0 bulan'); return; }
+    if (!form.rate || form.rate <= 0) { setCalcError('Rate bunga harus lebih dari 0%'); return; }
+    setCalcError('');
     const pokok      = form.harga - form.uangMuka;
     const provisi    = pokok * (form.biayaProvisi / 100);
     const totalBiaya = form.biayaAdmin + form.biayaAsuransi + provisi + form.biayaLain;
@@ -97,6 +104,11 @@ export function Simulation() {
               </div>
             </div>
 
+            {calcError && (
+              <div style={{ fontSize: 12, color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 12px' }}>
+                {calcError}
+              </div>
+            )}
             <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={calculate}>
               <Calculator size={17} /> Hitung Simulasi
             </button>

@@ -53,7 +53,7 @@ export function Commission() {
   const handlePay = () => { payCommission(selectedComm.id, payMethod); setShowPay(false); };
 
   const agentSummary = agents.map(ag => {
-    const agComm = commissions.filter(c => c.agentId === ag.id);
+    const agComm = filtered.filter(c => c.agentId === ag.id);
     return {
       ...ag,
       totalKomisi: agComm.reduce((s, c) => s + c.commissionAmount, 0),

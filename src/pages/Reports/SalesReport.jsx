@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '../../components/Layout/Layout';
 import { useApp } from '../../context/AppContext';
-import { formatRupiah, monthlyStats } from '../../data/dummyData';
+import { formatRupiah } from '../../data/dummyData';
 import { exportToCsv } from '../../utils/exportCsv';
 import { TrendBadge } from '../../components/UI/TrendBadge';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -79,6 +79,20 @@ export function SalesReport() {
   }));
 
   const uniqueLeasings = [...new Set(applications.map(a => a.leasingName))];
+
+  const monthlyStats = useMemo(() => {
+    const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const y = d.getFullYear(), m = d.getMonth();
+      const mo = applications.filter(a => {
+        const ad = new Date(a.inputDate);
+        return ad.getFullYear() === y && ad.getMonth() === m;
+      });
+      return { month: MONTHS[m], berkas: mo.length, approve: mo.filter(a => a.status === 'approve').length, reject: mo.filter(a => a.status === 'reject').length };
+    });
+  }, [applications]);
 
   const kpiItems = [
     { label: 'Total Berkas', value: stats.total, icon: FileText, color: '#3b82f6', bg: '#eff6ff', trendKey: 'total' },

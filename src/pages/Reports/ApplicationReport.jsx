@@ -21,7 +21,7 @@ export function ApplicationReport() {
   const [page, setPage]           = useState(1);
   const PER = 10;
 
-  const NOW = new Date('2026-07-07');
+  const NOW = new Date();
   const enriched = applications.map(app => {
     const agingDays = Math.floor((NOW - new Date(app.inputDate)) / 86400000);
     const isLama    = agingDays > 14 && !['approve', 'reject', 'cancel'].includes(app.status);
