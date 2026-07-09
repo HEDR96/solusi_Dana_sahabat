@@ -61,7 +61,7 @@ function Section({ icon: Icon, title, children }) {
 
 export function Settings() {
   const app = useApp();
-  const { darkMode, setDarkMode, settings, saveSettings } = app;
+  const { darkMode, setDarkMode, settings, saveSettings, showToast } = app;
   const fileInputRef = useRef(null);
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);

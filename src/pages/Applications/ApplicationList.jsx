@@ -384,7 +384,7 @@ export function ApplicationList() {
           {/* Upload section */}
           <div className="span-2" style={{ background: 'var(--surface-alt)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-374151)', marginBottom: 10 }}>Dokumen yang Diupload</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div className="rgrid rgrid-3" style={{ gap: 8 }}>
               {['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'].map(doc => (
                 <label key={doc} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--c-374151)', cursor: 'pointer', padding: '6px 8px', background: 'var(--surface)', borderRadius: 7, border: '1px solid var(--border)' }}>
                   <input type="checkbox" style={{ accentColor: '#2563eb' }} />

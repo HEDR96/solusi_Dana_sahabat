@@ -236,7 +236,7 @@ export function ApplicationDetail() {
           </div>
 
           {needsSurvey && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-grid" style={{ gap: 12 }}>
               <div>
                 <label className="label">Tanggal Survey</label>
                 <input className="input" type="date" value={surveyDate} onChange={e => setSurveyDate(e.target.value)} />
