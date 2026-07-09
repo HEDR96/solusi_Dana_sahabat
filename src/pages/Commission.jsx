@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../data/dummyData';
 import { exportToCsv } from '../utils/exportCsv';
 import { useSortableData } from '../utils/useSortableData';
+import { useMasterOptions } from '../utils/useMasterOptions';
 import { SortableTh } from '../components/UI/SortableTh';
 import { Search, Download, CreditCard, DollarSign, TrendingUp, CheckCircle } from 'lucide-react';
 
@@ -33,6 +34,7 @@ export function Commission() {
   const [showPayModal, setShowPay]  = useState(false);
   const [selectedComm, setSel]      = useState(null);
   const [payMethod, setPayMethod]   = useState('Transfer Bank');
+  const payMethods = useMasterOptions('payment_method', ['Transfer Bank', 'Cash', 'QRIS', 'Cek']);
 
   const filtered = commissions.filter(c => {
     const q = search.toLowerCase();
@@ -239,7 +241,7 @@ export function Commission() {
             <div>
               <label className="label">Metode Pembayaran</label>
               <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                {['Transfer Bank', 'Cash', 'QRIS', 'Cek'].map(m => <option key={m}>{m}</option>)}
+                {payMethods.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
           </div>

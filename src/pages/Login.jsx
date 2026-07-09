@@ -136,6 +136,11 @@ export function Login() {
               {loading ? 'Memproses...' : 'Masuk Sekarang'}
             </button>
           </form>
+
+          <p style={{ fontSize: 13, color: 'var(--c-64748b)', textAlign: 'center', marginTop: 20 }}>
+            Ingin bergabung jadi agen?{' '}
+            <a href="/daftar-agen" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>Lamar di sini</a>
+          </p>
         </div>
 
         <p style={{ fontSize: 11, color: 'var(--c-cbd5e1)', textAlign: 'center', marginTop: 40 }}>

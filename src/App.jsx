@@ -21,6 +21,8 @@ import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
 import { AgentActivity } from './pages/AgentActivity';
 import { AgentMap } from './pages/AgentMap';
+import { MasterData } from './pages/MasterData';
+import { ApplyAgent } from './pages/ApplyAgent';
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useApp();
@@ -44,6 +46,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={currentUser ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/daftar-agen" element={<ApplyAgent />} />
       <Route path="/" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><AgentList /></ProtectedRoute>} />
@@ -64,6 +67,7 @@ function AppRoutes() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/activities" element={<ProtectedRoute><AgentActivity /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><AgentMap /></ProtectedRoute>} />
+      <Route path="/masterdata" element={<ProtectedRoute><MasterData /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
     </Routes>
   );

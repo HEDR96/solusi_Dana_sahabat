@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../data/dummyData';
+import { useMasterOptions } from '../utils/useMasterOptions';
 import { Calculator, Star } from 'lucide-react';
 
 export function Simulation() {
   const { leasing } = useApp();
+  const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
   const [form, setForm] = useState({
     harga: 200000000, uangMuka: 40000000, tenor: 48, rate: 1.4,
     leasingId: 1, biayaAdmin: 1500000, biayaAsuransi: 2000000, biayaProvisi: 1, biayaLain: 500000,
@@ -76,7 +78,7 @@ export function Simulation() {
             <div>
               <label className="label">Tenor (bulan)</label>
               <select className="input" value={form.tenor} onChange={e => setForm(p => ({ ...p, tenor: Number(e.target.value) }))}>
-                {[12, 18, 24, 36, 48, 60].map(t => <option key={t} value={t}>{t} bulan</option>)}
+                {tenorOptions.map(t => <option key={t} value={Number(t)}>{t} bulan</option>)}
               </select>
             </div>
 

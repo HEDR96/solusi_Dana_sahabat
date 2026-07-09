@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, FileText, GitBranch, Calendar,
   DollarSign, Building2, Calculator, TrendingUp, FileBarChart,
   Receipt, UserCog, ClipboardList, Settings, ChevronLeft,
-  ChevronRight, LogOut, BarChart3, X, Activity, MapPin
+  ChevronRight, LogOut, BarChart3, X, Activity, MapPin, Database
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { SECTIONS, canAccessSection } from '../../data/permissions';
@@ -24,6 +24,7 @@ const NAV = [
   { path: '/reports/applications', icon: FileBarChart,    label: 'Lap. Berkas',      key: SECTIONS.REPORTS_APPLICATIONS },
   { path: '/reports/commission',   icon: Receipt,         label: 'Lap. Komisi',      key: SECTIONS.REPORTS_COMMISSION },
   { section: 'Sistem' },
+  { path: '/masterdata',           icon: Database,        label: 'Master Data',      key: SECTIONS.MASTERDATA },
   { path: '/users',                icon: UserCog,         label: 'Manajemen User',   key: SECTIONS.USERS },
   { path: '/audit',                icon: ClipboardList,   label: 'Audit Log',        key: SECTIONS.AUDIT },
   { path: '/settings',             icon: Settings,        label: 'Pengaturan',       key: SECTIONS.SETTINGS },

@@ -9,6 +9,7 @@ import { exportToCsv } from '../../utils/exportCsv';
 import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
 import { useDebounce } from '../../utils/useDebounce';
+import { useMasterOptions } from '../../utils/useMasterOptions';
 import { Plus, Search, Eye, Download, Filter, FileText, SlidersHorizontal, X, CheckSquare } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
@@ -43,6 +44,8 @@ export function ApplicationList() {
   const { visibleApplications: applications, agents, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const unitTypes = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
+  const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
   const [filterAgent, setAgent]     = useState('all');
@@ -340,7 +343,7 @@ export function ApplicationList() {
           <F label="Kota" error={errors.city}><input className="input" value={form.city} onChange={e => set('city')(e.target.value)} placeholder="Kota domisili" style={errors.city ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Tipe Unit">
             <select className="input" value={form.unitType} onChange={e => set('unitType')(e.target.value)}>
-              {['Mobil', 'Motor', 'Alat Berat', 'Lainnya'].map(t => <option key={t}>{t}</option>)}
+              {unitTypes.map(t => <option key={t}>{t}</option>)}
             </select>
           </F>
           <F label="Merk & Model Unit" error={errors.unitBrand}><input className="input" value={form.unitBrand} onChange={e => set('unitBrand')(e.target.value)} placeholder="Toyota Avanza 1.3 G" style={errors.unitBrand ? { borderColor: '#ef4444' } : undefined} /></F>
@@ -348,7 +351,7 @@ export function ApplicationList() {
           <F label="Pinjaman yang Diajukan (Rp)" error={errors.pinjaman}><input className="input" type="number" value={form.pinjaman} onChange={e => set('pinjaman')(e.target.value)} placeholder="120000000" style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Tenor">
             <select className="input" value={form.tenor} onChange={e => set('tenor')(Number(e.target.value))}>
-              {[12, 18, 24, 36, 48, 60].map(t => <option key={t} value={t}>{t} bulan</option>)}
+              {tenorOptions.map(t => <option key={t} value={Number(t)}>{t} bulan</option>)}
             </select>
           </F>
           <F label="Leasing Tujuan">
