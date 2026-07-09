@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { Plus, Edit2, Shield, Check } from 'lucide-react';
+
+const F = memo(({ label, children, error }) => (
+  <div>
+    <label className="label">{label}</label>
+    {children}
+    {error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}
+  </div>
+));
 
 const ROLES = [
   { key: 'super-admin', label: 'Super Admin',      color: '#ef4444', bg: '#fef2f2' },
@@ -42,8 +50,8 @@ export function Users() {
   const [form, setForm]             = useState(EMPTY_USER);
   const [errors, setErrors]         = useState({});
 
-  const openEdit = user => { setEdit(user); setForm({ ...user, password: '' }); setErrors({}); setShow(true); };
-  const openAdd  = ()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setShow(true); };
+  const openEdit = useCallback(user => { setEdit(user); setForm({ ...user, password: '' }); setErrors({}); setShow(true); }, []);
+  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setShow(true); }, []);
 
   const validate = () => {
     const e = {};
@@ -70,10 +78,7 @@ export function Users() {
     setShow(false);
   };
 
-  const sf = k => v => setForm(p => ({ ...p, [k]: v }));
-  const F = ({ label, children, error }) => (
-    <div><label className="label">{label}</label>{children}{error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}</div>
-  );
+  const sf = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
   return (
     <Layout

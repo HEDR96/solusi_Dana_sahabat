@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../data/dummyData';
+import { useDebounce } from '../utils/useDebounce';
 import { Plus, Search, Edit2, Building2, Phone, Mail, Percent } from 'lucide-react';
+
+const LF = memo(({ label, name, type = 'text', form, sf, errors }) => (
+  <div>
+    <label className="label">{label}</label>
+    <input className="input" type={type} value={form[name] || ''} onChange={e => sf(name)(e.target.value)} style={errors[name] ? { borderColor: '#ef4444' } : undefined} />
+    {errors[name] && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{errors[name]}</p>}
+  </div>
+));
 
 const EMPTY = {
   name: '', branch: '', pic: '', contact: '', email: '', products: '',
@@ -19,14 +28,16 @@ export function Leasing() {
   const [form, setForm]         = useState(EMPTY);
   const [errors, setErrors]     = useState({});
 
-  const filtered = leasing.filter(l => {
-    const q = search.toLowerCase();
-    return !q || l.name.toLowerCase().includes(q) || l.branch.toLowerCase().includes(q) || l.pic.toLowerCase().includes(q);
-  });
+  const debouncedSearch = useDebounce(search, 300);
 
-  const openEdit = item => { setEdit(item); setForm({ ...item }); setErrors({}); setShow(true); };
-  const openAdd  = ()   => { setEdit(null); setForm(EMPTY); setErrors({}); setShow(true); };
-  const sf = k => v => setForm(p => ({ ...p, [k]: v }));
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return leasing.filter(l => !q || l.name.toLowerCase().includes(q) || l.branch.toLowerCase().includes(q) || l.pic.toLowerCase().includes(q));
+  }, [leasing, debouncedSearch]);
+
+  const openEdit = useCallback(item => { setEdit(item); setForm({ ...item }); setErrors({}); setShow(true); }, []);
+  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY); setErrors({}); setShow(true); }, []);
+  const sf = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
   const validate = () => {
     const e = {};
@@ -51,13 +62,6 @@ export function Leasing() {
     setShow(false);
   };
 
-  const F = ({ label, name, type = 'text' }) => (
-    <div>
-      <label className="label">{label}</label>
-      <input className="input" type={type} value={form[name] || ''} onChange={e => sf(name)(e.target.value)} style={errors[name] ? { borderColor: '#ef4444' } : undefined} />
-      {errors[name] && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{errors[name]}</p>}
-    </div>
-  );
 
   const aktif    = leasing.filter(l => l.status === 'aktif').length;
   const nonaktif = leasing.filter(l => l.status === 'nonaktif').length;
@@ -110,19 +114,19 @@ export function Leasing() {
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div style={{ gridColumn: 'span 2' }}>
-            <F label="Nama Leasing" name="name" />
+            <LF label="Nama Leasing" name="name" form={form} sf={sf} errors={errors} />
           </div>
-          <F label="Cabang/Kota" name="branch" />
-          <F label="PIC Leasing" name="pic" />
-          <F label="Nomor Kontak" name="contact" />
-          <F label="Email" name="email" type="email" />
+          <LF label="Cabang/Kota" name="branch" form={form} sf={sf} errors={errors} />
+          <LF label="PIC Leasing" name="pic" form={form} sf={sf} errors={errors} />
+          <LF label="Nomor Kontak" name="contact" form={form} sf={sf} errors={errors} />
+          <LF label="Email" name="email" type="email" form={form} sf={sf} errors={errors} />
           <div style={{ gridColumn: 'span 2' }}>
-            <F label="Produk Pinjaman" name="products" />
+            <LF label="Produk Pinjaman" name="products" form={form} sf={sf} errors={errors} />
           </div>
-          <F label="Rate/Bunga (%)" name="rate" />
-          <F label="Tenor Tersedia (pisah koma)" name="tenors" />
-          <F label="Min. Pinjaman (Rp)" name="minPinjaman" type="number" />
-          <F label="Maks. Pinjaman (Rp)" name="maxPinjaman" type="number" />
+          <LF label="Rate/Bunga (%)" name="rate" form={form} sf={sf} errors={errors} />
+          <LF label="Tenor Tersedia (pisah koma)" name="tenors" form={form} sf={sf} errors={errors} />
+          <LF label="Min. Pinjaman (Rp)" name="minPinjaman" type="number" form={form} sf={sf} errors={errors} />
+          <LF label="Maks. Pinjaman (Rp)" name="maxPinjaman" type="number" form={form} sf={sf} errors={errors} />
           <div>
             <label className="label">Status</label>
             <select className="input" value={form.status} onChange={e => sf('status')(e.target.value)}>

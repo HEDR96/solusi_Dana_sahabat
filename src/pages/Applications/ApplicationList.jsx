@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
@@ -8,7 +8,16 @@ import { formatRupiah, leasingPartners, STATUSES } from '../../data/dummyData';
 import { exportToCsv } from '../../utils/exportCsv';
 import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
+import { useDebounce } from '../../utils/useDebounce';
 import { Plus, Search, Eye, Download, Filter, FileText, SlidersHorizontal, X, CheckSquare } from 'lucide-react';
+
+const F = memo(({ label, children, error }) => (
+  <div>
+    <label className="label">{label}</label>
+    {children}
+    {error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}
+  </div>
+));
 
 const SORT_GETTERS = {
   id: r => r.id, customerName: r => r.customerName, agentName: r => r.agentName,
@@ -47,33 +56,35 @@ export function ApplicationList() {
   const [bulkStatus, setBulkStatus] = useState('');
   const PER = 10;
 
-  const filtered = applications.filter(a => {
-    const q = search.toLowerCase();
-    return (
+  const debouncedSearch = useDebounce(search, 300);
+
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return applications.filter(a =>
       (!q || a.customerName.toLowerCase().includes(q) || a.nik.includes(q) || a.phone.includes(q) || a.id.toLowerCase().includes(q)) &&
       (filterStatus === 'all' || a.status === filterStatus) &&
       (filterAgent  === 'all' || a.agentId === filterAgent)
     );
-  });
+  }, [applications, debouncedSearch, filterStatus, filterAgent]);
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
   const totalPages = Math.ceil(sorted.length / PER);
   const rows = sorted.slice((page - 1) * PER, page * PER);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
-  const toggleRow = id => setSelectedIds(prev => {
+  const toggleRow = useCallback(id => setSelectedIds(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
-  });
-  const toggleAllOnPage = () => setSelectedIds(prev => {
+  }), []);
+  const toggleAllOnPage = useCallback(() => setSelectedIds(prev => {
     const next = new Set(prev);
     if (allOnPageSelected) rows.forEach(r => next.delete(r.id));
     else rows.forEach(r => next.add(r.id));
     return next;
-  });
-  const clearSelection = () => setSelectedIds(new Set());
-  const selectedApps = applications.filter(a => selectedIds.has(a.id));
+  }), [allOnPageSelected, rows]);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  const selectedApps = useMemo(() => applications.filter(a => selectedIds.has(a.id)), [applications, selectedIds]);
 
   const handleBulkStatus = () => {
     if (!bulkStatus) return;
@@ -83,9 +94,9 @@ export function ApplicationList() {
     clearSelection();
   };
 
-  const set = k => v => setForm(p => ({ ...p, [k]: v }));
+  const set = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
-  const validate = () => {
+  const validate = useCallback(() => {
     const e = {};
     if (!form.customerName?.trim()) e.customerName = 'Nama nasabah wajib diisi';
     if (!form.nik?.trim()) e.nik = 'NIK wajib diisi';
@@ -97,9 +108,9 @@ export function ApplicationList() {
     if (currentUser?.role !== 'agen' && !form.agentId) e.agentId = 'Pilih agen penginput';
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
+  }, [form, currentUser, agents]);
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!validate()) return;
     const ls = leasingPartners.find(l => l.id === Number(form.leasingId));
     const ag = currentUser?.role === 'agen'
@@ -117,15 +128,7 @@ export function ApplicationList() {
     setShowModal(false);
     setForm(EMPTY);
     setErrors({});
-  };
-
-  const F = ({ label, children, error }) => (
-    <div>
-      <label className="label">{label}</label>
-      {children}
-      {error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}
-    </div>
-  );
+  }, [validate, form, currentUser, agents, addApplication]);
 
   const activeFilters = (filterStatus !== 'all' ? 1 : 0) + (filterAgent !== 'all' ? 1 : 0);
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
@@ -8,7 +8,16 @@ import { formatRupiah } from '../../data/dummyData';
 import { exportToCsv } from '../../utils/exportCsv';
 import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
+import { useDebounce } from '../../utils/useDebounce';
 import { Plus, Search, Eye, Edit2, Download, MapPin, TrendingUp } from 'lucide-react';
+
+const F = memo(({ label, children, error }) => (
+  <div>
+    <label className="label">{label}</label>
+    {children}
+    {error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}
+  </div>
+));
 
 const SORT_GETTERS = {
   name: r => r.name, city: r => r.city, target: r => r.target,
@@ -42,26 +51,28 @@ export function AgentList() {
   const [page, setPage]           = useState(1);
   const PER = 8;
 
-  const cities = [...new Set(agents.map(a => a.city))].sort();
+  const debouncedSearch = useDebounce(search, 300);
 
-  const filtered = agents.filter(a => {
-    const q = search.toLowerCase();
-    return (
+  const cities = useMemo(() => [...new Set(agents.map(a => a.city))].sort(), [agents]);
+
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return agents.filter(a =>
       (!q || a.name.toLowerCase().includes(q) || a.phone.includes(q) || a.id.toLowerCase().includes(q)) &&
       (filterStatus === 'all' || a.status === filterStatus) &&
       (filterCity   === 'all' || a.city === filterCity)
     );
-  });
+  }, [agents, debouncedSearch, filterStatus, filterCity]);
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
   const rows = sorted.slice((page - 1) * PER, page * PER);
   const totalPages = Math.ceil(sorted.length / PER);
 
-  const openEdit = a => { setEditItem(a); setForm({ ...a }); setErrors({}); setShowModal(true); };
-  const openAdd  = () => { setEditItem(null); setForm(EMPTY); setErrors({}); setShowModal(true); };
-  const set = k => v => setForm(p => ({ ...p, [k]: v }));
+  const openEdit = useCallback(a => { setEditItem(a); setForm({ ...a }); setErrors({}); setShowModal(true); }, []);
+  const openAdd  = useCallback(() => { setEditItem(null); setForm(EMPTY); setErrors({}); setShowModal(true); }, []);
+  const set = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
-  const validate = () => {
+  const validate = useCallback(() => {
     const e = {};
     if (!form.name?.trim())  e.name  = 'Nama wajib diisi';
     if (!form.phone?.trim()) e.phone = 'Nomor HP wajib diisi';
@@ -70,9 +81,9 @@ export function AgentList() {
     else if (form.nik.trim().length !== 16) e.nik = 'NIK harus 16 digit';
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
+  }, [form]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!validate()) return;
     if (editItem) {
       setAgents(prev => prev.map(a => a.id === editItem.id ? { ...a, ...form } : a));
@@ -82,15 +93,7 @@ export function AgentList() {
       showToast(`Agen ${form.name} berhasil ditambahkan`);
     }
     setShowModal(false);
-  };
-
-  const F = ({ label, children, error }) => (
-    <div>
-      <label className="label">{label}</label>
-      {children}
-      {error && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{error}</p>}
-    </div>
-  );
+  }, [editItem, form, setAgents, showToast, validate]);
 
   return (
     <Layout title="Daftar Agen" subtitle={`${agents.filter(a => a.status === 'aktif').length} agen aktif dari ${agents.length} total`}>
