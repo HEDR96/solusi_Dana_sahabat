@@ -35,12 +35,13 @@ const AGENT_COLUMNS = [
 const EMPTY = {
   name: '', phone: '', email: '', city: '', address: '', nik: '',
   status: 'aktif', joinDate: '', bank: '', accountNumber: '', accountName: '',
-  target: 10, notes: '',
+  target: 10, notes: '', spvId: '',
 };
 
 export function AgentList() {
-  const { agents, addAgent, updateAgent, showToast } = useApp();
+  const { visibleAgents: agents, agents: allAgents, users, addAgent, updateAgent, showToast, currentUser } = useApp();
   const navigate = useNavigate();
+  const canManage = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const [search, setSearch]       = useState('');
   const [filterStatus, setStatus] = useState('all');
   const [filterCity, setCity]     = useState('all');
@@ -52,6 +53,9 @@ export function AgentList() {
   const PER = 8;
 
   const debouncedSearch = useDebounce(search, 300);
+
+  // Supervisors = users with spv-agen role
+  const supervisors = useMemo(() => users.filter(u => u.role === 'spv-agen'), [users]);
 
   const cities = useMemo(() => [...new Set(agents.map(a => a.city))].sort(), [agents]);
 
@@ -68,7 +72,7 @@ export function AgentList() {
   const rows = sorted.slice((page - 1) * PER, page * PER);
   const totalPages = Math.ceil(sorted.length / PER);
 
-  const openEdit = useCallback(a => { setEditItem(a); setForm({ ...a }); setErrors({}); setShowModal(true); }, []);
+  const openEdit = useCallback(a => { setEditItem(a); setForm({ ...a, spvId: a.spvId || '' }); setErrors({}); setShowModal(true); }, []);
   const openAdd  = useCallback(() => { setEditItem(null); setForm(EMPTY); setErrors({}); setShowModal(true); }, []);
   const set = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
@@ -120,7 +124,7 @@ export function AgentList() {
         <button className="btn btn-secondary" onClick={() => exportToCsv('daftar-agen', AGENT_COLUMNS, filtered)}>
           <Download size={15} /> Export
         </button>
-        <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Tambah Agen</button>
+        {canManage && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Tambah Agen</button>}
       </div>
 
       {/* Table */}
@@ -198,9 +202,11 @@ export function AgentList() {
                       <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/agents/${ag.id}`)}>
                         <Eye size={13} /> Detail
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(ag)}>
-                        <Edit2 size={13} />
-                      </button>
+                      {canManage && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(ag)}>
+                          <Edit2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -263,6 +269,14 @@ export function AgentList() {
             </div>
           </div>
           <F label="Tanggal Bergabung"><input className="input" type="date" value={form.joinDate} onChange={e => set('joinDate')(e.target.value)} /></F>
+          {supervisors.length > 0 && (
+            <F label="Supervisor">
+              <select className="input" value={form.spvId || ''} onChange={e => set('spvId')(e.target.value)}>
+                <option value="">— Tanpa Supervisor —</option>
+                {supervisors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </F>
+          )}
           <div className="span-2">
             <F label="Catatan"><textarea className="input textarea" value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} /></F>
           </div>

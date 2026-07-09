@@ -14,16 +14,20 @@ const F = memo(({ label, children, error }) => (
 ));
 
 const ROLES = [
+  { key: 'owner',       label: 'Owner',            color: '#7c3aed', bg: '#f5f3ff' },
   { key: 'super-admin', label: 'Super Admin',      color: '#ef4444', bg: '#fef2f2' },
   { key: 'admin',       label: 'Admin/Back Office', color: '#3b82f6', bg: '#eff6ff' },
+  { key: 'spv-agen',    label: 'Supervisor Agen',  color: '#f97316', bg: '#fff7ed' },
   { key: 'agen',        label: 'Agen',              color: '#22c55e', bg: '#f0fdf4' },
   { key: 'surveyor',    label: 'Surveyor',          color: '#f59e0b', bg: '#fffbeb' },
   { key: 'finance',     label: 'Finance',           color: '#8b5cf6', bg: '#f5f3ff' },
 ];
 
 const PERMISSIONS = {
+  'owner':       ['Semua akses sistem tanpa batasan', 'Kelola semua user & role', 'Akses semua laporan & data', 'Kelola pengaturan sistem'],
   'super-admin': ['Semua akses sistem', 'Kelola user & role', 'Kelola data leasing', 'Kelola pembayaran komisi', 'Lihat semua laporan', 'Pengaturan sistem'],
   'admin':       ['Proses & input berkas', 'Ubah status pengajuan', 'Atur jadwal survey', 'Lihat laporan & komisi'],
+  'spv-agen':    ['Lihat agen di bawah supervisinya', 'Monitor berkas & komisi agen binaan', 'Lihat aktivitas agen supervised', 'Laporan filtered per agen binaan'],
   'agen':        ['Input berkas baru', 'Lihat berkas milik sendiri', 'Lihat jadwal survey', 'Lihat komisi sendiri'],
   'surveyor':    ['Lihat jadwal survey', 'Update hasil survey', 'Tambah catatan lapangan'],
   'finance':     ['Kelola pembayaran komisi', 'Ubah status komisi', 'Lihat laporan pembayaran'],

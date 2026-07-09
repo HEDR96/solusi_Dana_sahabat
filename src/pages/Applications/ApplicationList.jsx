@@ -42,7 +42,7 @@ const EMPTY = {
 export function ApplicationList() {
   const { visibleApplications: applications, agents, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
-  const canBulkEdit = ['super-admin', 'admin'].includes(currentUser?.role);
+  const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
   const [filterAgent, setAgent]     = useState('all');

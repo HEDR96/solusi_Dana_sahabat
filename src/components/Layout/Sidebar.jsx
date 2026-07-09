@@ -29,8 +29,10 @@ const NAV = [
 ];
 
 const ROLE_LABEL = {
+  'owner':       'Owner',
   'super-admin': 'Super Admin',
   admin:         'Admin / Back Office',
+  'spv-agen':    'Supervisor Agen',
   agen:          'Agen',
   surveyor:      'Surveyor',
   finance:       'Finance',

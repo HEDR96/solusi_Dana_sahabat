@@ -38,7 +38,7 @@ function ChartTip({ active, payload, label }) {
 }
 
 export function CommissionReport() {
-  const { commissions: allCommissions, agents } = useApp();
+  const { visibleCommissions: allCommissions, visibleAgents: agents } = useApp();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo]     = useState('');
 

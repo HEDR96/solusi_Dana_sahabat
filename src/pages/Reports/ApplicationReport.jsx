@@ -13,7 +13,7 @@ const REPORT_COLUMNS = [
 ];
 
 export function ApplicationReport() {
-  const { applications, agents } = useApp();
+  const { visibleApplications: applications, visibleAgents: agents } = useApp();
   const [filterAgent, setAgent]   = useState('all');
   const [filterStatus, setStatus] = useState('all');
   const [dateFrom, setDateFrom]   = useState('');

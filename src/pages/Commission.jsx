@@ -25,7 +25,7 @@ const COMMISSION_COLUMNS = [
 
 export function Commission() {
   const { visibleCommissions: commissions, agents, payCommission, currentUser } = useApp();
-  const canManagePayments = ['super-admin', 'admin', 'finance'].includes(currentUser?.role);
+  const canManagePayments = ['owner', 'super-admin', 'admin', 'finance'].includes(currentUser?.role);
   const isOwnScoped = currentUser?.role === 'agen';
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');

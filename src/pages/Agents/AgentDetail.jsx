@@ -20,12 +20,17 @@ function Row({ label, value, icon: Icon }) {
 export function AgentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { agents, applications, commissions, agentActivities } = useApp();
+  const { visibleAgents, applications, commissions, agentActivities, managedAgentIds, currentUser } = useApp();
 
-  const agent = agents.find(a => a.id === id);
+  const agent = visibleAgents.find(a => a.id === id);
+  const isSpv = currentUser?.role === 'spv-agen';
+  const isForbidden = !agent && isSpv;
   if (!agent) return (
     <Layout title="Detail Agen">
-      <div className="empty-state"><div className="empty-icon">👤</div><p>Agen tidak ditemukan.</p></div>
+      <div className="empty-state">
+        <div className="empty-icon">👤</div>
+        <p>{isForbidden ? 'Anda tidak memiliki akses ke agen ini.' : 'Agen tidak ditemukan.'}</p>
+      </div>
     </Layout>
   );
 

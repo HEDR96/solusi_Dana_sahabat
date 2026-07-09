@@ -18,7 +18,12 @@ export function ApplicationDetail() {
   const [surveyTime, setSurveyTime] = useState('');
 
   const app = applications.find(a => a.id === id);
-  const isForbidden = app && currentUser?.role === 'agen' && app.agentId !== currentUser.agentId;
+  const { managedAgentIds } = useApp();
+  const isSpv = currentUser?.role === 'spv-agen';
+  const isForbidden = app && (
+    (currentUser?.role === 'agen' && app.agentId !== currentUser.agentId) ||
+    (isSpv && !managedAgentIds.includes(app.agentId))
+  );
   if (!app || isForbidden) return (
     <Layout title="Detail Berkas">
       <div className="empty-state"><p>Berkas tidak ditemukan.</p></div>
@@ -26,7 +31,7 @@ export function ApplicationDetail() {
   );
 
   const logs = statusLogs.filter(l => l.appId === id);
-  const canEdit = ['super-admin', 'admin'].includes(currentUser?.role);
+  const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const needsSurvey = ['janji-survey', 'survey'].includes(newStatus);
 
   const handleSave = () => {

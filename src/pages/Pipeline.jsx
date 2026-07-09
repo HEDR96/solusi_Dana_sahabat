@@ -10,7 +10,7 @@ const PIPELINE_COLS = STATUSES.filter(s => !['approve', 'cancel', 'reject'].incl
 const TERMINAL     = STATUSES.filter(s => ['approve', 'cancel', 'reject'].includes(s.key));
 
 export function Pipeline() {
-  const { applications } = useApp();
+  const { visibleApplications: applications } = useApp();
   const navigate = useNavigate();
   const [view, setView] = useState('kanban');
 

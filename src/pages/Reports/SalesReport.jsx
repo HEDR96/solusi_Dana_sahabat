@@ -37,7 +37,7 @@ function ChartTip({ active, payload, label }) {
 }
 
 export function SalesReport() {
-  const { applications, agents } = useApp();
+  const { visibleApplications: applications, visibleAgents: agents } = useApp();
   const [dateFrom, setDateFrom]     = useState('');
   const [dateTo, setDateTo]         = useState('');
   const [filterAgent, setAgent]     = useState('all');

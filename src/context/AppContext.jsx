@@ -33,6 +33,7 @@ const mapAgent = r => ({
   bank: r.bank, accountNumber: r.account_number, accountName: r.account_name,
   target: r.target, notes: r.notes, totalApprove: r.total_approve,
   totalReject: r.total_reject, totalBerkas: r.total_berkas,
+  spvId: r.spv_id || null,
 });
 const mapLeasing = r => ({
   id: r.id, name: r.name, branch: r.branch, pic: r.pic, contact: r.contact,
@@ -306,6 +307,7 @@ export function AppProvider({ children }) {
       join_date: data.joinDate, bank: data.bank, account_number: data.accountNumber,
       account_name: data.accountName, target: Number(data.target), notes: data.notes,
       total_approve: 0, total_reject: 0, total_berkas: 0,
+      spv_id: data.spvId || null,
     };
     const { data: inserted, error } = await supabase.from('agents').insert(row).select().single();
     if (error) { showToast('Gagal menyimpan agen: ' + error.message, 'error'); return false; }
@@ -320,6 +322,7 @@ export function AppProvider({ children }) {
       city: data.city, address: data.address, nik: data.nik, status: data.status,
       join_date: data.joinDate, bank: data.bank, account_number: data.accountNumber,
       account_name: data.accountName, target: Number(data.target), notes: data.notes,
+      spv_id: data.spvId || null,
     };
     const { error } = await supabase.from('agents').update(row).eq('id', id);
     if (error) { showToast('Gagal memperbarui agen: ' + error.message, 'error'); return false; }
@@ -394,15 +397,35 @@ export function AppProvider({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const isOwnScoped = currentUser?.role === 'agen';
-  const visibleApplications = isOwnScoped
+  const role = currentUser?.role;
+  const isAgenScoped = role === 'agen';
+  const isSpvScoped  = role === 'spv-agen';
+
+  // IDs of agents this supervisor manages (empty array when not spv-agen)
+  const managedAgentIds = isSpvScoped
+    ? agents.filter(a => a.spvId === currentUser?.id).map(a => a.id)
+    : [];
+
+  const visibleAgents = isSpvScoped
+    ? agents.filter(a => a.spvId === currentUser?.id)
+    : agents;
+
+  const visibleApplications = isAgenScoped
     ? applications.filter(a => a.agentId === currentUser.agentId)
+    : isSpvScoped
+    ? applications.filter(a => managedAgentIds.includes(a.agentId))
     : applications;
-  const visibleCommissions = isOwnScoped
+
+  const visibleCommissions = isAgenScoped
     ? commissions.filter(c => c.agentId === currentUser.agentId)
+    : isSpvScoped
+    ? commissions.filter(c => managedAgentIds.includes(c.agentId))
     : commissions;
-  const visibleActivities = isOwnScoped
+
+  const visibleActivities = isAgenScoped
     ? agentActivities.filter(a => a.agentId === currentUser.agentId)
+    : isSpvScoped
+    ? agentActivities.filter(a => managedAgentIds.includes(a.agentId))
     : agentActivities;
 
   return (
@@ -410,6 +433,7 @@ export function AppProvider({ children }) {
       currentUser, authLoading, dataLoading, login, logout, updateProfile,
       applications, setApplications, addApplication, updateApplicationStatus,
       visibleApplications, visibleCommissions, visibleActivities,
+      visibleAgents, managedAgentIds,
       commissions, setCommissions, payCommission,
       agentActivities, setAgentActivities, addActivity,
       agents, setAgents, addAgent, updateAgent,
