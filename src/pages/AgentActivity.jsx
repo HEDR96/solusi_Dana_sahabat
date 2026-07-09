@@ -24,7 +24,7 @@ function OutcomeBadge({ outcome }) {
 }
 
 export function AgentActivity() {
-  const { visibleActivities: activities, agents, applications, currentUser, addActivity } = useApp();
+  const { visibleActivities: activities, visibleAgents: agents, applications, currentUser, addActivity } = useApp();
   const navigate = useNavigate();
   const isAgen = currentUser?.role === 'agen';
   const [search, setSearch]       = useState('');
