@@ -1,8 +1,17 @@
+import { Link } from 'react-router'
+
+const stats = [
+  { value: '34+', label: 'Provinsi Terlayani' },
+  { value: '10+', label: 'Mitra Leasing' },
+  { value: '5.000+', label: 'Pengajuan Diproses' },
+  { value: '24 Jam', label: 'Respons Agen' },
+]
+
 const badges = [
-  { icon: '🌐', text: 'Tersedia Seluruh Indonesia' },
+  { icon: '🌐', text: 'Seluruh Indonesia' },
   { icon: '🏦', text: 'Banyak Pilihan Leasing' },
   { icon: '⚡', text: 'Proses Cepat & Aman' },
-  { icon: '🚗', text: 'Motor & Mobil Bisa Diajukan' },
+  { icon: '🚗', text: 'Motor & Mobil' },
 ]
 
 export default function Hero() {
@@ -10,146 +19,236 @@ export default function Hero() {
     <section
       id="beranda"
       className="relative min-h-screen flex items-center overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #071640 0%, #0c2461 45%, #1e3a8a 100%)',
-      }}
+      style={{ background: 'linear-gradient(145deg, #030d1e 0%, #071640 40%, #0c2461 75%, #1a3a8a 100%)' }}
     >
-      {/* Decorative circles */}
+      {/* Background elements */}
       <div
-        className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #e8a020 0%, transparent 70%)', transform: 'translate(30%, -30%)' }}
-      />
-      <div
-        className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-8 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #1d4ed8 0%, transparent 70%)', transform: 'translate(-30%, 30%)' }}
-      />
-      {/* Grid pattern overlay */}
-      <div
-        className="absolute inset-0 opacity-5 pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
+          backgroundImage:
+            'radial-gradient(circle at 70% 20%, rgba(232,160,32,0.07) 0%, transparent 50%), radial-gradient(circle at 15% 80%, rgba(59,130,246,0.08) 0%, transparent 45%)',
+        }}
+      />
+
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+        }}
+      />
+
+      {/* Glow orbs */}
+      <div
+        className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(232,160,32,0.08) 0%, transparent 65%)',
+          transform: 'translate(20%, -20%)',
         }}
       />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28 lg:py-36 w-full">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Left — copy */}
+        <div className="grid lg:grid-cols-2 gap-14 lg:gap-20 items-center">
+
+          {/* Left — Copy */}
           <div>
+            {/* Badge */}
             <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6"
-              style={{ background: 'rgba(232,160,32,0.15)', color: 'var(--gold-light)', border: '1px solid rgba(232,160,32,0.3)' }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-7"
+              style={{
+                background: 'rgba(232,160,32,0.12)',
+                color: '#fbbf24',
+                border: '1px solid rgba(232,160,32,0.25)',
+              }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-              Layanan Fasilitas Dana Terpercaya
+              Layanan Fasilitas Dana Terpercaya #1
             </div>
 
             <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-normal text-white leading-tight mb-6"
-              style={{ fontFamily: 'DM Serif Display, serif' }}
+              className="font-normal text-white leading-[1.1] mb-6"
+              style={{
+                fontFamily: 'DM Serif Display, serif',
+                fontSize: 'clamp(2.2rem, 5vw, 3.6rem)',
+              }}
             >
-              Solusi Pinjaman Dana dengan Jaminan{' '}
-              <span style={{ color: 'var(--gold-light)' }}>BPKB Motor & Mobil</span>
+              Solusi Pinjaman Dana{' '}
+              <br className="hidden sm:block" />
+              Jaminan{' '}
+              <span
+                style={{
+                  color: 'transparent',
+                  WebkitTextStroke: '0px',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  backgroundImage: 'linear-gradient(135deg, #fbbf24, #e8a020)',
+                }}
+              >
+                BPKB Motor & Mobil
+              </span>
             </h1>
 
-            <p className="text-blue-200 text-lg leading-relaxed mb-8 max-w-xl">
-              Solusi Dana Sahabat membantu Anda mendapatkan fasilitas dana dengan proses mudah, cepat, dan tersedia di seluruh Indonesia melalui berbagai mitra leasing terpercaya.
+            <p className="text-base leading-relaxed mb-8 max-w-lg" style={{ color: 'rgba(148,163,184,0.9)' }}>
+              Solusi Dana Sahabat membantu Anda mendapatkan fasilitas dana dengan proses mudah,
+              cepat, dan aman — tersedia di seluruh Indonesia melalui berbagai mitra leasing terpercaya.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <a
-                href="#simulasi"
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-base font-semibold text-white transition-all hover:scale-105 hover:shadow-xl"
-                style={{ background: 'var(--gold)', boxShadow: '0 4px 20px rgba(232,160,32,0.4)' }}
+            {/* CTA buttons */}
+            <div className="flex flex-wrap gap-3 mb-10">
+              <Link
+                to="/simulasi"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:scale-105"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #e8a020)', boxShadow: '0 4px 20px rgba(232,160,32,0.4)' }}
               >
-                <span>Ajukan Pinjaman Sekarang</span>
-                <span>→</span>
-              </a>
-              <a
-                href="#career"
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-base font-semibold text-white border border-white/30 hover:bg-white/10 transition-all"
+                Ajukan Pinjaman Sekarang
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </Link>
+              <Link
+                to="/career"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:bg-white/10"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)' }}
               >
                 Gabung Jadi Agen
-              </a>
+              </Link>
             </div>
 
             {/* Trust badges */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               {badges.map((b) => (
                 <div
                   key={b.text}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                 >
-                  <span className="text-lg">{b.icon}</span>
-                  <span className="text-sm text-blue-100 font-medium">{b.text}</span>
+                  <span className="text-base">{b.icon}</span>
+                  <span className="text-xs font-medium" style={{ color: '#93c5fd' }}>{b.text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Right — image + floating cards */}
+          {/* Right — Visual card */}
           <div className="relative hidden lg:block">
-            <div className="relative rounded-2xl overflow-hidden" style={{ height: 480, background: '#1e3a8a' }}>
+            {/* Main image card */}
+            <div
+              className="relative rounded-2xl overflow-hidden"
+              style={{
+                height: 480,
+                background: 'linear-gradient(135deg, #0c2461, #1e3a8a)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+              }}
+            >
               <img
                 src="https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=700&h=500&fit=crop&auto=format"
                 alt="Konsultan keuangan Solusi Dana Sahabat membantu pengajuan pinjaman BPKB"
-                className="w-full h-full object-cover opacity-80"
+                className="w-full h-full object-cover"
+                style={{ opacity: 0.7, mixBlendMode: 'luminosity' }}
               />
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(12,36,97,0.6) 0%, transparent 60%)' }} />
-            </div>
+              <div
+                className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(7,22,64,0.85) 0%, rgba(12,36,97,0.3) 50%, transparent 80%)' }}
+              />
 
-            {/* Floating badge 1 */}
-            <div
-              className="absolute -left-6 top-12 px-4 py-3 rounded-xl flex items-center gap-3 shadow-2xl"
-              style={{ background: 'white', minWidth: 180 }}
-            >
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: '#eff6ff' }}>🏍️</div>
-              <div>
-                <div className="text-xs text-gray-500">Jaminan BPKB Motor</div>
-                <div className="text-sm font-bold text-gray-800">Mulai Rp 1 Juta</div>
+              {/* Bottom overlay text */}
+              <div className="absolute bottom-6 left-6 right-6">
+                <p className="text-white/60 text-xs mb-1">Layanan Terpercaya</p>
+                <p className="text-white font-semibold text-lg" style={{ fontFamily: 'DM Serif Display, serif' }}>
+                  Solusi Dana Sahabat
+                </p>
               </div>
             </div>
 
-            {/* Floating badge 2 */}
+            {/* Floating card — Motor */}
             <div
-              className="absolute -right-4 bottom-20 px-4 py-3 rounded-xl flex items-center gap-3 shadow-2xl"
-              style={{ background: 'white', minWidth: 190 }}
+              className="absolute -left-8 top-12 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-2xl"
+              style={{ background: 'white', minWidth: 190, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
             >
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: '#fff7ed' }}>🚙</div>
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                style={{ background: '#eff6ff' }}
+              >
+                🏍️
+              </div>
               <div>
-                <div className="text-xs text-gray-500">Jaminan BPKB Mobil</div>
-                <div className="text-sm font-bold text-gray-800">Dana Lebih Besar</div>
+                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">BPKB Motor</div>
+                <div className="text-sm font-bold" style={{ color: '#0c2461' }}>Mulai Rp 1 Juta</div>
               </div>
             </div>
 
-            {/* Floating badge 3 — Data Aman */}
+            {/* Floating card — Mobil */}
             <div
-              className="absolute left-8 bottom-6 px-4 py-2.5 rounded-full flex items-center gap-2 shadow-xl"
-              style={{ background: 'rgba(12,36,97,0.9)', border: '1px solid rgba(232,160,32,0.4)' }}
+              className="absolute -right-6 bottom-20 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-2xl"
+              style={{ background: 'white', minWidth: 200, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
             >
-              <span className="text-yellow-400">🔒</span>
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                style={{ background: '#fff7ed' }}
+              >
+                🚙
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">BPKB Mobil</div>
+                <div className="text-sm font-bold" style={{ color: '#0c2461' }}>Dana Lebih Besar</div>
+              </div>
+            </div>
+
+            {/* Trust pill */}
+            <div
+              className="absolute left-8 bottom-5 px-4 py-2 rounded-full flex items-center gap-2"
+              style={{
+                background: 'rgba(7,22,64,0.95)',
+                border: '1px solid rgba(232,160,32,0.35)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              }}
+            >
+              <span className="text-yellow-400 text-sm">🔒</span>
               <span className="text-sm text-white font-medium">Data Aman & Terjaga</span>
             </div>
+
+            {/* Decorative ring */}
+            <div
+              className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
+              style={{ border: '2px solid rgba(232,160,32,0.2)' }}
+            />
+            <div
+              className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none"
+              style={{ border: '1px solid rgba(232,160,32,0.08)' }}
+            />
           </div>
         </div>
 
         {/* Stats bar */}
         <div
-          className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px rounded-2xl overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)' }}
+          className="mt-16 rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
         >
-          {[
-            { value: '34+', label: 'Provinsi Terlayani' },
-            { value: '10+', label: 'Mitra Leasing' },
-            { value: '5.000+', label: 'Pengajuan Diproses' },
-            { value: '24 Jam', label: 'Respons Tim Agen' },
-          ].map((s) => (
-            <div key={s.label} className="px-6 py-5 text-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <div className="text-2xl font-bold text-white mb-1" style={{ fontFamily: 'DM Serif Display, serif', color: 'var(--gold-light)' }}>{s.value}</div>
-              <div className="text-sm text-blue-200">{s.label}</div>
-            </div>
-          ))}
+          <div className="grid grid-cols-2 md:grid-cols-4">
+            {stats.map((s, i) => (
+              <div
+                key={s.label}
+                className="px-6 py-5 text-center"
+                style={{
+                  borderRight: i < stats.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                }}
+              >
+                <div
+                  className="text-2xl font-bold mb-1"
+                  style={{ color: '#fbbf24', fontFamily: 'DM Serif Display, serif' }}
+                >
+                  {s.value}
+                </div>
+                <div className="text-xs" style={{ color: '#64748b' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

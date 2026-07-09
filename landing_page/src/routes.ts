@@ -8,6 +8,8 @@ import CaraPengajuan from './pages/CaraPengajuan'
 import Career from './pages/Career'
 import FAQ from './pages/FAQ'
 import HubungiKami from './pages/HubungiKami'
+import Blog from './pages/Blog'
+import BlogPost from './pages/BlogPost'
 import NotFound from './pages/NotFound'
 
 export const router = createBrowserRouter([
@@ -23,6 +25,8 @@ export const router = createBrowserRouter([
       { path: 'career', Component: Career },
       { path: 'faq', Component: FAQ },
       { path: 'hubungi-kami', Component: HubungiKami },
+      { path: 'blog', Component: Blog },
+      { path: 'blog/:slug', Component: BlogPost },
       { path: '*', Component: NotFound },
     ],
   },
