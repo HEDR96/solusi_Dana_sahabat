@@ -116,11 +116,10 @@ export function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Masukkan password"
-                  style={{ paddingRight: 44 }}
+                  style={{ paddingRight: 40 }}
                   required
                 />
-                <button type="button" onClick={() => setShowPass(v => !v)}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-94a3b8)' }}>
+                <button type="button" onClick={() => setShowPass(v => !v)} className="input-icon-right">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -144,7 +143,6 @@ export function Login() {
         </p>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
