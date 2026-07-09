@@ -1,11 +1,27 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { applications as initialApps, commissions as initialCommissions, agents as initialAgents, leasingPartners as initialLeasing, users as initialUsers, notifications as initialNotifications, auditLogs as initialAuditLogs, statusLogs as initialStatusLogs, agentActivities as initialActivities } from '../data/dummyData';
 import { ToastStack } from '../components/UI/Toast';
+import { supabase } from '../lib/supabaseClient';
 
 const AppContext = createContext(null);
 
+async function fetchProfile(userId) {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    agentId: data.agent_id,
+    status: data.status,
+    lastLogin: data.last_login,
+  };
+}
+
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [applications, setApplications] = useState(initialApps);
   const [commissions, setCommissions] = useState(initialCommissions);
   const [agents, setAgents] = useState(initialAgents);
@@ -37,12 +53,40 @@ export function AppProvider({ children }) {
     return () => { document.body.style.overflow = ''; };
   }, [mobileNavOpen]);
 
-  const login = (user) => setCurrentUser(user);
-  const logout = () => setCurrentUser(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!active) return;
+      if (session?.user) setCurrentUser(await fetchProfile(session.user.id));
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) setCurrentUser(await fetchProfile(session.user.id));
+      else setCurrentUser(null);
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
 
-  const updateProfile = (updates) => {
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+    const profile = await fetchProfile(data.user.id);
+    if (!profile) return { error: 'Profil pengguna tidak ditemukan' };
+    setCurrentUser(profile);
+    return { user: profile };
+  };
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+  };
+
+  const updateProfile = async (updates) => {
+    if (!currentUser) return;
+    const { name, email } = updates;
+    const { error } = await supabase.from('profiles').update({ name, email }).eq('id', currentUser.id);
+    if (error) { showToast('Gagal memperbarui profil', 'error'); return; }
     setCurrentUser(prev => ({ ...prev, ...updates }));
-    setUsers(prev => prev.map(u => u.id === currentUser?.id ? { ...u, ...updates } : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, ...updates } : u));
     showToast('Profil berhasil diperbarui');
   };
 
@@ -153,7 +197,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      currentUser, login, logout, updateProfile,
+      currentUser, authLoading, login, logout, updateProfile,
       applications, setApplications, addApplication, updateApplicationStatus,
       visibleApplications, visibleCommissions, visibleActivities,
       commissions, setCommissions, payCommission,

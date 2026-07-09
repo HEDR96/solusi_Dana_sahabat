@@ -32,7 +32,7 @@ export function Profile() {
     if (!name.trim()) e.name = 'Nama wajib diisi';
     if (!email.trim()) e.email = 'Email wajib diisi';
     else if (!EMAIL_RE.test(email.trim())) e.email = 'Format email tidak valid';
-    else if (users.some(u => u.email === email.trim() && u.id !== currentUser.id)) e.email = 'Email sudah digunakan';
+    else if (email.trim() !== currentUser.email && users.some(u => u.email === email.trim())) e.email = 'Email sudah digunakan';
     setProfileErrors(e);
     if (Object.keys(e).length > 0) return;
     updateProfile({ name: name.trim(), email: email.trim() });

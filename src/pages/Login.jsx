@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { users } from '../data/dummyData';
+
+const DEMO_PASSWORD = 'Demo12345!';
 
 const QUICK = [
   { role: 'super-admin', label: 'Super Admin',      email: 'admin@finance.co.id',      color: '#ef4444', desc: 'Akses penuh' },
@@ -16,7 +17,7 @@ export function Login() {
   const { login } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState('admin@finance.co.id');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,10 +25,9 @@ export function Login() {
   const handleLogin = async e => {
     e.preventDefault();
     setLoading(true); setError('');
-    await new Promise(r => setTimeout(r, 700));
-    const user = users.find(u => u.email === email);
-    if (user) { login(user); navigate('/dashboard'); }
-    else { setError('Email atau password tidak ditemukan'); }
+    const result = await login(email, password);
+    if (result?.user) navigate('/dashboard');
+    else setError(result?.error || 'Email atau password salah');
     setLoading(false);
   };
 
@@ -160,7 +160,7 @@ export function Login() {
               {QUICK.map(q => (
                 <button
                   key={q.role}
-                  onClick={() => { setEmail(q.email); setPassword('password'); }}
+                  onClick={() => { setEmail(q.email); setPassword(DEMO_PASSWORD); }}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                     padding: '10px 12px', border: '1.5px solid var(--border)',

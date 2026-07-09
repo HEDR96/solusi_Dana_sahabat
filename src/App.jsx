@@ -32,7 +32,14 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { currentUser } = useApp();
+  const { currentUser, authLoading } = useApp();
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 28, border: '3px solid var(--border-light)', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
   return (
     <Routes>
       <Route path="/login" element={currentUser ? <Navigate to="/dashboard" replace /> : <Login />} />

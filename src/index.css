@@ -110,6 +110,9 @@ body {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: .7; transform: scale(.9); }
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 .anim-fade-up  { animation: fadeSlideUp .25s ease both; }
 .anim-fade     { animation: fadeIn .2s ease both; }
