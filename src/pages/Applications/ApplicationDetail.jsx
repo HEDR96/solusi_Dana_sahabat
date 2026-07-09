@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
@@ -16,6 +16,64 @@ export function ApplicationDetail() {
   const [notes, setNotes]           = useState('');
   const [surveyDate, setSurveyDate] = useState('');
   const [surveyTime, setSurveyTime] = useState('');
+
+  // ── Dokumen Google Drive ──
+  const [gdocs, setGdocs]       = useState([]);
+  const [docType, setDocType]   = useState('KTP');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  const loadDocs = () => {
+    fetch(`/api/gdrive?appId=${id}`)
+      .then(r => r.json())
+      .then(d => setGdocs(d.files || []))
+      .catch(() => {});
+  };
+  useEffect(loadDocs, [id]);
+
+  const compressImage = (file) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataBase64 = await compressImage(file);
+      const safeType = docType.toLowerCase().replace(/\s+/g, '-');
+      const resp = await fetch('/api/gdrive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: `${id}_${safeType}_${Date.now()}.jpg`,
+          contentType: 'image/jpeg',
+          dataBase64,
+        }),
+      });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      loadDocs();
+    } catch (err) {
+      alert(`Upload gagal: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const app = applications.find(a => a.id === id);
   const { managedAgentIds } = useApp();
@@ -162,6 +220,33 @@ export function ApplicationDetail() {
                 <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{app.agentId}</p>
               </div>
             </div>
+          </div>
+
+          {/* Dokumen (Google Drive) */}
+          <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-94a3b8)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>Dokumen (Foto Kamera)</p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <select className="input" style={{ flex: 1 }} value={docType} onChange={e => setDocType(e.target.value)}>
+                {['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'].map(d => <option key={d}>{d}</option>)}
+              </select>
+              <button className="btn btn-primary btn-sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                {uploading ? 'Mengupload...' : '📷 Ambil Foto'}
+              </button>
+            </div>
+            {/* capture=environment: di HP langsung buka kamera (bukan galeri) */}
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleUpload} />
+            {gdocs.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Belum ada dokumen</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {gdocs.map(f => (
+                  <a key={f.id} href={f.webViewLink} target="_blank" rel="noreferrer"
+                     style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📎 {f.name}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Timeline */}

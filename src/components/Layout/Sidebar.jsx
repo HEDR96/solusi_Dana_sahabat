@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, FileText, GitBranch, Calendar,
   DollarSign, Building2, Calculator, TrendingUp, FileBarChart,
   Receipt, UserCog, ClipboardList, Settings, ChevronLeft,
-  ChevronRight, LogOut, BarChart3, X, Activity
+  ChevronRight, LogOut, BarChart3, X, Activity, MapPin
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { SECTIONS, canAccessSection } from '../../data/permissions';
@@ -15,6 +15,7 @@ const NAV = [
   { path: '/pipeline',             icon: GitBranch,       label: 'Pipeline Status',  key: SECTIONS.PIPELINE },
   { path: '/calendar',             icon: Calendar,        label: 'Kalender',         key: SECTIONS.CALENDAR },
   { path: '/activities',           icon: Activity,        label: 'Aktivitas Agen',   key: SECTIONS.ACTIVITIES },
+  { path: '/map',                  icon: MapPin,          label: 'Peta Agen',        key: SECTIONS.MAP },
   { path: '/commission',           icon: DollarSign,      label: 'Komisi Agen',      key: SECTIONS.COMMISSION },
   { path: '/leasing',              icon: Building2,       label: 'Master Leasing',   key: SECTIONS.LEASING },
   { path: '/simulation',           icon: Calculator,      label: 'Simulasi Angsuran',key: SECTIONS.SIMULATION },

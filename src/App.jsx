@@ -20,6 +20,7 @@ import { AuditLog } from './pages/AuditLog';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
 import { AgentActivity } from './pages/AgentActivity';
+import { AgentMap } from './pages/AgentMap';
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useApp();
@@ -62,6 +63,7 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/activities" element={<ProtectedRoute><AgentActivity /></ProtectedRoute>} />
+      <Route path="/map" element={<ProtectedRoute><AgentMap /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
     </Routes>
   );
