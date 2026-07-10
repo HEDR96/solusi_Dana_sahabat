@@ -158,6 +158,7 @@ class DashboardFragment : Fragment() {
         card.tvValue.text = value
         card.tvValue.setTextColor(color)
         card.tvLabel.text = label
+        card.accentBar.setBackgroundColor(color)
     }
 
     private fun roleLabel(role: String) = com.solusidana.sahabat.data.MasterData.labelFor(requireContext(), "role", role)

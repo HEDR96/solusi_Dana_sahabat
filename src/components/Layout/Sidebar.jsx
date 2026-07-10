@@ -18,7 +18,6 @@ const NAV = [
   { path: '/activities',           icon: Activity,        label: 'Aktivitas Agen',   key: SECTIONS.ACTIVITIES },
   { path: '/map',                  icon: MapPin,          label: 'Peta Agen',        key: SECTIONS.MAP },
   { path: '/commission',           icon: DollarSign,      label: 'Komisi Agen',      key: SECTIONS.COMMISSION },
-  { path: '/leasing',              icon: Building2,       label: 'Master Leasing',   key: SECTIONS.LEASING },
   { path: '/simulation',           icon: Calculator,      label: 'Simulasi Angsuran',key: SECTIONS.SIMULATION },
   { section: 'Laporan' },
   { path: '/reports/sales',        icon: TrendingUp,      label: 'Lap. Penjualan',   key: SECTIONS.REPORTS_SALES },

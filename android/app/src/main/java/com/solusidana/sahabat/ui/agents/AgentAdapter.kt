@@ -16,14 +16,16 @@ class AgentAdapter(
         fun bind(ag: Agent) {
             b.tvName.text   = ag.name
             b.tvCity.text   = ag.city ?: "-"
-            b.tvPhone.text  = ag.phone ?: "-"
-            b.tvStatus.text = if (ag.status == "aktif") "Aktif" else "Nonaktif"
-            b.tvStatus.setTextColor(
-                if (ag.status == "aktif") 0xFF22C55E.toInt() else 0xFFEF4444.toInt()
-            )
-            val total   = ag.totalBerkas ?: 0
+            b.tvPhone.text  = ag.phone ?: ag.email ?: "-"
+            val isActive    = ag.status == "aktif"
+            b.tvStatus.text = if (isActive) "Aktif" else "Nonaktif"
+            b.tvStatus.setTextColor(if (isActive) 0xFF22C55E.toInt() else 0xFFEF4444.toInt())
+            b.tvStatus.setBackgroundColor(if (isActive) 0xFFF0FDF4.toInt() else 0xFFFEF2F2.toInt())
+            val total   = ag.totalBerkas  ?: 0
             val approve = ag.totalApprove ?: 0
-            b.tvStats.text = "Berkas: $total  |  Approve: $approve"
+            val reject  = ag.totalReject  ?: 0
+            val rate    = if (total > 0) approve * 100 / total else 0
+            b.tvStats.text = "📄 $total berkas   ✅ $approve approve ($rate%)   ❌ $reject reject"
             b.tvAvatar.text = ag.name.take(1).uppercase()
             b.root.setOnClickListener { onClick(ag) }
         }

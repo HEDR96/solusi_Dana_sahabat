@@ -146,16 +146,23 @@ export const C_RO_FEE = {
   200000:[4500,6900,7500,8100],
 };
 
-// ─── Daftar semua 8 tabel ────────────────────────────────────────────────────
+// ─── Daftar 12 tabel (angsuran + komisi leasing + komisi agen) ───────────────
 export const RATE_TABLE_DEFS = [
-  { id:'motor_new_ang', product:'motor', tipe:'new_ang', label:'Motor NEW – Angsuran',    tenors: MOTOR_TENORS, fallback: M_NEW_ANG },
-  { id:'motor_new_fee', product:'motor', tipe:'new_fee', label:'Motor NEW – Fee Agent',   tenors: MOTOR_TENORS, fallback: M_NEW_FEE },
-  { id:'motor_ro_ang',  product:'motor', tipe:'ro_ang',  label:'Motor RO – Angsuran',     tenors: MOTOR_TENORS, fallback: M_RO_ANG  },
-  { id:'motor_ro_fee',  product:'motor', tipe:'ro_fee',  label:'Motor RO – Fee Agent',    tenors: MOTOR_TENORS, fallback: M_RO_FEE  },
-  { id:'mobil_reg_ang', product:'mobil', tipe:'reg_ang', label:'Mobil REGULER – Angsuran',tenors: CAR_TENORS,   fallback: C_REG_ANG },
-  { id:'mobil_reg_fee', product:'mobil', tipe:'reg_fee', label:'Mobil REGULER – Fee Agent',tenors: CAR_TENORS,  fallback: C_REG_FEE },
-  { id:'mobil_ro_ang',  product:'mobil', tipe:'ro_ang',  label:'Mobil RO – Angsuran',     tenors: CAR_TENORS,   fallback: C_RO_ANG  },
-  { id:'mobil_ro_fee',  product:'mobil', tipe:'ro_fee',  label:'Mobil RO – Fee Agent',    tenors: CAR_TENORS,   fallback: C_RO_FEE  },
+  // Angsuran
+  { id:'motor_new_ang',      product:'motor', tipe:'new_ang',      label:'Motor NEW – Angsuran',         tenors: MOTOR_TENORS, fallback: M_NEW_ANG, group:'ang' },
+  { id:'motor_ro_ang',       product:'motor', tipe:'ro_ang',       label:'Motor RO – Angsuran',          tenors: MOTOR_TENORS, fallback: M_RO_ANG,  group:'ang' },
+  { id:'mobil_reg_ang',      product:'mobil', tipe:'reg_ang',      label:'Mobil REGULER – Angsuran',     tenors: CAR_TENORS,   fallback: C_REG_ANG, group:'ang' },
+  { id:'mobil_ro_ang',       product:'mobil', tipe:'ro_ang',       label:'Mobil RO – Angsuran',          tenors: CAR_TENORS,   fallback: C_RO_ANG,  group:'ang' },
+  // Komisi Leasing (total fee yang dibayar leasing ke kantor)
+  { id:'motor_new_fee',      product:'motor', tipe:'new_fee',      label:'Motor NEW – Komisi Leasing',   tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_leasing' },
+  { id:'motor_ro_fee',       product:'motor', tipe:'ro_fee',       label:'Motor RO – Komisi Leasing',    tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_leasing' },
+  { id:'mobil_reg_fee',      product:'mobil', tipe:'reg_fee',      label:'Mobil REGULER – Komisi Leasing',tenors: CAR_TENORS,  fallback: C_REG_FEE, group:'komisi_leasing' },
+  { id:'mobil_ro_fee',       product:'mobil', tipe:'ro_fee',       label:'Mobil RO – Komisi Leasing',    tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_leasing' },
+  // Komisi Agen (bagian yang diteruskan ke agen — owner kelola di sini)
+  { id:'motor_new_fee_agen', product:'motor', tipe:'new_fee_agen', label:'Motor NEW – Komisi Agen',      tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_agen' },
+  { id:'motor_ro_fee_agen',  product:'motor', tipe:'ro_fee_agen',  label:'Motor RO – Komisi Agen',       tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_agen' },
+  { id:'mobil_reg_fee_agen', product:'mobil', tipe:'reg_fee_agen', label:'Mobil REGULER – Komisi Agen',  tenors: CAR_TENORS,   fallback: C_REG_FEE, group:'komisi_agen' },
+  { id:'mobil_ro_fee_agen',  product:'mobil', tipe:'ro_fee_agen',  label:'Mobil RO – Komisi Agen',       tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_agen' },
 ];
 
 // ─── Lookup (interpolasi linear) ─────────────────────────────────────────────

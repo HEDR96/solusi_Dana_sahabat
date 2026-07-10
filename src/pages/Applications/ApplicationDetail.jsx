@@ -7,14 +7,14 @@ import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabaseClient';
 import { formatRupiah, STATUSES } from '../../data/dummyData';
 import { useMasterOptions } from '../../utils/useMasterOptions';
-import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight, DollarSign } from 'lucide-react';
 
 const DEFAULT_DOC_TYPES = ['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'];
 
 export function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { applications, statusLogs, updateApplicationStatus, currentUser } = useApp();
+  const { applications, statusLogs, updateApplicationStatus, currentUser, commissions, settings } = useApp();
   const [showStatus, setShowStatus] = useState(false);
   const [newStatus, setNewStatus]   = useState('');
   const [notes, setNotes]           = useState('');
@@ -196,6 +196,32 @@ export function ApplicationDetail() {
             </div>
           </Section>
 
+          {app.status === 'approve' && (() => {
+            const comm    = commissions?.find(c => c.appId === id);
+            const base    = comm?.commissionAmount ?? Math.round((app.approvePinjaman || app.pinjaman) * (settings?.commissionRate ?? 1.5) / 100);
+            const agRate  = settings?.commissionAgentRate ?? 80;
+            const leasing = base;
+            const agent   = Math.round(leasing * agRate / 100);
+            const owner   = leasing - agent;
+            const isOwner = currentUser?.role === 'owner';
+            return (
+              <Section title="Informasi Komisi" icon={DollarSign}>
+                <div className="rgrid rgrid-2" style={{ gap: 0 }}>
+                  <div style={{ paddingRight: 16 }}>
+                    <Row label="Komisi Leasing" value={<span style={{ color: 'var(--c-0f172a)', fontWeight: 700 }}>{formatRupiah(leasing)}</span>} />
+                    <Row label="Komisi Agen" value={<span style={{ color: '#16a34a', fontWeight: 700 }}>{formatRupiah(agent)}</span>} />
+                    {isOwner && <Row label="Keuntungan Owner" value={<span style={{ color: '#1d4ed8', fontWeight: 700 }}>{formatRupiah(owner)}</span>} />}
+                  </div>
+                  <div style={{ paddingLeft: 16, borderLeft: '1px solid var(--border-light)' }}>
+                    <Row label="Status Komisi" value={<span style={{ fontWeight: 700, color: comm?.status === 'paid' ? '#16a34a' : '#f59e0b' }}>{comm?.status === 'paid' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>} />
+                    {comm?.paymentDate && <Row label="Tgl Pembayaran" value={comm.paymentDate} />}
+                    {comm?.paymentMethod && <Row label="Metode" value={comm.paymentMethod} />}
+                  </div>
+                </div>
+              </Section>
+            );
+          })()}
+
           {app.surveyDate && (
             <Section title="Informasi Survey" icon={Calendar}>
               <Row label="Tanggal Survey" value={app.surveyDate} />
@@ -329,11 +355,6 @@ export function ApplicationDetail() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', marginBottom: 6 }}>Status saat ini</p>
-            <Badge status={app.status} />
-          </div>
-
-          <div>
             <label className="label">Ubah ke status</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {STATUSES.filter(s => s.key !== app.status).map(s => (
@@ -366,15 +387,21 @@ export function ApplicationDetail() {
             </div>
           )}
 
-          {newStatus === 'approve' && (
-            <div className="alert alert-success">
-              <CheckCircle size={15} style={{ flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600 }}>Pengajuan akan disetujui</p>
-                <p style={{ fontSize: 12, marginTop: 2 }}>Komisi {formatRupiah(Math.round(app.pinjaman * 0.015))} akan dibuat otomatis (1.5%)</p>
+          {newStatus === 'approve' && (() => {
+            const rate    = settings?.commissionRate ?? 1.5;
+            const agRate  = settings?.commissionAgentRate ?? 80;
+            const leasing = Math.round(app.pinjaman * rate / 100);
+            const agent   = Math.round(leasing * agRate / 100);
+            return (
+              <div className="alert alert-success">
+                <CheckCircle size={15} style={{ flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>Pengajuan akan disetujui</p>
+                  <p style={{ fontSize: 12, marginTop: 2 }}>Komisi leasing <strong>{formatRupiah(leasing)}</strong> · Komisi agen <strong>{formatRupiah(agent)}</strong></p>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div>
             <label className="label">Catatan Perubahan</label>

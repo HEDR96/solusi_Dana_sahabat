@@ -8,9 +8,7 @@ const DEFAULT_SETTINGS = {
   phone: '021-5555-1234',
   email: 'info@mitradana.co.id',
   commissionRate: 1.5,
-  slaProses: 7, slaReview: 3,
-  notifBerkasBaru: true, notifStatusUbah: true,
-  notifSurveyHariIni: true, notifKomisiUnpaid: true, notifBerkasAging: true,
+  commissionAgentRate: 80, // % dari komisi leasing yang diteruskan ke agen
   autoCommission: true,
 };
 
@@ -177,6 +175,24 @@ export function AppProvider({ children }) {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
+  // Settings global dari DB (baris khusus di dsd_master_options) — agar rate komisi
+  // yang di-set owner berlaku sama untuk semua user, bukan per-browser (localStorage saja).
+  useEffect(() => {
+    if (authLoading || !currentUser) return;
+    supabase.from('dsd_master_options')
+      .select('label')
+      .eq('category', 'app_settings')
+      .eq('value', 'global')
+      .limit(1)
+      .then(({ data }) => {
+        if (!data?.[0]?.label) return;
+        try {
+          const dbSettings = JSON.parse(data[0].label);
+          setSettings(prev => ({ ...prev, ...dbSettings }));
+        } catch { /* label bukan JSON valid — abaikan */ }
+      });
+  }, [authLoading, currentUser?.id]);
+
   // Load all data once auth resolves and user is logged in
   useEffect(() => {
     if (authLoading) return;
@@ -258,7 +274,7 @@ export function AppProvider({ children }) {
     const { data: logData } = await supabase.from('dsd_status_logs').insert(logRow).select().single();
     if (logData) setStatusLogs(prev => [...prev, mapStatusLog(logData)]);
 
-    if (newStatus === 'approve' && app) {
+    if (newStatus === 'approve' && app && settings.autoCommission !== false) {
       const commRow = {
         app_id: appId, customer_name: app.customerName, agent_id: app.agentId, agent_name: app.agentName,
         leasing_name: app.leasingName, approve_pinjaman: app.pinjaman,
@@ -320,10 +336,19 @@ export function AppProvider({ children }) {
     showToast('Aktivitas berhasil dicatat');
   };
 
-  const saveSettings = useCallback((newSettings) => {
+  const saveSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
     localStorage.setItem('erp-settings', JSON.stringify(newSettings));
-    showToast('Pengaturan berhasil disimpan');
+    // Sinkron ke DB agar berlaku untuk semua user; active:false supaya tidak
+    // ikut muncul di dropdown master options (yang memfilter active=true).
+    const payload = JSON.stringify(newSettings);
+    const { data: existing } = await supabase.from('dsd_master_options')
+      .select('id').eq('category', 'app_settings').eq('value', 'global').limit(1);
+    const { error } = existing?.length
+      ? await supabase.from('dsd_master_options').update({ label: payload }).eq('id', existing[0].id)
+      : await supabase.from('dsd_master_options').insert({ category: 'app_settings', value: 'global', label: payload, sort: 0, active: false });
+    if (error) showToast('Tersimpan lokal, tapi gagal sinkron ke server: ' + error.message, 'error');
+    else showToast('Pengaturan berhasil disimpan');
   }, [showToast]);
 
   const addAgent = async (data) => {
@@ -456,6 +481,24 @@ export function AppProvider({ children }) {
     return true;
   };
 
+  const assignAgentsToSpv = async (spvUserId, agentIds) => {
+    // Set spv_id = spvUserId untuk agen yang dipilih; hapus spv_id dari agen yang sebelumnya di bawah SPV ini tapi kini di-deselect
+    const prevManaged = agents.filter(a => a.spvId === spvUserId).map(a => a.id);
+    const toAdd    = agentIds.filter(id => !prevManaged.includes(id));
+    const toRemove = prevManaged.filter(id => !agentIds.includes(id));
+    const ops = [
+      ...toAdd.map(id => supabase.from('dsd_agents').update({ spv_id: spvUserId }).eq('id', id)),
+      ...toRemove.map(id => supabase.from('dsd_agents').update({ spv_id: null }).eq('id', id)),
+    ];
+    await Promise.all(ops);
+    setAgents(prev => prev.map(a => {
+      if (toAdd.includes(a.id))    return { ...a, spvId: spvUserId };
+      if (toRemove.includes(a.id)) return { ...a, spvId: null };
+      return a;
+    }));
+    await addAuditLog('Atur SPV', `SPV ${spvUserId} mengelola ${agentIds.length} agen`);
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const role = currentUser?.role;
@@ -499,7 +542,7 @@ export function AppProvider({ children }) {
       agentActivities, setAgentActivities, addActivity,
       agents, setAgents, addAgent, updateAgent,
       leasing, setLeasing, addLeasing, updateLeasing,
-      users, setUsers, createUser, updateUserProfile,
+      users, setUsers, createUser, updateUserProfile, assignAgentsToSpv,
       settings, saveSettings,
       notifications, setNotifications, markNotifRead, unreadCount,
       auditLogs, setAuditLogs, statusLogs, setStatusLogs,

@@ -55,7 +55,7 @@ export function ApplicationList() {
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const unitTypes    = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
   const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
-  const cityOptions  = useMasterOptions('city', []);
+  const cityOptions  = useMasterOptions('city', ['Medan', 'Binjai', 'Deli Serdang', 'Langkat', 'Tebing Tinggi', 'Pematang Siantar']);
   const docTypes     = useMasterOptions('doc_type', DEFAULT_DOC_TYPES);
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
@@ -400,10 +400,12 @@ export function ApplicationList() {
           <F label="NIK / Nomor KTP" error={errors.nik}><input className="input" value={form.nik} onChange={e => set('nik')(e.target.value)} placeholder="16 digit NIK" style={errors.nik ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Nomor Telepon" error={errors.phone}><input className="input" value={form.phone} onChange={e => set('phone')(e.target.value)} placeholder="08xx-xxxx-xxxx" style={errors.phone ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Kota" error={errors.city}>
-            <input className="input" list="master-city-options-app" value={form.city} onChange={e => set('city')(e.target.value)} placeholder="Kota domisili" style={errors.city ? { borderColor: '#ef4444' } : undefined} />
-            <datalist id="master-city-options-app">
-              {cityOptions.map(c => <option key={c} value={c} />)}
-            </datalist>
+            <select className="input" value={form.city} onChange={e => set('city')(e.target.value)} style={errors.city ? { borderColor: '#ef4444' } : undefined}>
+              <option value="">— Pilih Kota —</option>
+              {/* Nilai lama yang tidak ada di master options tetap ditampilkan agar data lama tidak hilang saat edit */}
+              {form.city && !cityOptions.includes(form.city) && <option value={form.city}>{form.city}</option>}
+              {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </F>
           <F label="Tipe Unit">
             <select className="input" value={form.unitType} onChange={e => set('unitType')(e.target.value)}>

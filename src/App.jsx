@@ -10,7 +10,6 @@ import { ApplicationDetail } from './pages/Applications/ApplicationDetail';
 import { Pipeline } from './pages/Pipeline';
 import { CalendarPage } from './pages/CalendarPage';
 import { Commission } from './pages/Commission';
-import { Leasing } from './pages/Leasing';
 import { Simulation } from './pages/Simulation';
 import { SalesReport } from './pages/Reports/SalesReport';
 import { ApplicationReport } from './pages/Reports/ApplicationReport';
@@ -22,7 +21,6 @@ import { Profile } from './pages/Profile';
 import { AgentActivity } from './pages/AgentActivity';
 import { AgentMap } from './pages/AgentMap';
 import { MasterData } from './pages/MasterData';
-import { ApplyAgent } from './pages/ApplyAgent';
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useApp();
@@ -46,7 +44,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={currentUser ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/daftar-agen" element={<ApplyAgent />} />
+      <Route path="/daftar-agen" element={<Navigate to="/login" replace />} />
       <Route path="/" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><AgentList /></ProtectedRoute>} />
@@ -56,7 +54,7 @@ function AppRoutes() {
       <Route path="/pipeline" element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/commission" element={<ProtectedRoute><Commission /></ProtectedRoute>} />
-      <Route path="/leasing" element={<ProtectedRoute><Leasing /></ProtectedRoute>} />
+      <Route path="/leasing" element={<Navigate to="/masterdata" replace />} />
       <Route path="/simulation" element={<ProtectedRoute><Simulation /></ProtectedRoute>} />
       <Route path="/reports/sales" element={<ProtectedRoute><SalesReport /></ProtectedRoute>} />
       <Route path="/reports/applications" element={<ProtectedRoute><ApplicationReport /></ProtectedRoute>} />

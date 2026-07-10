@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
-import { Settings as SettingsIcon, Sun, Moon, Save, Bell, Database, Percent, CheckCircle } from 'lucide-react';
+import { formatRupiah } from '../data/dummyData';
+import { Settings as SettingsIcon, Sun, Moon, Save, Database, Percent, CheckCircle, Info } from 'lucide-react';
 
 const BACKUP_KEYS = ['applications', 'commissions', 'agents', 'leasing', 'users', 'notifications', 'auditLogs', 'statusLogs'];
 
-function Toggle({ label, name, desc, value, onChange }) {
+function Toggle({ label, desc, value, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-light)' }}>
       <div>
@@ -28,7 +29,7 @@ function Toggle({ label, name, desc, value, onChange }) {
   );
 }
 
-function Field({ label, name, type = 'text', value, onChange, suffix, prefix }) {
+function Field({ label, type = 'text', value, onChange, suffix, prefix }) {
   return (
     <div>
       <label className="label">{label}</label>
@@ -62,9 +63,11 @@ function Section({ icon: Icon, title, children }) {
 export function Settings() {
   const app = useApp();
   const { darkMode, setDarkMode, settings, saveSettings, showToast } = app;
-  const fileInputRef = useRef(null);
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
+
+  // Ikuti settings dari server saat baru dimuat (sinkron antar user)
+  useEffect(() => { setLocalSettings(settings); }, [settings]);
 
   const sf = key => val => setLocalSettings(p => ({ ...p, [key]: val }));
   const toggle = key => () => setLocalSettings(p => ({ ...p, [key]: !p[key] }));
@@ -90,109 +93,100 @@ export function Settings() {
     showToast('Backup data berhasil diunduh');
   };
 
-  const setterFor = {
-    applications: app.setApplications, commissions: app.setCommissions, agents: app.setAgents,
-    leasing: app.setLeasing, users: app.setUsers, notifications: app.setNotifications,
-    auditLogs: app.setAuditLogs, statusLogs: app.setStatusLogs,
-  };
-
-  const handleImportFile = e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        const data = parsed.data || parsed;
-        let restored = 0;
-        BACKUP_KEYS.forEach(key => {
-          if (Array.isArray(data[key]) && setterFor[key]) {
-            setterFor[key](data[key]);
-            restored++;
-          }
-        });
-        if (restored === 0) throw new Error('Format file tidak dikenali');
-        showToast(`Data berhasil dipulihkan dari backup (${restored} bagian)`);
-      } catch (err) {
-        showToast('Gagal memuat file backup: ' + err.message, 'error');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+  // Contoh perhitungan komisi live berdasarkan setting saat ini
+  const contohPinjaman = 10_000_000;
+  const contohLeasing  = Math.round(contohPinjaman * (localSettings.commissionRate || 0) / 100);
+  const contohAgen     = Math.round(contohLeasing * (localSettings.commissionAgentRate ?? 80) / 100);
+  const contohOwner    = contohLeasing - contohAgen;
 
   return (
-    <Layout title="Pengaturan Sistem" subtitle="Konfigurasi perusahaan, komisi, dan notifikasi">
+    <Layout title="Pengaturan Sistem" subtitle="Konfigurasi perusahaan, komisi, dan tampilan — berlaku untuk semua user">
       <div className="rgrid rgrid-2" style={{ gap: 20 }}>
         {/* Company profile */}
         <Section icon={SettingsIcon} title="Profil Perusahaan">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Nama Perusahaan" name="companyName" value={localSettings.companyName} onChange={sf('companyName')} />
-            <Field label="Alamat" name="address" value={localSettings.address} onChange={sf('address')} />
-            <Field label="Telepon" name="phone" value={localSettings.phone} onChange={sf('phone')} />
-            <Field label="Email" name="email" type="email" value={localSettings.email} onChange={sf('email')} />
+            <Field label="Nama Perusahaan" value={localSettings.companyName} onChange={sf('companyName')} />
+            <Field label="Alamat" value={localSettings.address} onChange={sf('address')} />
+            <Field label="Telepon" value={localSettings.phone} onChange={sf('phone')} />
+            <Field label="Email" type="email" value={localSettings.email} onChange={sf('email')} />
           </div>
         </Section>
 
-        {/* Commission & SLA */}
-        <Section icon={Percent} title="Aturan Komisi & SLA">
+        {/* Commission */}
+        <Section icon={Percent} title="Aturan Komisi">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Rate Komisi Default (%)" value={localSettings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
-            <Field label="SLA Proses Berkas (hari)" value={localSettings.slaProses} type="number" onChange={sf('slaProses')} suffix=" hari" />
-            <Field label="SLA Review Admin (hari)" value={localSettings.slaReview} type="number" onChange={sf('slaReview')} suffix=" hari" />
+            <Field label="Rate Komisi Leasing Default (%)" value={localSettings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
+            <Field label="Porsi Komisi Agen (% dari Komisi Leasing)" value={localSettings.commissionAgentRate ?? 80} type="number" onChange={sf('commissionAgentRate')} suffix="%" />
             <Toggle
               label="Hitung Komisi Otomatis"
               desc="Komisi dibuat otomatis saat pengajuan approve"
-              value={localSettings.autoCommission}
+              value={localSettings.autoCommission !== false}
               onChange={toggle('autoCommission')}
             />
+            {/* Ilustrasi perhitungan */}
+            <div style={{ background: 'var(--surface-alt)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Info size={13} color="var(--c-64748b)" />
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-64748b)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                  Contoh: pinjaman {formatRupiah(contohPinjaman)}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--c-64748b)' }}>Komisi Leasing ({localSettings.commissionRate || 0}%)</span>
+                  <strong style={{ color: 'var(--c-0f172a)' }}>{formatRupiah(contohLeasing)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--c-64748b)' }}>Komisi Agen ({localSettings.commissionAgentRate ?? 80}% dari komisi leasing)</span>
+                  <strong style={{ color: '#16a34a' }}>{formatRupiah(contohAgen)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 4, marginTop: 2 }}>
+                  <span style={{ color: 'var(--c-64748b)' }}>Keuntungan Owner (selisih)</span>
+                  <strong style={{ color: '#1d4ed8' }}>{formatRupiah(contohOwner)}</strong>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 8, lineHeight: 1.5 }}>
+                Rate default dipakai jika leasing belum punya tabel komisi sendiri. Tabel per leasing dikelola di <strong>Master Data → Tabel Rate</strong>.
+              </p>
+            </div>
           </div>
         </Section>
 
-        {/* Notifications */}
-        <Section icon={Bell} title="Pengaturan Notifikasi">
-          <Toggle label="Berkas Baru Masuk" desc="Notifikasi setiap ada berkas baru" value={localSettings.notifBerkasBaru} onChange={toggle('notifBerkasBaru')} />
-          <Toggle label="Perubahan Status" desc="Notifikasi setiap status berkas berubah" value={localSettings.notifStatusUbah} onChange={toggle('notifStatusUbah')} />
-          <Toggle label="Jadwal Survey Hari Ini" desc="Pengingat survey yang terjadwal hari ini" value={localSettings.notifSurveyHariIni} onChange={toggle('notifSurveyHariIni')} />
-          <Toggle label="Komisi Belum Dibayar" desc="Pengingat komisi yang belum dibayarkan" value={localSettings.notifKomisiUnpaid} onChange={toggle('notifKomisiUnpaid')} />
-          <Toggle label="Berkas Aging" desc="Alert untuk berkas yang terlalu lama diproses" value={localSettings.notifBerkasAging} onChange={toggle('notifBerkasAging')} />
-        </Section>
-
-        {/* Appearance */}
+        {/* Appearance & data */}
         <Section icon={Sun} title="Tampilan & Tema">
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 12 }}>Mode Tampilan</p>
-            <div className="rgrid rgrid-2" style={{ gap: 10, marginBottom: 20 }}>
-              {[
-                { label: 'Mode Terang', dark: false, icon: Sun, color: '#f59e0b' },
-                { label: 'Mode Gelap', dark: true, icon: Moon, color: '#475569' },
-              ].map(({ label, dark, icon: Icon, color }) => (
-                <button key={label} onClick={() => setDarkMode(dark)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
-                    border: `2px solid ${darkMode === dark ? '#3b82f6' : 'var(--border)'}`,
-                    background: darkMode === dark ? 'var(--selected-bg)' : 'var(--surface)',
-                    borderRadius: 12, cursor: 'pointer', transition: 'all .15s',
-                  }}
-                >
-                  <Icon size={18} color={color} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                <Database size={14} color="var(--c-64748b)" />
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>Backup & Data</p>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleExportBackup}>Export Backup</button>
-                <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => fileInputRef.current?.click()}>Import Data</button>
-                <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={{ display: 'none' }} />
-              </div>
-            </div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 12 }}>Mode Tampilan</p>
+          <div className="rgrid rgrid-2" style={{ gap: 10 }}>
+            {[
+              { label: 'Mode Terang', dark: false, icon: Sun, color: '#f59e0b' },
+              { label: 'Mode Gelap', dark: true, icon: Moon, color: '#475569' },
+            ].map(({ label, dark, icon: Icon, color }) => (
+              <button key={label} onClick={() => setDarkMode(dark)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
+                  border: `2px solid ${darkMode === dark ? '#3b82f6' : 'var(--border)'}`,
+                  background: darkMode === dark ? 'var(--selected-bg)' : 'var(--surface)',
+                  borderRadius: 12, cursor: 'pointer', transition: 'all .15s',
+                }}
+              >
+                <Icon size={18} color={color} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{label}</span>
+              </button>
+            ))}
           </div>
+          <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 10 }}>
+            Mode tampilan tersimpan per perangkat, tidak ikut disinkron ke user lain.
+          </p>
+        </Section>
+
+        {/* Backup */}
+        <Section icon={Database} title="Backup Data">
+          <p style={{ fontSize: 12, color: 'var(--c-64748b)', marginBottom: 14, lineHeight: 1.6 }}>
+            Unduh salinan seluruh data (berkas, agen, komisi, leasing, user, log) sebagai file JSON untuk arsip.
+            Data utama tetap tersimpan aman di server.
+          </p>
+          <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExportBackup}>
+            <Database size={15} /> Export Backup (JSON)
+          </button>
         </Section>
       </div>
 

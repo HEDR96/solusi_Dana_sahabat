@@ -18,6 +18,7 @@ const CATEGORIES = [
   { key: 'activity_type',    label: 'Jenis Aktivitas', hasLabel: true },
   { key: 'activity_outcome', label: 'Hasil Aktivitas', hasLabel: true },
   { key: 'role',             label: 'Role (label tampilan)', hasLabel: true },
+  { key: 'leasing_type',     label: 'Tipe Leasing' },
 ];
 
 // ─── Editor satu tabel rate ───────────────────────────────────────────────────
@@ -176,9 +177,8 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
 }
 
 const LEASING_EMPTY = {
-  name: '', branch: '', pic: '', contact: '', email: '',
-  products: '', rate: '', tenors: '', minPinjaman: '', maxPinjaman: '',
-  syarat: '', status: 'aktif', notes: '',
+  name: '', pic: '', contact: '', notes: '', branch: '', status: 'aktif',
+  email: '', products: '', rate: '', tenors: '', minPinjaman: '', maxPinjaman: '', syarat: '',
 };
 
 // ─── Halaman utama MasterData ─────────────────────────────────────────────────
@@ -457,7 +457,7 @@ export function MasterData() {
               <table style={{ width:'100%', borderCollapse:'collapse' }}>
                 <thead className="table-head">
                   <tr>
-                    {['Nama Leasing', 'Cabang', 'Produk', 'Tenor', 'Status', 'Aksi'].map(h => (
+                    {['Nama Leasing', 'PIC', 'Telepon', 'Nomor MOU', 'Target/Bln', 'Status', 'Aksi'].map(h => (
                       <th key={h} className="table-th">{h}</th>
                     ))}
                   </tr>
@@ -473,9 +473,10 @@ export function MasterData() {
                           <span style={{ fontSize:13, fontWeight:600, color:'var(--c-0f172a)' }}>{l.name}</span>
                         </div>
                       </td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.branch || '-'}</td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.products || '-'}</td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.tenors ? `${l.tenors} bln` : '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.pic || '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.contact || '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)', fontFamily:'monospace' }}>{l.notes || '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)', textAlign:'center' }}>{l.branch || '-'}</td>
                       <td className="table-td"><Badge status={l.status} /></td>
                       <td className="table-td">
                         <button className="btn btn-ghost btn-sm" onClick={() => openEditLeasing(l)}>
@@ -494,7 +495,7 @@ export function MasterData() {
             isOpen={showLeasingModal}
             onClose={() => setShowLeasingModal(false)}
             title={editLeasing ? `Edit — ${editLeasing.name}` : 'Tambah Mitra Leasing'}
-            size="lg"
+            size="sm"
             footer={
               <>
                 <button className="btn btn-secondary" onClick={() => setShowLeasingModal(false)}>Batal</button>
@@ -504,47 +505,27 @@ export function MasterData() {
               </>
             }
           >
-            <div className="form-grid" style={{ gap:14 }}>
-              <div className="span-2">
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
                 <label className="label">Nama Leasing *</label>
                 <input className="input" value={leasingForm.name} onChange={slf('name')} style={leasingErrors.name ? { borderColor:'#ef4444' } : undefined} />
                 {leasingErrors.name && <p style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>{leasingErrors.name}</p>}
               </div>
               <div>
-                <label className="label">Cabang / Kota</label>
-                <input className="input" value={leasingForm.branch || ''} onChange={slf('branch')} />
+                <label className="label">Nama PIC</label>
+                <input className="input" value={leasingForm.pic || ''} onChange={slf('pic')} placeholder="Nama PIC / Marketing" />
               </div>
               <div>
-                <label className="label">PIC</label>
-                <input className="input" value={leasingForm.pic || ''} onChange={slf('pic')} />
+                <label className="label">Nomor Telepon PIC</label>
+                <input className="input" value={leasingForm.contact || ''} onChange={slf('contact')} placeholder="08xx-xxxx-xxxx" />
               </div>
               <div>
-                <label className="label">Nomor Kontak</label>
-                <input className="input" value={leasingForm.contact || ''} onChange={slf('contact')} />
+                <label className="label">Nomor MOU</label>
+                <input className="input" value={leasingForm.notes || ''} onChange={slf('notes')} placeholder="Contoh: MOU/2026/CMD/001" />
               </div>
               <div>
-                <label className="label">Email</label>
-                <input className="input" type="email" value={leasingForm.email || ''} onChange={slf('email')} />
-              </div>
-              <div className="span-2">
-                <label className="label">Produk (contoh: Motor &amp; Mobil BPKB)</label>
-                <input className="input" value={leasingForm.products || ''} onChange={slf('products')} />
-              </div>
-              <div>
-                <label className="label">Tenor Tersedia (pisah koma)</label>
-                <input className="input" value={leasingForm.tenors || ''} onChange={slf('tenors')} placeholder="6,12,18,24,36" />
-              </div>
-              <div>
-                <label className="label">Rate / Bunga</label>
-                <input className="input" value={leasingForm.rate || ''} onChange={slf('rate')} placeholder="0" />
-              </div>
-              <div>
-                <label className="label">Min. Pinjaman (Rp)</label>
-                <input className="input" type="number" value={leasingForm.minPinjaman || ''} onChange={slf('minPinjaman')} />
-              </div>
-              <div>
-                <label className="label">Maks. Pinjaman (Rp)</label>
-                <input className="input" type="number" value={leasingForm.maxPinjaman || ''} onChange={slf('maxPinjaman')} />
+                <label className="label">Target MOU (berkas/bulan)</label>
+                <input className="input" value={leasingForm.branch || ''} onChange={slf('branch')} placeholder="Contoh: 10" />
               </div>
               <div>
                 <label className="label">Status</label>
@@ -552,14 +533,6 @@ export function MasterData() {
                   <option value="aktif">Aktif</option>
                   <option value="nonaktif">Nonaktif</option>
                 </select>
-              </div>
-              <div className="span-2">
-                <label className="label">Syarat Dokumen</label>
-                <textarea className="input textarea" value={leasingForm.syarat || ''} onChange={slf('syarat')} rows={2} />
-              </div>
-              <div className="span-2">
-                <label className="label">Catatan</label>
-                <textarea className="input textarea" value={leasingForm.notes || ''} onChange={slf('notes')} rows={2} />
               </div>
             </div>
           </Modal>

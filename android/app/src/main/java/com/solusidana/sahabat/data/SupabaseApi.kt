@@ -426,7 +426,7 @@ object SupabaseApi {
         pinjaman: Long,
         tenor: Int,
         estimasiAngsuran: Long,
-        leasingId: String,
+        leasingId: Long,
         leasingName: String,
         notes: String
     ): Result<Unit> = io {
@@ -439,7 +439,7 @@ object SupabaseApi {
             "city":"${esc(city)}","address":"${esc(address)}",
             "unit_type":"${esc(unitType)}","unit_brand":"${esc(unitBrand)}","unit_year":"${esc(unitYear)}",
             "pinjaman":$pinjaman,"tenor":$tenor,"estimasi_angsuran":$estimasiAngsuran,
-            "leasing_id":"${esc(leasingId)}","leasing_name":"${esc(leasingName)}",
+            "leasing_id":$leasingId,"leasing_name":"${esc(leasingName)}",
             "input_date":"$today","notes":"${esc(notes)}"
         }""".trimIndent().toRequestBody(JSON_TYPE)
 

@@ -16,18 +16,13 @@ const SORT_GETTERS = {
   commissionAmount: r => r.commissionAmount, status: r => r.status,
 };
 
-const COMMISSION_COLUMNS = [
-  { label: 'No. Berkas', key: 'appId' }, { label: 'Nasabah', key: 'customerName' },
-  { label: 'Agen', key: 'agentName' }, { label: 'Leasing', key: 'leasingName' },
-  { label: 'Pinjaman', key: 'approvePinjaman' }, { label: 'Tgl Approve', key: 'approveDate' },
-  { label: 'Rate (%)', key: 'commissionRate' }, { label: 'Nominal Komisi', key: 'commissionAmount' },
-  { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
-];
-
 export function Commission() {
-  const { visibleCommissions: commissions, agents, payCommission, currentUser } = useApp();
+  const { visibleCommissions: commissions, agents, payCommission, currentUser, settings } = useApp();
   const canManagePayments = ['owner', 'super-admin', 'admin', 'finance'].includes(currentUser?.role);
-  const isOwnScoped = currentUser?.role === 'agen';
+  const isOwner      = currentUser?.role === 'owner';
+  const isOwnScoped  = currentUser?.role === 'agen';
+  const agentRate    = settings?.commissionAgentRate ?? 80; // % agen dari komisi leasing
+
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
   const [filterAgent, setAgent]     = useState('all');
@@ -35,6 +30,12 @@ export function Commission() {
   const [selectedComm, setSel]      = useState(null);
   const [payMethod, setPayMethod]   = useState('Transfer Bank');
   const payMethods = useMasterOptions('payment_method', ['Transfer Bank', 'Cash', 'QRIS', 'Cek']);
+
+  const getBreakdown = (c) => {
+    const leasing = c.commissionAmount;
+    const agent   = Math.round(leasing * agentRate / 100);
+    return { leasing, agent, owner: leasing - agent };
+  };
 
   const filtered = commissions.filter(c => {
     const q = search.toLowerCase();
@@ -45,39 +46,41 @@ export function Commission() {
     );
   });
 
-  const totalUnpaid = filtered.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0);
-  const totalPaid   = filtered.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
-  const totalAll    = totalPaid + totalUnpaid;
+  const totalLeasing = filtered.reduce((s, c) => s + getBreakdown(c).leasing, 0);
+  const totalAgent   = filtered.reduce((s, c) => s + getBreakdown(c).agent, 0);
+  const totalOwner   = totalLeasing - totalAgent;
+  const totalPaid    = filtered.filter(c => c.status === 'paid').reduce((s, c) => s + getBreakdown(c).agent, 0);
+  const totalUnpaid  = filtered.filter(c => c.status === 'unpaid').reduce((s, c) => s + getBreakdown(c).agent, 0);
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
 
-  const openPay = comm => { setSel(comm); setShowPay(true); };
+  const openPay  = comm => { setSel(comm); setShowPay(true); };
   const handlePay = () => { payCommission(selectedComm.id, payMethod); setShowPay(false); };
 
   const agentSummary = agents.map(ag => {
     const agComm = filtered.filter(c => c.agentId === ag.id);
-    return {
-      ...ag,
-      totalKomisi: agComm.reduce((s, c) => s + c.commissionAmount, 0),
-      paidKomisi:  agComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0),
-      unpaidKomisi:agComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0),
-    };
+    const total  = agComm.reduce((s, c) => s + getBreakdown(c).agent, 0);
+    const paid   = agComm.filter(c => c.status === 'paid').reduce((s, c) => s + getBreakdown(c).agent, 0);
+    return { ...ag, totalKomisi: total, paidKomisi: paid, unpaidKomisi: total - paid };
   }).filter(a => a.totalKomisi > 0);
 
   const summaryCards = [
-    { label: 'Total Komisi', value: formatRupiah(totalAll), icon: DollarSign, bg: 'var(--surface)', border: 'var(--border)', color: 'var(--c-64748b)', val_color: 'var(--c-0f172a)' },
-    { label: 'Sudah Dibayar', value: formatRupiah(totalPaid), icon: CheckCircle, bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', val_color: '#15803d' },
-    { label: 'Belum Dibayar', value: formatRupiah(totalUnpaid), icon: CreditCard, bg: '#fef2f2', border: '#fecaca', color: '#dc2626', val_color: '#dc2626' },
+    { label: 'Komisi Agen Belum Dibayar', value: formatRupiah(totalUnpaid), icon: CreditCard, bg: '#fef2f2', border: '#fecaca', color: '#dc2626', val_color: '#dc2626' },
+    { label: 'Komisi Agen Sudah Dibayar', value: formatRupiah(totalPaid), icon: CheckCircle, bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', val_color: '#15803d' },
+    { label: 'Total Komisi Leasing', value: formatRupiah(totalLeasing), icon: DollarSign, bg: 'var(--surface)', border: 'var(--border)', color: 'var(--c-64748b)', val_color: 'var(--c-0f172a)' },
+    ...(isOwner ? [{ label: 'Keuntungan Owner', value: formatRupiah(totalOwner), icon: TrendingUp, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', val_color: '#1e40af' }] : []),
   ];
+
+  const colSpan = isOwner ? 11 : 10;
 
   return (
     <Layout
       title="Pembayaran Komisi"
       subtitle="Kelola pembayaran komisi agen"
-      actions={<button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', COMMISSION_COLUMNS, filtered)}><Download size={15} /> Export</button>}
+      actions={<button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', [], filtered)}><Download size={15} /> Export</button>}
     >
       {/* Summary */}
-      <div className="rgrid rgrid-3" style={{ gap: 14, marginBottom: 24 }}>
+      <div className={`rgrid rgrid-${isOwner ? 4 : 3}`} style={{ gap: 14, marginBottom: 24 }}>
         {summaryCards.map(({ label, value, icon: Icon, bg, border, color, val_color }) => (
           <div key={label} className="card" style={{ background: bg, border: `1px solid ${border}`, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -127,37 +130,42 @@ export function Commission() {
               <th className="table-th">Leasing</th>
               <SortableTh label="Pinjaman" sortKey="approvePinjaman" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <SortableTh label="Tgl Approve" sortKey="approveDate" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
-              <th className="table-th">Rate</th>
-              <SortableTh label="Komisi" sortKey="commissionAmount" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
+              <th className="table-th">Komisi Leasing</th>
+              <th className="table-th">Komisi Agen</th>
+              {isOwner && <th className="table-th">Keuntungan Owner</th>}
               <SortableTh label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <th className="table-th">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={10}><div className="empty-state"><div className="empty-icon">💰</div><p>Tidak ada data komisi</p></div></td></tr>
-            ) : sorted.map(comm => (
-              <tr key={comm.id} className="table-row">
-                <td className="table-td" style={{ fontFamily: 'monospace', fontSize: 12, color: '#3b82f6' }}>{comm.appId}</td>
-                <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{comm.customerName}</td>
-                <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.agentName}</td>
-                <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.leasingName}</td>
-                <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(comm.approvePinjaman)}</td>
-                <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{comm.approveDate}</td>
-                <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)', textAlign: 'center' }}>{comm.commissionRate}%</td>
-                <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-0f172a)' }}>{formatRupiah(comm.commissionAmount)}</td>
-                <td className="table-td"><Badge status={comm.status} /></td>
-                <td className="table-td">
-                  {comm.status === 'unpaid' ? (
-                    canManagePayments
-                      ? <button className="btn btn-success btn-sm" onClick={() => openPay(comm)}>Bayar</button>
-                      : <span style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>Menunggu pembayaran</span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>{comm.paymentMethod || '-'}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan={colSpan}><div className="empty-state"><div className="empty-icon">💰</div><p>Tidak ada data komisi</p></div></td></tr>
+            ) : sorted.map(comm => {
+              const { leasing, agent, owner } = getBreakdown(comm);
+              return (
+                <tr key={comm.id} className="table-row">
+                  <td className="table-td" style={{ fontFamily: 'monospace', fontSize: 12, color: '#3b82f6' }}>{comm.appId}</td>
+                  <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{comm.customerName}</td>
+                  <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.agentName}</td>
+                  <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.leasingName}</td>
+                  <td className="table-td" style={{ fontSize: 13, fontWeight: 600 }}>{formatRupiah(comm.approvePinjaman)}</td>
+                  <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{comm.approveDate}</td>
+                  <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(leasing)}</td>
+                  <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{formatRupiah(agent)}</td>
+                  {isOwner && <td className="table-td" style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{formatRupiah(owner)}</td>}
+                  <td className="table-td"><Badge status={comm.status} /></td>
+                  <td className="table-td">
+                    {comm.status === 'unpaid' ? (
+                      canManagePayments
+                        ? <button className="btn btn-success btn-sm" onClick={() => openPay(comm)}>Bayar</button>
+                        : <span style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>Menunggu pembayaran</span>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>{comm.paymentMethod || '-'}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -212,7 +220,7 @@ export function Commission() {
       <Modal
         isOpen={showPayModal}
         onClose={() => setShowPay(false)}
-        title="Konfirmasi Pembayaran Komisi"
+        title="Konfirmasi Pembayaran Komisi Agen"
         size="sm"
         footer={
           <>
@@ -221,31 +229,36 @@ export function Commission() {
           </>
         }
       >
-        {selectedComm && (
-          <div>
-            <div className="alert alert-success" style={{ marginBottom: 20, flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
-                {[
-                  { l: 'Agen', v: selectedComm.agentName },
-                  { l: 'Nasabah', v: selectedComm.customerName },
-                  { l: 'Pinjaman', v: formatRupiah(selectedComm.approvePinjaman) },
-                  { l: 'Nominal Komisi', v: formatRupiah(selectedComm.commissionAmount) },
-                ].map(({ l, v }) => (
-                  <div key={l}>
-                    <p style={{ fontSize: 11, color: '#16a34a', fontWeight: 500 }}>{l}</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)' }}>{v}</p>
-                  </div>
-                ))}
+        {selectedComm && (() => {
+          const { leasing, agent, owner } = getBreakdown(selectedComm);
+          return (
+            <div>
+              <div className="alert alert-success" style={{ marginBottom: 20, flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
+                  {[
+                    { l: 'Agen', v: selectedComm.agentName },
+                    { l: 'Nasabah', v: selectedComm.customerName },
+                    { l: 'Pinjaman', v: formatRupiah(selectedComm.approvePinjaman) },
+                    { l: 'Komisi Leasing', v: formatRupiah(leasing) },
+                    { l: 'Komisi Agen (Dibayar)', v: formatRupiah(agent) },
+                    ...(isOwner ? [{ l: 'Keuntungan Owner', v: formatRupiah(owner) }] : []),
+                  ].map(({ l, v }) => (
+                    <div key={l}>
+                      <p style={{ fontSize: 11, color: '#16a34a', fontWeight: 500 }}>{l}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)' }}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">Metode Pembayaran</label>
+                <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                  {payMethods.map(m => <option key={m}>{m}</option>)}
+                </select>
               </div>
             </div>
-            <div>
-              <label className="label">Metode Pembayaran</label>
-              <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                {payMethods.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
     </Layout>
   );

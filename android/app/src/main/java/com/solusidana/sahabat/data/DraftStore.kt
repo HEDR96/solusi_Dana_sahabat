@@ -21,7 +21,7 @@ data class ApplicationDraft(
     val pinjaman: Long,
     val tenor: Int,
     val estimasiAngsuran: Long,
-    val leasingId: String,
+    val leasingId: Long,
     val leasingName: String,
     val notes: String
 )

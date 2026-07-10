@@ -45,7 +45,7 @@ data class Application(
     val pinjaman: Long? = null,
     val tenor: Int? = null,
     @SerialName("estimasi_angsuran") val estimasiAngsuran: Long? = null,
-    @SerialName("leasing_id") val leasingId: String? = null,
+    @SerialName("leasing_id") val leasingId: Long? = null,
     @SerialName("leasing_name") val leasingName: String? = null,
     @SerialName("input_date") val inputDate: String? = null,
     val notes: String? = null,
@@ -147,8 +147,12 @@ data class Commission(
 
 @Serializable
 data class LeasingPartner(
-    val id: String,
+    val id: Long,
     val name: String,
+    val pic: String? = null,
+    val contact: String? = null,
+    @SerialName("notes") val nomorMou: String? = null,
+    @SerialName("branch") val targetMou: String? = null,
     val rate: Double? = null,
     val status: String? = null,
     @SerialName("min_pinjaman") val minPinjaman: Long? = null,

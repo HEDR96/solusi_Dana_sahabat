@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { formatRupiah } from '../data/dummyData';
 import { supabase } from '../lib/supabaseClient';
+import { useApp } from '../context/AppContext';
 import {
   MOTOR_TENORS, CAR_TENORS,
   M_NEW_ANG, M_RO_ANG, M_NEW_FEE, M_RO_FEE,
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
   lookupVal,
 } from '../data/rateTables';
-import { Calculator, TrendingUp, AlertCircle } from 'lucide-react';
+import { Calculator, TrendingUp, AlertCircle, Building2 } from 'lucide-react';
 
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 function Toggle({ value, onChange, options }) {
@@ -29,22 +30,33 @@ function Toggle({ value, onChange, options }) {
 
 // ─── Komponen utama ──────────────────────────────────────────────────────────
 export function Simulation() {
+  const { leasing: leasingList } = useApp();
+  const activeLeasings = leasingList.filter(l => l.status === 'aktif');
+
+  const [selectedLeasingId, setLeasingId] = useState('');
   const [jenis,     setJenis]     = useState('motor');
   const [isRO,      setIsRO]      = useState(false);
   const [pencairan, setPencairan] = useState('');
   const [tenor,     setTenor]     = useState(12);
-  const [dbTables,  setDbTables]  = useState(null); // data dari Supabase jika ada
+  const [dbTables,  setDbTables]  = useState(null);
 
-  // Load tabel dari DB (override fallback jika owner sudah edit)
+  const selectedLeasing = activeLeasings.find(l => String(l.id) === selectedLeasingId);
+
+  // Load tabel dari DB saat leasing berubah
   useEffect(() => {
+    if (!selectedLeasingId) {
+      setDbTables(null);
+      return;
+    }
     supabase.from('dsd_rate_tables').select('product,tipe,data')
+      .eq('leasing_key', selectedLeasingId)
       .then(({ data }) => {
-        if (!data?.length) return;
+        if (!data?.length) { setDbTables(null); return; }
         const map = {};
         data.forEach(r => { map[`${r.product}_${r.tipe}`] = r.data; });
         setDbTables(map);
       });
-  }, []);
+  }, [selectedLeasingId]);
 
   const getTable = (key, fallback) => (dbTables?.[key] && Object.keys(dbTables[key]).length ? dbTables[key] : fallback);
 
@@ -61,6 +73,7 @@ export function Simulation() {
   };
 
   const result = useMemo(() => {
+    if (!selectedLeasingId) return null;
     const p = Number(pencairan);
     if (!p || p <= 0) return null;
     const pRibu    = p / 1000;
@@ -82,13 +95,14 @@ export function Simulation() {
       rangeMsg:   p < minP ? `Minimum pencairan ${formatRupiah(minP)}` : p > maxP ? `Maksimum pencairan ${formatRupiah(maxP)}` : null,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jenis, isRO, pencairan, validTenor, minP, maxP, dbTables]);
+  }, [jenis, isRO, pencairan, validTenor, minP, maxP, dbTables, selectedLeasingId]);
 
   const labelJenis = jenis === 'motor' ? 'Motor' : 'Mobil';
   const labelTipe  = isRO ? 'RO' : (jenis === 'motor' ? 'NEW' : 'REGULER');
+  const leasingName = selectedLeasing?.name || '';
 
   return (
-    <Layout title="Simulasi CMD Finance" subtitle="CMD Finance Medan · Hitung angsuran dan komisi dari tabel resmi">
+    <Layout title="Simulasi Angsuran" subtitle="Pilih leasing dan hitung angsuran + komisi dari tabel resmi">
       <div className="rgrid rgrid-2" style={{ gap:20, alignItems:'start' }}>
 
         {/* ── FORM ── */}
@@ -101,71 +115,104 @@ export function Simulation() {
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
             <div>
-              <label className="label">Jenis Produk</label>
-              <Toggle value={jenis} onChange={handleJenis} options={[
-                { value:'motor', label:'Motor (BPKB)' },
-                { value:'mobil', label:'Mobil (BPKB)' },
-              ]} />
-            </div>
-
-            <div>
-              <label className="label">Jenis Pengajuan</label>
-              <Toggle
-                value={isRO ? 'ro' : 'new'}
-                onChange={v => setIsRO(v === 'ro')}
-                options={[
-                  { value:'new', label: jenis === 'motor' ? 'NEW' : 'REGULER' },
-                  { value:'ro',  label:'RO (Repeat Order)' },
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="label">
-                Jumlah Pencairan (Rp)
-                <span style={{ marginLeft:8, fontSize:11, color:'var(--c-94a3b8)', fontWeight:400 }}>
-                  {formatRupiah(minP)} – {formatRupiah(maxP)}
-                </span>
+              <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <Building2 size={13} color="var(--c-64748b)" /> Leasing
               </label>
-              <div style={{ position:'relative' }}>
-                <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color:'var(--c-94a3b8)', pointerEvents:'none' }}>Rp</span>
-                <input
-                  className="input"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder={jenis === 'motor' ? '8500000' : '50000000'}
-                  value={pencairan}
-                  onChange={e => setPencairan(e.target.value)}
-                  style={{ paddingLeft:36 }}
-                  min={minP} max={maxP}
-                  step={jenis === 'motor' ? 500000 : 5000000}
-                />
-              </div>
-              {pencairan && Number(pencairan) > 0 && (
-                <p style={{ fontSize:12, color:'var(--c-64748b)', marginTop:4 }}>
-                  = {formatRupiah(Number(pencairan))}
-                </p>
+              <select
+                className="input"
+                value={selectedLeasingId}
+                onChange={e => { setLeasingId(e.target.value); setPencairan(''); }}
+              >
+                <option value="">— Pilih Leasing Tujuan —</option>
+                {activeLeasings.map(l => (
+                  <option key={l.id} value={String(l.id)}>{l.name}</option>
+                ))}
+              </select>
+              {activeLeasings.length === 0 && (
+                <p style={{ fontSize:11, color:'var(--c-94a3b8)', marginTop:4 }}>Belum ada mitra leasing aktif di Master Data</p>
               )}
             </div>
 
-            <div>
-              <label className="label">Tenor</label>
-              <select
-                className="input"
-                value={validTenor}
-                onChange={e => setTenor(Number(e.target.value))}
-              >
-                {tenorList.map(t => (
-                  <option key={t} value={t}>{t} bulan</option>
-                ))}
-              </select>
-            </div>
+            {selectedLeasingId && <>
+              <div>
+                <label className="label">Jenis Produk</label>
+                <Toggle value={jenis} onChange={handleJenis} options={[
+                  { value:'motor', label:'Motor (BPKB)' },
+                  { value:'mobil', label:'Mobil (BPKB)' },
+                ]} />
+              </div>
+
+              <div>
+                <label className="label">Jenis Pengajuan</label>
+                <Toggle
+                  value={isRO ? 'ro' : 'new'}
+                  onChange={v => setIsRO(v === 'ro')}
+                  options={[
+                    { value:'new', label: jenis === 'motor' ? 'NEW' : 'REGULER' },
+                    { value:'ro',  label:'RO (Repeat Order)' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="label">
+                  Jumlah Pencairan (Rp)
+                  <span style={{ marginLeft:8, fontSize:11, color:'var(--c-94a3b8)', fontWeight:400 }}>
+                    {formatRupiah(minP)} – {formatRupiah(maxP)}
+                  </span>
+                </label>
+                <div style={{ position:'relative' }}>
+                  <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color:'var(--c-94a3b8)', pointerEvents:'none' }}>Rp</span>
+                  <input
+                    className="input"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder={jenis === 'motor' ? '8500000' : '50000000'}
+                    value={pencairan}
+                    onChange={e => setPencairan(e.target.value)}
+                    style={{ paddingLeft:36 }}
+                    min={minP} max={maxP}
+                    step={jenis === 'motor' ? 500000 : 5000000}
+                  />
+                </div>
+                {pencairan && Number(pencairan) > 0 && (
+                  <p style={{ fontSize:12, color:'var(--c-64748b)', marginTop:4 }}>
+                    = {formatRupiah(Number(pencairan))}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="label">Tenor</label>
+                <select
+                  className="input"
+                  value={validTenor}
+                  onChange={e => setTenor(Number(e.target.value))}
+                >
+                  {tenorList.map(t => (
+                    <option key={t} value={t}>{t} bulan</option>
+                  ))}
+                </select>
+              </div>
+            </>}
 
           </div>
         </div>
 
         {/* ── RESULT ── */}
-        {result ? (
+        {!selectedLeasingId ? (
+          <div className="card" style={{ minHeight:340, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
+            <div style={{ width:64, height:64, background:'#eff6ff', borderRadius:20, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <Building2 size={30} color="#93c5fd" />
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <p style={{ fontSize:14, fontWeight:600, color:'var(--c-0f172a)', marginBottom:4 }}>Pilih leasing tujuan</p>
+              <p style={{ fontSize:12, color:'var(--c-64748b)', lineHeight:1.6 }}>
+                Setiap leasing memiliki tabel angsuran & komisi berbeda
+              </p>
+            </div>
+          </div>
+        ) : result ? (
           result.outOfRange ? (
             <div className="card" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:300, gap:12, textAlign:'center' }}>
               <div style={{ width:52, height:52, background:'#fef2f2', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -178,7 +225,7 @@ export function Simulation() {
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', borderRadius:16, padding:'24px 20px' }}>
                 <p style={{ fontSize:11, color:'#93c5fd', marginBottom:4, letterSpacing:'.04em', textTransform:'uppercase' }}>
-                  CMD Finance Medan · {labelJenis} {labelTipe} · {validTenor} Bulan
+                  {leasingName} · {labelJenis} {labelTipe} · {validTenor} Bulan
                 </p>
                 <p style={{ fontSize:11, color:'#93c5fd', marginBottom:2 }}>Angsuran per Bulan</p>
                 <p style={{ fontSize:34, fontWeight:800, color:'#fff', marginBottom:16 }}>
@@ -203,20 +250,20 @@ export function Simulation() {
                 <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
                   <TrendingUp size={16} color="#16a34a" />
                   <p style={{ fontSize:12, fontWeight:700, color:'#15803d', textTransform:'uppercase', letterSpacing:'.04em' }}>
-                    Fee Agent / Komisi
+                    Komisi Leasing
                   </p>
                 </div>
                 <p style={{ fontSize:30, fontWeight:800, color:'#15803d', marginBottom:4 }}>
                   {formatRupiah(result.fee)}
                 </p>
                 <p style={{ fontSize:12, color:'#16a34a' }}>
-                  Per berkas disetujui · {labelJenis} {labelTipe}
+                  Per berkas disetujui · {leasingName} · {labelJenis} {labelTipe}
                 </p>
               </div>
 
               <div style={{ background:'var(--surface-alt)', borderRadius:10, padding:'12px 14px' }}>
                 <p style={{ fontSize:11, color:'var(--c-64748b)', lineHeight:1.6 }}>
-                  Nilai berdasarkan tabel resmi <strong>CMD Finance</strong>. Owner dapat mengubah tabel di <strong>Master Data → Tabel Rate</strong>.
+                  Nilai berdasarkan tabel resmi <strong>{leasingName}</strong>. Owner dapat mengubah tabel di <strong>Master Data → Tabel Rate</strong>.
                 </p>
               </div>
             </div>

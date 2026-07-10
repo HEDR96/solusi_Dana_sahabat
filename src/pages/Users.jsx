@@ -78,14 +78,15 @@ const EMPTY_USER = { name: '', email: '', password: '', role: 'admin', status: '
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Users() {
-  const { users, createUser, updateUserProfile, agents, showToast, currentUser } = useApp();
+  const { users, createUser, updateUserProfile, agents, showToast, currentUser, assignAgentsToSpv } = useApp();
   const [showModal, setShow]        = useState(false);
   const [editUser, setEdit]         = useState(null);
   const [selectedRole, setSelRole]  = useState('super-admin');
   const [form, setForm]             = useState(EMPTY_USER);
   const [errors, setErrors]         = useState({});
   const [saving, setSaving]         = useState(false);
-  const [resetting, setResetting]   = useState(null); // userId being reset
+  const [resetting, setResetting]   = useState(null);
+  const [spvAgentIds, setSpvAgentIds] = useState([]); // agent IDs assigned to SPV being edited
 
   const handleResetPassword = async (user) => {
     if (!confirm(`Reset password ${user.name} ke "password"?`)) return;
@@ -109,8 +110,14 @@ export function Users() {
   const roles = rolePairs.map(p => ({ key: p.value, label: p.label, ...(ROLE_COLORS[p.value] || DEFAULT_ROLE_COLOR) }));
   const selectedRolePerms = useMasterOptions(`roleperm:${selectedRole}`, FALLBACK_PERMISSIONS[selectedRole] || []);
 
-  const openEdit = useCallback(user => { setEdit(user); setForm({ ...user, password: '' }); setErrors({}); setShow(true); }, []);
-  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setShow(true); }, []);
+  const openEdit = useCallback(user => {
+    setEdit(user);
+    setForm({ ...user, password: '' });
+    setErrors({});
+    setSpvAgentIds(user.role === 'spv-agen' ? agents.filter(a => a.spvId === user.id).map(a => a.id) : []);
+    setShow(true);
+  }, [agents]);
+  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setSpvAgentIds([]); setShow(true); }, []);
 
   const validate = () => {
     const e = {};
@@ -130,7 +137,10 @@ export function Users() {
     let ok;
     if (editUser) {
       ok = await updateUserProfile(editUser.id, form);
-      if (ok) showToast(`Data user ${form.name} berhasil diperbarui`);
+      if (ok) {
+        if (form.role === 'spv-agen') await assignAgentsToSpv(editUser.id, spvAgentIds);
+        showToast(`Data user ${form.name} berhasil diperbarui`);
+      }
     } else {
       ok = await createUser(form);
     }
@@ -265,6 +275,33 @@ export function Users() {
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </F>
+          )}
+          {form.role === 'spv-agen' && editUser && (
+            <div style={{ gridColumn: '1/-1' }}>
+              <label className="label">Agen yang Dibawahi</label>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
+                {agents.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', padding: '8px 12px' }}>Belum ada agen terdaftar</p>
+                ) : agents.map(a => {
+                  const checked = spvAgentIds.includes(a.id);
+                  return (
+                    <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer', borderRadius: 8, background: checked ? '#eff6ff' : 'transparent' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => setSpvAgentIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                        style={{ width: 14, height: 14, flexShrink: 0 }}
+                      />
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{a.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>{a.id} · {a.city}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 4 }}>{spvAgentIds.length} agen dipilih</p>
+            </div>
           )}
           <F label="Status">
             <select className="input" value={form.status} onChange={e => sf('status')(e.target.value)}>
