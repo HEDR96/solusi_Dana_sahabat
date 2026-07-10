@@ -1,16 +1,45 @@
-# React + Vite
+# Solusi Dana Sahabat — ERP Multifinance
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Satu repo berisi **web dashboard** dan **aplikasi Android**, terhubung ke database Supabase yang sama.
 
-Currently, two official plugins are available:
+## Struktur
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```
+├── src/                  ← Web ERP (React + Vite), deploy otomatis ke Vercel
+│   ├── pages/            ← Halaman (Dashboard, Berkas, Agen, Komisi, Peta, Master Data, ...)
+│   ├── context/          ← AppContext.jsx — semua panggilan Supabase web lewat sini
+│   ├── components/       ← Layout (Sidebar, Topbar) + komponen UI
+│   ├── data/permissions.js ← Hak akses per role (owner, spv-agen, agen, dst.)
+│   └── utils/            ← Hook & helper (useMasterOptions, exportCsv, ...)
+├── api/
+│   └── gdrive.js         ← Vercel serverless: upload/list dokumen ke Google Drive
+├── supabase/migrations/  ← SQL yang harus dijalankan di Supabase SQL Editor (urut 001→004)
+└── android/              ← Aplikasi Android (Kotlin + MVVM)
+    └── app/src/main/
+        ├── java/com/solusidana/sahabat/
+        │   ├── data/     ← SupabaseApi.kt (semua panggilan API), model, session, master data
+        │   ├── ui/       ← Layar per fitur (login, dashboard, agents, applications,
+        │   │               commission, activities, profile, masterdata, lock, simulation)
+        │   └── worker/   ← Notifikasi background (3 jam, survey pagi, sync draft offline)
+        └── res/          ← Layout XML, navigasi, tema (values-night = dark mode)
+```
 
-## React Compiler
+## Cara kerja
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Web** — `npm run dev` untuk lokal, push ke `master` = deploy otomatis Vercel.
 
-## Expanding the Oxlint configuration
+**Android** — buka folder `android/` di Android Studio, atau:
+```
+cd android
+.\gradlew.bat assembleDebug     # hasil: android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Aturan penting
+
+- Kunci sensitif (`SUPABASE_SERVICE_ROLE_KEY`, key service account GDrive) **tidak boleh
+  di-commit** — hanya di Vercel Environment Variables / `.env.local` (gitignored).
+- Frontend & APK hanya boleh pakai `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY`.
+- Role scoping ada dua lapis: filter di app (`visibleAgents/Applications/...`) dan
+  RLS di database (`supabase/migrations/001_rls_policies.sql`).
+- Dropdown (tipe unit, tenor, bank, metode bayar) dikelola dari menu **Master Data**
+  (web & APK, khusus owner) — jangan hardcode nilai baru di kode.

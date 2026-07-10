@@ -1,0 +1,4 @@
+-keep class com.solusidana.sahabat.data.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn okio.**

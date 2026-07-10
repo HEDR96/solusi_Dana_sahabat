@@ -155,6 +155,16 @@ export function AppProvider({ children }) {
   // Auth listener
   useEffect(() => {
     let active = true;
+    // Bypass khusus development: localStorage.setItem('dev-role', 'owner') lalu reload.
+    // Tidak pernah aktif di production build (import.meta.env.DEV = false).
+    if (import.meta.env.DEV && localStorage.getItem('dev-role')) {
+      setCurrentUser({
+        id: 'dev-user', name: 'Dev Preview', email: 'dev@local',
+        role: localStorage.getItem('dev-role'), agentId: localStorage.getItem('dev-agent-id') || null,
+      });
+      setAuthLoading(false);
+      return;
+    }
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!active) return;
       if (session?.user) setCurrentUser(await fetchProfile(session.user.id));

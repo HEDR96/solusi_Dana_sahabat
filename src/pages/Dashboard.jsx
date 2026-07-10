@@ -192,7 +192,7 @@ export function Dashboard() {
 
       {/* ── Big KPI cards ── */}
       <div className="rgrid rgrid-2" style={{ gap: 14, marginBottom: 20 }}>
-        <div style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', borderRadius: 16, padding: '22px 24px', color: '#fff' }}>
+        <div style={{ background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', borderRadius: 16, padding: '22px 24px', color: '#fff', boxShadow: '0 8px 24px rgba(37,99,235,.25)' }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontWeight: 600, marginBottom: 6 }}>TOTAL PENCAIRAN APPROVE</p>
           <p style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, marginBottom: 8 }}>{formatRupiah(s.totalPencairan)}</p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{s.approve} pengajuan disetujui</p>
@@ -203,7 +203,7 @@ export function Dashboard() {
             </button>
           )}
         </div>
-        <div style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', borderRadius: 16, padding: '22px 24px', color: '#fff' }}>
+        <div style={{ background: 'linear-gradient(135deg,#881337,#be123c)', borderRadius: 16, padding: '22px 24px', color: '#fff', boxShadow: '0 8px 24px rgba(190,18,60,.25)' }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontWeight: 600, marginBottom: 6 }}>KOMISI BELUM DIBAYAR</p>
           <p style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, marginBottom: 8 }}>{formatRupiah(s.totalKomisiUnpaid)}</p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{s.komisiUnpaid} komisi menunggu pembayaran</p>
@@ -273,23 +273,32 @@ export function Dashboard() {
         <div className="card" style={{ padding: '20px' }}>
           <p className="section-title" style={{ marginBottom: 4 }}>Distribusi Status</p>
           <p className="section-sub" style={{ marginBottom: 12 }}>Semua berkas saat ini</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={70} innerRadius={40} paddingAngle={2}>
-                {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v, n) => [`${v} berkas`, n]} contentStyle={{ borderRadius: 10, border: 'none', fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-            {pieData.map((d, i) => (
-              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: 'var(--c-64748b)', flex: 1 }}>{d.name}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-0f172a)' }}>{d.value}</span>
+          {pieData.every(d => !d.value) ? (
+            <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <span style={{ fontSize: 32 }}>📊</span>
+              <p style={{ fontSize: 13, color: 'var(--c-94a3b8)' }}>Belum ada berkas untuk ditampilkan</p>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={70} innerRadius={40} paddingAngle={2}>
+                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [`${v} berkas`, n]} contentStyle={{ borderRadius: 10, border: 'none', fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                {pieData.map((d, i) => (
+                  <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: 'var(--c-64748b)', flex: 1 }}>{d.name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-0f172a)' }}>{d.value}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -306,6 +315,12 @@ export function Dashboard() {
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/agents')}>Lihat semua</button>
             )}
           </div>
+          {topAgents.length === 0 && (
+            <div style={{ padding: '24px 0', textAlign: 'center' }}>
+              <span style={{ fontSize: 28 }}>👥</span>
+              <p style={{ fontSize: 13, color: 'var(--c-94a3b8)', marginTop: 6 }}>Belum ada data agen</p>
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {topAgents.map((ag, i) => (
               <div key={ag.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -327,7 +342,7 @@ export function Dashboard() {
                     <p style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{ag.totalApprove}</p>
                   </div>
                   <div className="progress">
-                    <div className="progress-bar" style={{ width: `${(ag.totalApprove / topAgents[0].totalApprove) * 100}%`, background: '#22c55e' }} />
+                    <div className="progress-bar" style={{ width: `${(ag.totalApprove / (topAgents[0].totalApprove || 1)) * 100}%`, background: '#22c55e' }} />
                   </div>
                 </div>
               </div>
@@ -346,6 +361,12 @@ export function Dashboard() {
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/applications')}>Lihat semua</button>
             )}
           </div>
+          {recentApps.length === 0 && (
+            <div style={{ padding: '24px 0', textAlign: 'center' }}>
+              <span style={{ fontSize: 28 }}>📄</span>
+              <p style={{ fontSize: 13, color: 'var(--c-94a3b8)', marginTop: 6 }}>Belum ada pengajuan masuk</p>
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {recentApps.map((app, i) => (
               <div

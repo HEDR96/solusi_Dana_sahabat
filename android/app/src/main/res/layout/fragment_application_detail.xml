@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:title="Detail Berkas"
+            app:titleTextColor="#FFFFFF"
+            app:navigationIcon="@drawable/ic_back" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="32dp"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- ID Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#1E293B"
+                android:padding="20dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tvAppId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="APP-001"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace"
+                    android:textColor="#FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:id="@+id/tvCustomer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Nasabah"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pending"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#F59E0B" />
+                </LinearLayout>
+
+                <!-- Kontak nasabah -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCall"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="📞 Telepon"
+                        android:textSize="13sp"
+                        android:textColor="#FFFFFF"
+                        app:backgroundTint="#334155"
+                        app:cornerRadius="10dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnWhatsApp"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:text="💬 WhatsApp"
+                        android:textSize="13sp"
+                        android:textColor="#FFFFFF"
+                        app:backgroundTint="#22C55E"
+                        app:cornerRadius="10dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Info Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Informasi Berkas"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="12dp" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowAgent"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowLeasing"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowPinjaman"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowTenor"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowAngsuran"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowUnit"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowCity"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowInputDate"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowSurvey"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <include layout="@layout/row_info" android:id="@+id/rowApprove"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/tvNotes"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="10dp"
+                        android:background="@color/background"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="8dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Status Logs -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Riwayat Status"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:id="@+id/containerLogs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Dokumen -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Dokumen"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUploadDoc"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:text="+ Upload"
+                            android:textSize="12sp"
+                            app:cornerRadius="10dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/containerDocs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Check-in Survey -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCheckIn"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="📍 Check-in Lokasi Survey"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:layout_marginBottom="10dp"
+                app:backgroundTint="#7C3AED"
+                app:cornerRadius="12dp" />
+
+            <!-- Update Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnUpdateStatus"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Update Status Berkas"
+                android:textSize="15sp"
+                android:visibility="gone"
+                app:cornerRadius="12dp" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

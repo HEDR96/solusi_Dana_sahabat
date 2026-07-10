@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/background"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:text="SD"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:gravity="center"
+        android:background="@drawable/bg_avatar_circle"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Masukkan PIN"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvError"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#EF4444"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Mode PIN -->
+    <LinearLayout
+        android:id="@+id/pinContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="PIN (6 digit)"
+            app:passwordToggleEnabled="true"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberPassword"
+                android:maxLength="6"
+                android:textAlignment="center"
+                android:letterSpacing="0.5" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnUnlock"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Buka"
+            app:cornerRadius="12dp" />
+    </LinearLayout>
+
+    <!-- Mode Pola -->
+    <com.solusidana.sahabat.ui.lock.PatternLockView
+        android:id="@+id/patternView"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnUseEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Login dengan Email &amp; Password"
+        android:textSize="13sp"
+        android:layout_marginTop="24dp"
+        style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+</LinearLayout>

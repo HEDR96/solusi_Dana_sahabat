@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/dashboardFragment">
+
+    <fragment
+        android:id="@+id/dashboardFragment"
+        android:name="com.solusidana.sahabat.ui.dashboard.DashboardFragment"
+        android:label="Dashboard">
+        <action
+            android:id="@+id/action_dashboard_to_detail"
+            app:destination="@id/applicationDetailFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_simulation"
+            app:destination="@id/simulationFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_activities"
+            app:destination="@id/activityListFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/activityListFragment"
+        android:name="com.solusidana.sahabat.ui.activities.ActivityListFragment"
+        android:label="Aktivitas" />
+
+    <fragment
+        android:id="@+id/simulationFragment"
+        android:name="com.solusidana.sahabat.ui.simulation.SimulationFragment"
+        android:label="Simulasi" />
+
+    <fragment
+        android:id="@+id/agentListFragment"
+        android:name="com.solusidana.sahabat.ui.agents.AgentListFragment"
+        android:label="Agen">
+        <action
+            android:id="@+id/action_agents_to_form"
+            app:destination="@id/agentFormFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/agentFormFragment"
+        android:name="com.solusidana.sahabat.ui.agents.AgentFormFragment"
+        android:label="Daftarkan Agen" />
+
+    <fragment
+        android:id="@+id/applicationListFragment"
+        android:name="com.solusidana.sahabat.ui.applications.ApplicationListFragment"
+        android:label="Berkas">
+        <action
+            android:id="@+id/action_applications_to_detail"
+            app:destination="@id/applicationDetailFragment" />
+        <action
+            android:id="@+id/action_applications_to_form"
+            app:destination="@id/applicationFormFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/applicationFormFragment"
+        android:name="com.solusidana.sahabat.ui.applications.ApplicationFormFragment"
+        android:label="Input Berkas" />
+
+    <fragment
+        android:id="@+id/commissionFragment"
+        android:name="com.solusidana.sahabat.ui.commission.CommissionFragment"
+        android:label="Komisi" />
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.solusidana.sahabat.ui.profile.ProfileFragment"
+        android:label="Profil">
+        <action
+            android:id="@+id/action_profile_to_masterdata"
+            app:destination="@id/masterDataFragment" />
+        <action
+            android:id="@+id/action_profile_to_edit"
+            app:destination="@id/editProfileFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editProfileFragment"
+        android:name="com.solusidana.sahabat.ui.profile.EditProfileFragment"
+        android:label="Lengkapi Profil" />
+
+    <fragment
+        android:id="@+id/masterDataFragment"
+        android:name="com.solusidana.sahabat.ui.masterdata.MasterDataFragment"
+        android:label="Master Data" />
+
+    <fragment
+        android:id="@+id/applicationDetailFragment"
+        android:name="com.solusidana.sahabat.ui.applications.ApplicationDetailFragment"
+        android:label="Detail Berkas">
+        <argument
+            android:name="appId"
+            app:argType="string" />
+    </fragment>
+
+</navigation>
