@@ -6,8 +6,9 @@
 //   SUPABASE_SERVICE_KEY — service_role key
 //   VITE_SUPABASE_ANON_KEY — untuk verifikasi token caller
 
-const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SERVICE_KEY   = process.env.SUPABASE_SERVICE_KEY;
+// Strip BOM (﻿) dan whitespace yang mungkin ter-inject oleh PowerShell encoding
+const SUPABASE_URL  = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/^﻿/, '').trim();
+const SERVICE_KEY   = (process.env.SUPABASE_SERVICE_KEY || '').replace(/^﻿/, '').trim();
 const ANON_KEY      = process.env.VITE_SUPABASE_ANON_KEY;
 
 async function verifyAdmin(req) {

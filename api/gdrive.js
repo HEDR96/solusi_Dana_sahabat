@@ -5,8 +5,8 @@
 //   GDRIVE_FOLDER_ID     — ID folder tujuan (dari URL folder Drive)
 import crypto from 'crypto';
 
-const SUPABASE_URL  = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL  = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/^﻿/, '').trim();
+const SUPABASE_ANON = (process.env.VITE_SUPABASE_ANON_KEY || '').replace(/^﻿/, '').trim();
 
 let cachedToken = null;
 
