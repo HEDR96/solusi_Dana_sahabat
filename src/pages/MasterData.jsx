@@ -1,29 +1,188 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { RATE_TABLE_DEFS } from '../data/rateTables';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2 } from 'lucide-react';
 
+// ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [
   { key: 'unit_type',        label: 'Tipe Unit' },
   { key: 'tenor',            label: 'Tenor (bulan)' },
   { key: 'bank',             label: 'Bank' },
   { key: 'payment_method',   label: 'Metode Pembayaran' },
   { key: 'city',             label: 'Kota' },
+  { key: 'doc_type',         label: 'Tipe Dokumen' },
   { key: 'activity_type',    label: 'Jenis Aktivitas', hasLabel: true },
   { key: 'activity_outcome', label: 'Hasil Aktivitas', hasLabel: true },
   { key: 'role',             label: 'Role (label tampilan)', hasLabel: true },
 ];
 
+// ─── Editor satu tabel rate ───────────────────────────────────────────────────
+function RateTableEditor({ def, showToast }) {
+  const [rows,    setRows]    = useState(null);   // [{pinjaman, vals:[]}]
+  const [editing, setEditing] = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [fromDB,  setFromDB]  = useState(false);
+
+  const toRows = (obj) =>
+    Object.keys(obj).map(Number).sort((a, b) => a - b).map(k => ({ pinjaman: k, vals: [...obj[k]] }));
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('dsd_rate_tables')
+      .select('data')
+      .eq('product', def.product)
+      .eq('tipe', def.tipe)
+      .maybeSingle();
+    if (data?.data && Object.keys(data.data).length) {
+      setRows(toRows(data.data));
+      setFromDB(true);
+    } else {
+      setRows(toRows(def.fallback));
+      setFromDB(false);
+    }
+    setEditing(false);
+  }, [def]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    const data = {};
+    rows.forEach(r => { data[r.pinjaman] = r.vals.map(Number); });
+    const { error } = await supabase
+      .from('dsd_rate_tables')
+      .upsert({ product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
+               { onConflict: 'product,tipe' });
+    setSaving(false);
+    if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
+    setFromDB(true);
+    setEditing(false);
+    showToast(`${def.label} berhasil disimpan`);
+  };
+
+  const reset = async () => {
+    if (!confirm('Reset tabel ini ke nilai default dari brosur CMD Finance?')) return;
+    setRows(toRows(def.fallback));
+    const data = {};
+    toRows(def.fallback).forEach(r => { data[r.pinjaman] = r.vals; });
+    await supabase.from('dsd_rate_tables')
+      .upsert({ product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
+               { onConflict: 'product,tipe' });
+    setFromDB(true);
+    showToast(`${def.label} direset ke default`);
+  };
+
+  const updateCell = (ri, ci, val) => {
+    setRows(prev => prev.map((r, i) =>
+      i !== ri ? r : { ...r, vals: r.vals.map((v, j) => j === ci ? val : v) }
+    ));
+  };
+
+  if (!rows) return <p style={{ fontSize:13, color:'var(--c-94a3b8)', padding:20 }}>Memuat...</p>;
+
+  const isFee = def.tipe.includes('fee');
+  const colW  = 68;
+  const pinjW = 90;
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', alignItems:'center' }}>
+        <span style={{ fontSize:11, padding:'3px 10px', borderRadius:20, fontWeight:600,
+          background: fromDB ? '#dbeafe' : '#fef9c3',
+          color:      fromDB ? '#1d4ed8' : '#a16207' }}>
+          {fromDB ? 'Data dari Supabase' : 'Fallback (belum disimpan)'}
+        </span>
+        <div style={{ flex:1 }} />
+        {editing ? (
+          <>
+            <button className="btn btn-sm btn-secondary" onClick={() => { load(); }}>Batal</button>
+            <button className="btn btn-sm btn-primary" onClick={save} disabled={saving}>
+              <Save size={13} /> {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-sm btn-secondary" onClick={reset} title="Reset ke default brosur">
+              <RotateCcw size={13} /> Reset Default
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={() => setEditing(true)}>
+              <Edit2 size={13} /> Edit Tabel
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Grid tabel */}
+      <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border-light)' }}>
+        <table style={{ borderCollapse:'collapse', fontSize:12, minWidth: pinjW + colW * def.tenors.length }}>
+          <thead>
+            <tr style={{ background:'var(--surface-alt)' }}>
+              <th style={{ padding:'8px 10px', textAlign:'left', fontWeight:700, color:'var(--c-64748b)', width:pinjW, position:'sticky', left:0, background:'var(--surface-alt)', borderRight:'1px solid var(--border-light)' }}>
+                Pinjaman
+              </th>
+              {def.tenors.map(t => (
+                <th key={t} style={{ padding:'8px 6px', textAlign:'right', fontWeight:700, color:'var(--c-64748b)', width:colW, minWidth:colW }}>
+                  {t} bln
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={r.pinjaman} style={{ borderTop:'1px solid var(--border-light)', background: ri % 2 ? 'var(--surface-alt)' : 'var(--surface)' }}>
+                <td style={{ padding:'5px 10px', fontWeight:600, color:'var(--c-64748b)', fontSize:11, position:'sticky', left:0, background: ri % 2 ? 'var(--surface-alt)' : 'var(--surface)', borderRight:'1px solid var(--border-light)' }}>
+                  {(r.pinjaman).toLocaleString('id')}
+                </td>
+                {r.vals.map((v, ci) => (
+                  <td key={ci} style={{ padding:'3px 4px', textAlign:'right' }}>
+                    {editing ? (
+                      <input
+                        type="number"
+                        value={v}
+                        onChange={e => updateCell(ri, ci, e.target.value)}
+                        style={{ width: colW - 10, textAlign:'right', padding:'3px 4px', fontSize:12, border:'1px solid var(--border-light)', borderRadius:4, background:'var(--surface)', color:'var(--c-0f172a)' }}
+                      />
+                    ) : (
+                      <span style={{ paddingRight:4, color: isFee ? '#15803d' : 'var(--c-0f172a)', fontWeight: isFee ? 600 : 400 }}>
+                        {Number(v).toLocaleString('id')}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize:11, color:'var(--c-94a3b8)', marginTop:8 }}>
+        Nilai dalam ribuan rupiah (×1.000) · {rows.length} baris · {def.tenors.length} tenor
+      </p>
+    </div>
+  );
+}
+
+// ─── Halaman utama MasterData ─────────────────────────────────────────────────
 export function MasterData() {
   const { showToast } = useApp();
+
+  // Mode: 'options' | 'rates'
+  const [mode,     setMode]     = useState('options');
+
+  // --- Dropdown options state ---
   const [category, setCategory] = useState('unit_type');
-  const [options, setOptions]   = useState([]);
+  const [options,  setOptions]  = useState([]);
   const [newValue, setNewValue] = useState('');
   const [newLabel, setNewLabel] = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [loading,  setLoading]  = useState(false);
+
+  // --- Rate tables state ---
+  const [rateTab, setRateTab] = useState(RATE_TABLE_DEFS[0].id);
 
   const currentCat = CATEGORIES.find(c => c.key === category);
+  const currentDef = RATE_TABLE_DEFS.find(d => d.id === rateTab);
 
   const load = async () => {
     setLoading(true);
@@ -37,7 +196,7 @@ export function MasterData() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [category]);
+  useEffect(() => { if (mode === 'options') load(); }, [category, mode]);
 
   const add = async () => {
     const v = newValue.trim();
@@ -63,73 +222,130 @@ export function MasterData() {
   };
 
   return (
-    <Layout title="Master Data" subtitle="Kelola pilihan dropdown untuk web & aplikasi Android">
-      {/* Kategori */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {CATEGORIES.map(c => (
-          <button
-            key={c.key}
-            className={`btn btn-sm ${category === c.key ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setCategory(c.key)}
-          >
-            {c.label}
-          </button>
+    <Layout title="Master Data" subtitle="Kelola dropdown dan tabel angsuran CMD Finance">
+
+      {/* ── Mode toggle ── */}
+      <div style={{ display:'flex', gap:4, background:'var(--surface-alt)', borderRadius:10, padding:4, marginBottom:20, width:'fit-content' }}>
+        {[
+          { key:'options', label:'Dropdown Opsi' },
+          { key:'rates',   label:'Tabel Rate CMD Finance' },
+        ].map(m => (
+          <button key={m.key} onClick={() => setMode(m.key)} style={{
+            padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
+            background: mode === m.key ? 'var(--surface)' : 'transparent',
+            color:       mode === m.key ? 'var(--c-0f172a)' : 'var(--c-64748b)',
+            boxShadow:   mode === m.key ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
+            transition:'all .15s',
+          }}>{m.label}</button>
         ))}
       </div>
 
-      <div className="card" style={{ padding: 20, maxWidth: 560 }}>
-        {/* Tambah baru */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <input
-            className="input"
-            style={{ flex: 1, minWidth: 140 }}
-            value={newValue}
-            onChange={e => setNewValue(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && add()}
-            placeholder={currentCat?.hasLabel ? 'Kunci (mis. tipe-baru)' : `Tambah ${currentCat?.label.toLowerCase()}...`}
-          />
-          {currentCat?.hasLabel && (
-            <input
-              className="input"
-              style={{ flex: 1, minWidth: 140 }}
-              value={newLabel}
-              onChange={e => setNewLabel(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && add()}
-              placeholder="Label tampilan (mis. Tipe Baru)"
-            />
-          )}
-          <button className="btn btn-primary" onClick={add}><Plus size={15} /> Tambah</button>
-        </div>
-
-        {/* Daftar */}
-        {loading ? (
-          <p style={{ fontSize: 13, color: 'var(--c-94a3b8)' }}>Memuat...</p>
-        ) : options.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--c-94a3b8)' }}>Belum ada data — jalankan migration 004 dulu di Supabase</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {options.map(opt => (
-              <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: opt.active ? 'var(--c-0f172a)' : 'var(--c-94a3b8)', textDecoration: opt.active ? 'none' : 'line-through' }}>
-                  {opt.label || opt.value}
-                  {opt.label && <span style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginLeft: 8, fontFamily: 'monospace' }}>{opt.value}</span>}
-                </span>
-                {!opt.active && <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>Nonaktif</span>}
-                <button className="btn btn-ghost btn-sm" title={opt.active ? 'Sembunyikan' : 'Aktifkan'} onClick={() => toggle(opt)}>
-                  {opt.active ? <Eye size={14} /> : <EyeOff size={14} />}
-                </button>
-                <button className="btn btn-ghost btn-sm" title="Hapus" onClick={() => remove(opt)}>
-                  <Trash2 size={14} color="#ef4444" />
-                </button>
-              </div>
+      {/* ── MODE: Dropdown Options ── */}
+      {mode === 'options' && (
+        <>
+          <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+            {CATEGORIES.map(c => (
+              <button
+                key={c.key}
+                className={`btn btn-sm ${category === c.key ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCategory(c.key)}
+              >
+                {c.label}
+              </button>
             ))}
           </div>
-        )}
-      </div>
 
-      <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', marginTop: 14, maxWidth: 560 }}>
-        💡 Perubahan langsung berlaku di form web dan aplikasi Android (app memuat ulang saat dibuka; tersimpan offline sebagai cache).
-      </p>
+          <div className="card" style={{ padding:20, maxWidth:560 }}>
+            <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+              <input
+                className="input"
+                style={{ flex:1, minWidth:140 }}
+                value={newValue}
+                onChange={e => setNewValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && add()}
+                placeholder={currentCat?.hasLabel ? 'Kunci (mis. tipe-baru)' : `Tambah ${currentCat?.label.toLowerCase()}...`}
+              />
+              {currentCat?.hasLabel && (
+                <input
+                  className="input"
+                  style={{ flex:1, minWidth:140 }}
+                  value={newLabel}
+                  onChange={e => setNewLabel(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && add()}
+                  placeholder="Label tampilan"
+                />
+              )}
+              <button className="btn btn-primary" onClick={add}><Plus size={15} /> Tambah</button>
+            </div>
+
+            {loading ? (
+              <p style={{ fontSize:13, color:'var(--c-94a3b8)' }}>Memuat...</p>
+            ) : options.length === 0 ? (
+              <p style={{ fontSize:13, color:'var(--c-94a3b8)' }}>Belum ada data</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column' }}>
+                {options.map(opt => (
+                  <div key={opt.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border-light)' }}>
+                    <span style={{ flex:1, fontSize:14, fontWeight:500, color: opt.active ? 'var(--c-0f172a)' : 'var(--c-94a3b8)', textDecoration: opt.active ? 'none' : 'line-through' }}>
+                      {opt.label || opt.value}
+                      {opt.label && <span style={{ fontSize:11, color:'var(--c-94a3b8)', marginLeft:8, fontFamily:'monospace' }}>{opt.value}</span>}
+                    </span>
+                    {!opt.active && <span style={{ fontSize:11, color:'#f59e0b', fontWeight:600 }}>Nonaktif</span>}
+                    <button className="btn btn-ghost btn-sm" title={opt.active ? 'Sembunyikan' : 'Aktifkan'} onClick={() => toggle(opt)}>
+                      {opt.active ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" title="Hapus" onClick={() => remove(opt)}>
+                      <Trash2 size={14} color="#ef4444" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p style={{ fontSize:12, color:'var(--c-94a3b8)', marginTop:14, maxWidth:560 }}>
+            Perubahan langsung berlaku di form web dan aplikasi Android.
+          </p>
+        </>
+      )}
+
+      {/* ── MODE: Rate Tables ── */}
+      {mode === 'rates' && (
+        <>
+          <p style={{ fontSize:12, color:'var(--c-64748b)', marginBottom:14, maxWidth:700 }}>
+            Edit tabel angsuran dan fee agent CMD Finance. Nilai dalam <strong>ribuan rupiah</strong> (×1.000) sesuai brosur resmi. Klik <strong>Edit Tabel</strong> untuk mengubah sel, lalu <strong>Simpan</strong>. Tersimpan di Supabase dan langsung dipakai halaman Simulasi.
+          </p>
+
+          {/* Tab pilih tabel */}
+          <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+            {RATE_TABLE_DEFS.map(d => (
+              <button
+                key={d.id}
+                className={`btn btn-sm ${rateTab === d.id ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setRateTab(d.id)}
+                style={{ fontSize:11 }}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Editor */}
+          <div className="card" style={{ padding:20 }}>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--c-0f172a)', marginBottom:14 }}>
+              {currentDef?.label}
+            </h3>
+            {currentDef && (
+              <RateTableEditor
+                key={currentDef.id}
+                def={currentDef}
+                showToast={showToast}
+              />
+            )}
+          </div>
+        </>
+      )}
+
     </Layout>
   );
 }
