@@ -12,28 +12,54 @@ const ANON_KEY      = process.env.VITE_SUPABASE_ANON_KEY;
 
 async function verifyAdmin(req) {
   const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Bearer ')) return null;
+  if (!auth.startsWith('Bearer ')) {
+    console.error('[verifyAdmin] No Bearer token');
+    return null;
+  }
+  if (!SERVICE_KEY) {
+    console.error('[verifyAdmin] SUPABASE_SERVICE_KEY not set');
+    return { _debug: 'no_service_key' };
+  }
+  if (!SUPABASE_URL) {
+    console.error('[verifyAdmin] SUPABASE_URL not set');
+    return null;
+  }
   try {
     // Dapatkan user dari token mereka
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { apikey: ANON_KEY || SERVICE_KEY, Authorization: auth },
     });
-    if (!r.ok) return null;
-    const u = await r.json();
-    if (!u?.id) return null;
+    const rText = await r.text();
+    if (!r.ok) {
+      console.error('[verifyAdmin] auth/user failed:', r.status, rText.slice(0, 200));
+      return null;
+    }
+    const u = JSON.parse(rText);
+    if (!u?.id) {
+      console.error('[verifyAdmin] no user id in response');
+      return null;
+    }
 
-    // Cek role pakai SERVICE_KEY (bypass RLS — lebih reliable)
-    const p = await fetch(
-      `${SUPABASE_URL}/rest/v1/dsd_profiles?id=eq.${u.id}&select=role`,
-      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
-    );
-    if (!p.ok) return null;
-    const profiles = await p.json();
+    // Cek role pakai SERVICE_KEY (bypass RLS)
+    const profileUrl = `${SUPABASE_URL}/rest/v1/dsd_profiles?id=eq.${u.id}&select=role`;
+    const p = await fetch(profileUrl, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+    });
+    const pText = await p.text();
+    if (!p.ok) {
+      console.error('[verifyAdmin] profile fetch failed:', p.status, pText.slice(0, 200));
+      return null;
+    }
+    const profiles = JSON.parse(pText);
     const role = Array.isArray(profiles) ? profiles[0]?.role : null;
-    if (!['owner', 'super-admin'].includes(role)) return null;
+    console.log('[verifyAdmin] user:', u.id, 'role:', role);
+    if (!['owner', 'super-admin'].includes(role)) {
+      console.error('[verifyAdmin] role not allowed:', role);
+      return null;
+    }
     return u;
   } catch (e) {
-    console.error('verifyAdmin error:', e?.message);
+    console.error('[verifyAdmin] exception:', e?.message);
     return null;
   }
 }
