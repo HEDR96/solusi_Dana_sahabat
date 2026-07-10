@@ -46,6 +46,7 @@ export function ApplicationList() {
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const unitTypes = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
   const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
+  const cityOptions = useMasterOptions('city', []);
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
   const [filterAgent, setAgent]     = useState('all');
@@ -340,7 +341,12 @@ export function ApplicationList() {
           </div>
           <F label="NIK / Nomor KTP" error={errors.nik}><input className="input" value={form.nik} onChange={e => set('nik')(e.target.value)} placeholder="16 digit NIK" style={errors.nik ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Nomor Telepon" error={errors.phone}><input className="input" value={form.phone} onChange={e => set('phone')(e.target.value)} placeholder="08xx-xxxx-xxxx" style={errors.phone ? { borderColor: '#ef4444' } : undefined} /></F>
-          <F label="Kota" error={errors.city}><input className="input" value={form.city} onChange={e => set('city')(e.target.value)} placeholder="Kota domisili" style={errors.city ? { borderColor: '#ef4444' } : undefined} /></F>
+          <F label="Kota" error={errors.city}>
+            <input className="input" list="master-city-options-app" value={form.city} onChange={e => set('city')(e.target.value)} placeholder="Kota domisili" style={errors.city ? { borderColor: '#ef4444' } : undefined} />
+            <datalist id="master-city-options-app">
+              {cityOptions.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </F>
           <F label="Tipe Unit">
             <select className="input" value={form.unitType} onChange={e => set('unitType')(e.target.value)}>
               {unitTypes.map(t => <option key={t}>{t}</option>)}

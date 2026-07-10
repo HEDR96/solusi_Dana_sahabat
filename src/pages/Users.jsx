@@ -3,6 +3,7 @@ import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
+import { useMasterOptions, useMasterPairs } from '../utils/useMasterOptions';
 import { Plus, Edit2, Shield, Check } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
@@ -13,17 +14,19 @@ const F = memo(({ label, children, error }) => (
   </div>
 ));
 
-const ROLES = [
-  { key: 'owner',       label: 'Owner',            color: '#7c3aed', bg: '#f5f3ff' },
-  { key: 'super-admin', label: 'Super Admin',      color: '#ef4444', bg: '#fef2f2' },
-  { key: 'admin',       label: 'Admin/Back Office', color: '#3b82f6', bg: '#eff6ff' },
-  { key: 'spv-agen',    label: 'Supervisor Agen',  color: '#f97316', bg: '#fff7ed' },
-  { key: 'agen',        label: 'Agen',              color: '#22c55e', bg: '#f0fdf4' },
-  { key: 'surveyor',    label: 'Surveyor',          color: '#f59e0b', bg: '#fffbeb' },
-  { key: 'finance',     label: 'Finance',           color: '#8b5cf6', bg: '#f5f3ff' },
+// Fallback jika master_options (kategori 'role' / 'roleperm:<role>') belum di-migrate.
+// Sumber utama: menu Master Data → dikelola owner, tanpa hardcode.
+const FALLBACK_ROLES = [
+  { value: 'owner',       label: 'Owner' },
+  { value: 'super-admin', label: 'Super Admin' },
+  { value: 'admin',       label: 'Admin/Back Office' },
+  { value: 'spv-agen',    label: 'Supervisor Agen' },
+  { value: 'agen',        label: 'Agen' },
+  { value: 'surveyor',    label: 'Surveyor' },
+  { value: 'finance',     label: 'Finance' },
 ];
 
-const PERMISSIONS = {
+const FALLBACK_PERMISSIONS = {
   'owner':       ['Semua akses sistem tanpa batasan', 'Kelola semua user & role', 'Akses semua laporan & data', 'Kelola pengaturan sistem'],
   'super-admin': ['Semua akses sistem', 'Kelola user & role', 'Kelola data leasing', 'Kelola pembayaran komisi', 'Lihat semua laporan', 'Pengaturan sistem'],
   'admin':       ['Proses & input berkas', 'Ubah status pengajuan', 'Atur jadwal survey', 'Lihat laporan & komisi'],
@@ -33,8 +36,20 @@ const PERMISSIONS = {
   'finance':     ['Kelola pembayaran komisi', 'Ubah status komisi', 'Lihat laporan pembayaran'],
 };
 
-function RoleBadge({ role }) {
-  const r = ROLES.find(r => r.key === role);
+// Warna badge per role (visual, bukan data) — role baru dapat warna default
+const ROLE_COLORS = {
+  'owner':       { color: '#7c3aed', bg: '#f5f3ff' },
+  'super-admin': { color: '#ef4444', bg: '#fef2f2' },
+  'admin':       { color: '#3b82f6', bg: '#eff6ff' },
+  'spv-agen':    { color: '#f97316', bg: '#fff7ed' },
+  'agen':        { color: '#22c55e', bg: '#f0fdf4' },
+  'surveyor':    { color: '#f59e0b', bg: '#fffbeb' },
+  'finance':     { color: '#8b5cf6', bg: '#f5f3ff' },
+};
+const DEFAULT_ROLE_COLOR = { color: '#64748b', bg: 'var(--surface-alt2)' };
+
+function RoleBadge({ role, roles }) {
+  const r = roles.find(r => r.key === role);
   if (!r) return null;
   return (
     <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: r.bg, color: r.color, whiteSpace: 'nowrap' }}>
@@ -54,6 +69,11 @@ export function Users() {
   const [form, setForm]             = useState(EMPTY_USER);
   const [errors, setErrors]         = useState({});
   const [saving, setSaving]         = useState(false);
+
+  // Role & kegunaannya dari DB (menu Master Data) — fallback ke konstanta lama
+  const rolePairs = useMasterPairs('role', FALLBACK_ROLES);
+  const roles = rolePairs.map(p => ({ key: p.value, label: p.label, ...(ROLE_COLORS[p.value] || DEFAULT_ROLE_COLOR) }));
+  const selectedRolePerms = useMasterOptions(`roleperm:${selectedRole}`, FALLBACK_PERMISSIONS[selectedRole] || []);
 
   const openEdit = useCallback(user => { setEdit(user); setForm({ ...user, password: '' }); setErrors({}); setShow(true); }, []);
   const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setShow(true); }, []);
@@ -108,7 +128,7 @@ export function Users() {
             </thead>
             <tbody>
               {users.map(user => {
-                const r = ROLES.find(r => r.key === user.role);
+                const r = roles.find(r => r.key === user.role);
                 return (
                   <tr key={user.id} className="table-row">
                     <td className="table-td">
@@ -120,7 +140,7 @@ export function Users() {
                       </div>
                     </td>
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{user.email}</td>
-                    <td className="table-td"><RoleBadge role={user.role} /></td>
+                    <td className="table-td"><RoleBadge role={user.role} roles={roles} /></td>
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{user.agentId || '-'}</td>
                     <td className="table-td"><Badge status={user.status} /></td>
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)', fontFamily: 'monospace' }}>{user.lastLogin}</td>
@@ -137,7 +157,7 @@ export function Users() {
         {/* Role permissions panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-64748b)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Hak Akses per Role</p>
-          {ROLES.map(role => (
+          {roles.map(role => (
             <div key={role.key} onClick={() => setSelRole(role.key)}
               style={{
                 background: 'var(--surface)', borderRadius: 12, padding: 14, cursor: 'pointer',
@@ -151,7 +171,7 @@ export function Users() {
               </div>
               {selectedRole === role.key && (
                 <ul style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {PERMISSIONS[role.key].map(p => (
+                  {selectedRolePerms.map(p => (
                     <li key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--c-374151)' }}>
                       <Check size={12} color="#22c55e" />
                       {p}
@@ -190,7 +210,7 @@ export function Users() {
           )}
           <F label="Role">
             <select className="input" value={form.role} onChange={e => sf('role')(e.target.value)}>
-              {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+              {roles.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
             </select>
           </F>
           {form.role === 'agen' && (

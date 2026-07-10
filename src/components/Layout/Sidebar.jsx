@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { SECTIONS, canAccessSection } from '../../data/permissions';
+import { useMasterPairs } from '../../utils/useMasterOptions';
 
 const NAV = [
   { path: '/dashboard',            icon: LayoutDashboard, label: 'Dashboard',        key: SECTIONS.DASHBOARD },
@@ -30,20 +31,23 @@ const NAV = [
   { path: '/settings',             icon: Settings,        label: 'Pengaturan',       key: SECTIONS.SETTINGS },
 ];
 
-const ROLE_LABEL = {
-  'owner':       'Owner',
-  'super-admin': 'Super Admin',
-  admin:         'Admin / Back Office',
-  'spv-agen':    'Supervisor Agen',
-  agen:          'Agen',
-  surveyor:      'Surveyor',
-  finance:       'Finance',
-};
+// Fallback label role — sumber utama: master_options kategori 'role' (menu Master Data)
+const FALLBACK_ROLE_LABELS = [
+  { value: 'owner',       label: 'Owner' },
+  { value: 'super-admin', label: 'Super Admin' },
+  { value: 'admin',       label: 'Admin / Back Office' },
+  { value: 'spv-agen',    label: 'Supervisor Agen' },
+  { value: 'agen',        label: 'Agen' },
+  { value: 'surveyor',    label: 'Surveyor' },
+  { value: 'finance',     label: 'Finance' },
+];
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, mobileNavOpen, setMobileNavOpen, currentUser, logout } = useApp();
   const navigate = useNavigate();
   const collapsed = !sidebarOpen;
+  const rolePairs = useMasterPairs('role', FALLBACK_ROLE_LABELS);
+  const roleLabel = rolePairs.find(r => r.value === currentUser?.role)?.label || currentUser?.role;
 
   const allowedNav = NAV.filter(item => !item.path || canAccessSection(currentUser?.role, item.key));
   const visibleNav = allowedNav.filter((item, i) => {
@@ -132,7 +136,7 @@ export function Sidebar() {
                   {currentUser.name}
                 </p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 1 }}>
-                  {ROLE_LABEL[currentUser.role] || currentUser.role}
+                  {roleLabel}
                 </p>
               </div>
             )}

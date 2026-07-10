@@ -20,3 +20,23 @@ export function useMasterOptions(category, fallback = []) {
   }, [category]);
   return options;
 }
+
+// Versi berpasangan {value, label} — untuk kategori yang kunci ≠ tampilan
+// (role, activity_type, activity_outcome). Fallback: [{value, label}, ...]
+export function useMasterPairs(category, fallback = []) {
+  const [pairs, setPairs] = useState(fallback);
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from('master_options')
+      .select('value,label,sort')
+      .eq('category', category)
+      .eq('active', true)
+      .order('sort')
+      .then(({ data }) => {
+        if (alive && data?.length) setPairs(data.map(d => ({ value: d.value, label: d.label || d.value })));
+      });
+    return () => { alive = false; };
+  }, [category]);
+  return pairs;
+}

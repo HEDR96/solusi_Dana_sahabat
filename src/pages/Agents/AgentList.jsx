@@ -9,6 +9,7 @@ import { exportToCsv } from '../../utils/exportCsv';
 import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
 import { useDebounce } from '../../utils/useDebounce';
+import { useMasterOptions } from '../../utils/useMasterOptions';
 import { Plus, Search, Eye, Edit2, Download, MapPin, TrendingUp } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
@@ -53,6 +54,7 @@ export function AgentList() {
   const PER = 8;
 
   const debouncedSearch = useDebounce(search, 300);
+  const cityOptions = useMasterOptions('city', []);
 
   // Supervisors = users with spv-agen role
   const supervisors = useMemo(() => users.filter(u => u.role === 'spv-agen'), [users]);
@@ -249,7 +251,12 @@ export function AgentList() {
           <F label="Nomor HP" error={errors.phone}><input className="input" value={form.phone} onChange={e => set('phone')(e.target.value)} style={errors.phone ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Email"><input className="input" type="email" value={form.email} onChange={e => set('email')(e.target.value)} /></F>
           <F label="NIK / KTP" error={errors.nik}><input className="input" value={form.nik} onChange={e => set('nik')(e.target.value)} style={errors.nik ? { borderColor: '#ef4444' } : undefined} /></F>
-          <F label="Kota" error={errors.city}><input className="input" value={form.city} onChange={e => set('city')(e.target.value)} style={errors.city ? { borderColor: '#ef4444' } : undefined} /></F>
+          <F label="Kota" error={errors.city}>
+            <input className="input" list="master-city-options" value={form.city} onChange={e => set('city')(e.target.value)} style={errors.city ? { borderColor: '#ef4444' } : undefined} />
+            <datalist id="master-city-options">
+              {cityOptions.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </F>
           <F label="Status">
             <select className="input" value={form.status} onChange={e => set('status')(e.target.value)}>
               <option value="aktif">Aktif</option>

@@ -4,20 +4,29 @@ import { Layout } from '../components/Layout/Layout';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { ACTIVITY_TYPES, ACTIVITY_OUTCOMES } from '../data/dummyData';
+import { useMasterPairs } from '../utils/useMasterOptions';
 import { Plus, Search, Activity, TrendingUp, CheckCircle, Clock } from 'lucide-react';
 
 const EMPTY = { date: new Date().toISOString().split('T')[0], agentId: '', type: 'kunjungan-dealer', description: '', outcome: 'prospek-baru', relatedAppId: '' };
 
-function OutcomeBadge({ outcome }) {
-  const o = ACTIVITY_OUTCOMES.find(x => x.key === outcome);
+// Fallback jika master_options belum di-migrate (kategori activity_type / activity_outcome)
+const FALLBACK_TYPES    = ACTIVITY_TYPES.map(t => ({ value: t.key, label: t.label }));
+const FALLBACK_OUTCOMES = ACTIVITY_OUTCOMES.map(o => ({ value: o.key, label: o.label }));
+
+// Warna visual per hasil — hasil baru dari Master Data dapat warna default
+const OUTCOME_HEX = Object.fromEntries(ACTIVITY_OUTCOMES.map(o => [o.key, o.hex]));
+
+function OutcomeBadge({ outcome, outcomes }) {
+  const o = outcomes.find(x => x.value === outcome);
   if (!o) return null;
+  const hex = OUTCOME_HEX[outcome] || '#64748b';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 99,
-      background: o.hex + '18', color: o.hex,
+      background: hex + '18', color: hex,
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: o.hex }} />
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: hex }} />
       {o.label}
     </span>
   );
@@ -34,6 +43,10 @@ export function AgentActivity() {
   const [showModal, setShow]      = useState(false);
   const [form, setForm]           = useState(EMPTY);
   const [errors, setErrors]       = useState({});
+
+  // Jenis & hasil aktivitas dari Master Data (fallback konstanta lama)
+  const activityTypes    = useMasterPairs('activity_type', FALLBACK_TYPES);
+  const activityOutcomes = useMasterPairs('activity_outcome', FALLBACK_OUTCOMES);
 
   const filtered = activities.filter(a => {
     const q = search.toLowerCase();
@@ -132,11 +145,11 @@ export function AgentActivity() {
         )}
         <select className="input" style={{ width: 'auto' }} value={filterType} onChange={e => setType(e.target.value)}>
           <option value="all">Semua Jenis</option>
-          {ACTIVITY_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+          {activityTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <select className="input" style={{ width: 'auto' }} value={filterOutcome} onChange={e => setOut(e.target.value)}>
           <option value="all">Semua Hasil</option>
-          {ACTIVITY_OUTCOMES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          {activityOutcomes.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
@@ -165,7 +178,7 @@ export function AgentActivity() {
                 </td>
               </tr>
             ) : filtered.map(a => {
-              const type = ACTIVITY_TYPES.find(t => t.key === a.type);
+              const type = activityTypes.find(t => t.value === a.type);
               return (
                 <tr key={a.id} className="table-row">
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)', whiteSpace: 'nowrap' }}>{a.date}</td>
@@ -179,7 +192,7 @@ export function AgentActivity() {
                   )}
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{type?.label || a.type}</td>
                   <td className="table-td" style={{ fontSize: 13, color: 'var(--c-374151)', maxWidth: 320 }}>{a.description}</td>
-                  <td className="table-td"><OutcomeBadge outcome={a.outcome} /></td>
+                  <td className="table-td"><OutcomeBadge outcome={a.outcome} outcomes={activityOutcomes} /></td>
                   <td className="table-td">
                     {a.relatedAppId ? (
                       <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/applications/${a.relatedAppId}`)}>
@@ -221,12 +234,12 @@ export function AgentActivity() {
           )}
           <F label="Jenis Aktivitas">
             <select className="input" value={form.type} onChange={e => sf('type')(e.target.value)}>
-              {ACTIVITY_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              {activityTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </F>
           <F label="Hasil">
             <select className="input" value={form.outcome} onChange={e => sf('outcome')(e.target.value)}>
-              {ACTIVITY_OUTCOMES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              {activityOutcomes.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </F>
           <div style={{ gridColumn: 'span 2' }}>
