@@ -4,7 +4,7 @@ import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
 import { Modal } from '../../components/UI/Modal';
 import { useApp } from '../../context/AppContext';
-import { formatRupiah, leasingPartners, STATUSES } from '../../data/dummyData';
+import { formatRupiah, STATUSES } from '../../data/dummyData';
 import { exportToCsv } from '../../utils/exportCsv';
 import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
@@ -36,12 +36,12 @@ const EMPTY = {
   customerName: '', nik: '', phone: '', city: '', address: '',
   unitType: 'Mobil', unitYear: new Date().getFullYear(), unitBrand: '',
   pinjaman: '', tenor: 36, estimasiAngsuran: '',
-  leasingId: 1, leasingName: 'Adira Finance',
+  leasingId: '', leasingName: '',
   agentId: '', agentName: '', notes: '',
 };
 
 export function ApplicationList() {
-  const { visibleApplications: applications, agents, addApplication, updateApplicationStatus, currentUser } = useApp();
+  const { visibleApplications: applications, agents, leasing, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const unitTypes = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
@@ -116,7 +116,7 @@ export function ApplicationList() {
 
   const handleSubmit = useCallback(() => {
     if (!validate()) return;
-    const ls = leasingPartners.find(l => l.id === Number(form.leasingId));
+    const ls = leasing.find(l => l.id === Number(form.leasingId));
     const ag = currentUser?.role === 'agen'
       ? agents.find(a => a.id === currentUser.agentId)
       : agents.find(a => a.id === form.agentId);
@@ -362,11 +362,12 @@ export function ApplicationList() {
           </F>
           <F label="Leasing Tujuan">
             <select className="input" value={form.leasingId} onChange={e => {
-              const ls = leasingPartners.find(l => l.id === Number(e.target.value));
+              const ls = leasing.find(l => l.id === Number(e.target.value));
               set('leasingId')(Number(e.target.value));
               set('leasingName')(ls?.name || '');
             }}>
-              {leasingPartners.filter(l => l.status === 'aktif').map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              <option value="">— Pilih Leasing —</option>
+              {leasing.filter(l => l.status === 'aktif').map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </F>
           {currentUser?.role !== 'agen' && (

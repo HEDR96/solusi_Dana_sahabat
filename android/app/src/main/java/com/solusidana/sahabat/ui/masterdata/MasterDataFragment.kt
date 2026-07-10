@@ -30,10 +30,14 @@ class MasterDataFragment : Fragment() {
     private val b get() = _b!!
 
     private val categories = listOf(
-        "unit_type"      to "Tipe Unit",
-        "tenor"          to "Tenor",
-        "bank"           to "Bank",
-        "payment_method" to "Metode Bayar"
+        "unit_type"        to "Tipe Unit",
+        "tenor"            to "Tenor (bulan)",
+        "bank"             to "Bank",
+        "payment_method"   to "Metode Bayar",
+        "city"             to "Kota",
+        "activity_type"    to "Jenis Aktivitas",
+        "activity_outcome" to "Hasil Aktivitas",
+        "role"             to "Role (Label)"
     )
     private var currentCategory = "unit_type"
     private var allOptions = listOf<MasterOption>()

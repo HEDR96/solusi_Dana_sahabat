@@ -3,6 +3,7 @@ import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
 import { useApp } from '../../context/AppContext';
 import { formatRupiah, ACTIVITY_TYPES, ACTIVITY_OUTCOMES } from '../../data/dummyData';
+import { useMasterPairs } from '../../utils/useMasterOptions';
 import { ArrowLeft, Phone, Mail, MapPin, CreditCard, Target, CheckCircle, XCircle, FileText, DollarSign, Activity } from 'lucide-react';
 
 function Row({ label, value, icon: Icon }) {
@@ -21,6 +22,9 @@ export function AgentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { visibleAgents, applications, commissions, agentActivities, managedAgentIds, currentUser } = useApp();
+  const activityTypes    = useMasterPairs('activity_type',    ACTIVITY_TYPES.map(t => ({ value: t.key, label: t.label })));
+  const activityOutcomes = useMasterPairs('activity_outcome', ACTIVITY_OUTCOMES.map(o => ({ value: o.key, label: o.label })));
+  const outcomeHex       = Object.fromEntries(ACTIVITY_OUTCOMES.map(o => [o.key, o.hex]));
 
   const agent = visibleAgents.find(a => a.id === id);
   const isSpv = currentUser?.role === 'spv-agen';
@@ -174,18 +178,18 @@ export function AgentDetail() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {agentActs.map(act => {
-                const type = ACTIVITY_TYPES.find(t => t.key === act.type);
-                const outcome = ACTIVITY_OUTCOMES.find(o => o.key === act.outcome);
+                const type    = activityTypes.find(t => t.value === act.type);
+                const outcome = activityOutcomes.find(o => o.value === act.outcome);
                 return (
                   <div key={act.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
                     <span style={{ fontSize: 11, color: 'var(--c-94a3b8)', whiteSpace: 'nowrap', width: 76, flexShrink: 0 }}>{act.date}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, color: 'var(--c-374151)' }}>
-                        <strong style={{ color: 'var(--c-0f172a)' }}>{type?.label}</strong> — {act.description}
+                        <strong style={{ color: 'var(--c-0f172a)' }}>{type?.label || act.type}</strong> — {act.description}
                       </p>
                     </div>
                     {outcome && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: outcome.hex, whiteSpace: 'nowrap' }}>{outcome.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: outcomeHex[act.outcome] || '#64748b', whiteSpace: 'nowrap' }}>{outcome.label}</span>
                     )}
                   </div>
                 );

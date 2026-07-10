@@ -10,7 +10,7 @@ export function Simulation() {
   const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
   const [form, setForm] = useState({
     harga: 200000000, uangMuka: 40000000, tenor: 48, rate: 1.4,
-    leasingId: 1, biayaAdmin: 1500000, biayaAsuransi: 2000000, biayaProvisi: 1, biayaLain: 500000,
+    leasingId: '', biayaAdmin: 1500000, biayaAsuransi: 2000000, biayaProvisi: 1, biayaLain: 500000,
   });
   const [result, setResult] = useState(null);
 
