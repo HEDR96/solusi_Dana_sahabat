@@ -5,8 +5,24 @@ import { Layout } from '../components/Layout/Layout';
 import { supabase } from '../lib/supabaseClient';
 import { RefreshCw } from 'lucide-react';
 
-const ROLE_COLOR = { 'agen': '#3b82f6', 'spv-agen': '#f97316' };
-const ROLE_LABEL = { 'agen': 'Agen', 'spv-agen': 'Supervisor Agen' };
+const ROLE_COLOR = {
+  'owner':       '#7c3aed',
+  'super-admin': '#ef4444',
+  'admin':       '#0ea5e9',
+  'spv-agen':    '#f97316',
+  'agen':        '#3b82f6',
+  'surveyor':    '#22c55e',
+  'finance':     '#8b5cf6',
+};
+const ROLE_LABEL = {
+  'owner':       'Owner',
+  'super-admin': 'Super Admin',
+  'admin':       'Admin',
+  'spv-agen':    'Supervisor Agen',
+  'agen':        'Agen',
+  'surveyor':    'Surveyor',
+  'finance':     'Finance',
+};
 
 function timeAgo(iso) {
   if (!iso) return '-';
@@ -30,7 +46,6 @@ export function AgentMap() {
     const { data } = await supabase
       .from('dsd_agent_locations')
       .select('*')
-      .in('role', ['agen', 'spv-agen'])
       .order('updated_at', { ascending: false });
     setLocations(data || []);
     setLoading(false);
@@ -77,23 +92,26 @@ export function AgentMap() {
 
   return (
     <Layout
-      title="Peta Agen"
-      subtitle="Lokasi terakhir agen & supervisor (dari aplikasi Android)"
+      title="Peta Lokasi Tim"
+      subtitle="Lokasi terakhir semua user yang login di aplikasi Android"
       actions={
         <button className="btn btn-secondary" onClick={load} disabled={loading}>
           <RefreshCw size={14} /> {loading ? 'Memuat...' : 'Refresh'}
         </button>
       }
     >
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        {Object.entries(ROLE_LABEL).map(([role, label]) => (
+      {/* Legend — hanya tampilkan role yang ada di data */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[...new Set(locations.map(l => l.role))].filter(Boolean).map(role => (
           <span key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--c-64748b)' }}>
-            <span style={{ width: 12, height: 12, borderRadius: '50%', background: ROLE_COLOR[role], border: '2px solid #fff', boxShadow: '0 0 0 1px var(--border)' }} />
-            {label}
+            <span style={{ width: 12, height: 12, borderRadius: '50%', background: ROLE_COLOR[role] || '#64748b', border: '2px solid #fff', boxShadow: '0 0 0 1px var(--border)', flexShrink: 0 }} />
+            {ROLE_LABEL[role] || role}
           </span>
         ))}
-        <span style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{locations.length} lokasi terdata</span>
+        {locations.length === 0 && !loading && (
+          <span style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Menunggu data...</span>
+        )}
+        <span style={{ fontSize: 12, color: 'var(--c-94a3b8)', marginLeft: 4 }}>{locations.length > 0 ? `${locations.length} lokasi terdata` : ''}</span>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -102,7 +120,7 @@ export function AgentMap() {
 
       {locations.length === 0 && !loading && (
         <p style={{ fontSize: 13, color: 'var(--c-94a3b8)', marginTop: 12 }}>
-          Belum ada data lokasi. Lokasi terkirim otomatis saat agen membuka aplikasi Android (dengan izin lokasi).
+          Belum ada data lokasi. Lokasi terkirim otomatis saat user (role apapun) membuka aplikasi Android dan mengizinkan akses lokasi.
         </p>
       )}
     </Layout>

@@ -21,9 +21,8 @@ class LocationWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
         val session = SessionManager(applicationContext)
-        // Hanya agen & spv-agen yang lokasinya dilacak
+        // Semua role yang login dilacak lokasinya
         if (!session.isLoggedIn) return Result.success()
-        if (session.userRole !in listOf("agen", "spv-agen")) return Result.success()
 
         SupabaseApi.refreshSession(session)
         val token  = session.accessToken ?: return Result.success()
