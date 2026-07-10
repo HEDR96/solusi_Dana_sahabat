@@ -21,7 +21,7 @@ async function verifyAdmin(req) {
   const u = await r.json();
   // Cek role di tabel profiles
   const p = await fetch(
-    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${u.id}&select=role`,
+    `${SUPABASE_URL}/rest/v1/dsd_profiles?id=eq.${u.id}&select=role`,
     { headers: { apikey: ANON_KEY, Authorization: auth } }
   );
   const profiles = await p.json();
@@ -67,7 +67,7 @@ module.exports = async (req, res) => {
 
     const userId = created.id;
     // 2. Insert profile
-    const profResp = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+    const profResp = await fetch(`${SUPABASE_URL}/rest/v1/dsd_profiles`, {
       method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
       body: JSON.stringify({ id: userId, name, email, role: role || 'agen', status: status || 'aktif', agent_id: agentId || null }),
     });

@@ -28,7 +28,7 @@ export function MasterData() {
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from('master_options')
+      .from('dsd_master_options')
       .select('*')
       .eq('category', category)
       .order('sort')
@@ -45,19 +45,19 @@ export function MasterData() {
     const maxSort = Math.max(0, ...options.map(o => o.sort || 0));
     const row = { category, value: v, sort: maxSort + 1, active: true };
     if (currentCat?.hasLabel && newLabel.trim()) row.label = newLabel.trim();
-    const { error } = await supabase.from('master_options').insert(row);
+    const { error } = await supabase.from('dsd_master_options').insert(row);
     if (error) showToast(error.message.includes('duplicate') ? 'Nilai sudah ada' : error.message, 'error');
     else { setNewValue(''); setNewLabel(''); showToast(`"${v}" ditambahkan`); load(); }
   };
 
   const toggle = async (opt) => {
-    await supabase.from('master_options').update({ active: !opt.active }).eq('id', opt.id);
+    await supabase.from('dsd_master_options').update({ active: !opt.active }).eq('id', opt.id);
     load();
   };
 
   const remove = async (opt) => {
     if (!confirm(`Hapus "${opt.value}"? Dropdown di web & aplikasi tidak akan menampilkannya lagi.`)) return;
-    await supabase.from('master_options').delete().eq('id', opt.id);
+    await supabase.from('dsd_master_options').delete().eq('id', opt.id);
     showToast(`"${opt.value}" dihapus`);
     load();
   };

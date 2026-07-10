@@ -79,22 +79,22 @@ const mapAuditLog = r => ({
 });
 
 async function fetchProfile(userId) {
-  const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  const { data } = await supabase.from('dsd_profiles').select('*').eq('id', userId).single();
   if (!data) return null;
   return { id: data.id, name: data.name, email: data.email, role: data.role, agentId: data.agent_id, status: data.status, lastLogin: data.last_login };
 }
 
 async function loadAll() {
   const [apps, agents, leasing, commissions, statusLogs, activities, notifs, auditLogs, profileRows] = await Promise.all([
-    supabase.from('applications').select('*').order('input_date', { ascending: false }),
-    supabase.from('agents').select('*').order('id'),
-    supabase.from('leasing_partners').select('*').order('id'),
-    supabase.from('commissions').select('*').order('id', { ascending: false }),
-    supabase.from('status_logs').select('*').order('id'),
-    supabase.from('agent_activities').select('*').order('date', { ascending: false }),
-    supabase.from('notifications').select('*').order('id', { ascending: false }),
-    supabase.from('audit_logs').select('*').order('id', { ascending: false }),
-    supabase.from('profiles').select('*').order('created_at'),
+    supabase.from('dsd_applications').select('*').order('input_date', { ascending: false }),
+    supabase.from('dsd_agents').select('*').order('id'),
+    supabase.from('dsd_leasing_partners').select('*').order('id'),
+    supabase.from('dsd_commissions').select('*').order('id', { ascending: false }),
+    supabase.from('dsd_status_logs').select('*').order('id'),
+    supabase.from('dsd_agent_activities').select('*').order('date', { ascending: false }),
+    supabase.from('dsd_notifications').select('*').order('id', { ascending: false }),
+    supabase.from('dsd_audit_logs').select('*').order('id', { ascending: false }),
+    supabase.from('dsd_profiles').select('*').order('created_at'),
   ]);
   return {
     applications: (apps.data || []).map(mapApp),
@@ -212,7 +212,7 @@ export function AppProvider({ children }) {
   const updateProfile = async (updates) => {
     if (!currentUser) return;
     const { name, email } = updates;
-    const { error } = await supabase.from('profiles').update({ name, email }).eq('id', currentUser.id);
+    const { error } = await supabase.from('dsd_profiles').update({ name, email }).eq('id', currentUser.id);
     if (error) { showToast('Gagal memperbarui profil', 'error'); return; }
     setCurrentUser(prev => ({ ...prev, ...updates }));
     setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, ...updates } : u));
@@ -227,7 +227,7 @@ export function AppProvider({ children }) {
       time: new Date().toLocaleString('id-ID'),
       ip: '192.168.1.1',
     };
-    const { data } = await supabase.from('audit_logs').insert(newLog).select().single();
+    const { data } = await supabase.from('dsd_audit_logs').insert(newLog).select().single();
     if (data) setAuditLogs(prev => [mapAuditLog(data), ...prev]);
   };
 
@@ -240,7 +240,7 @@ export function AppProvider({ children }) {
       updates.approve_date = new Date().toISOString().split('T')[0];
       updates.approve_pinjaman = app.pinjaman;
     }
-    await supabase.from('applications').update(updates).eq('id', appId);
+    await supabase.from('dsd_applications').update(updates).eq('id', appId);
     setApplications(prev => prev.map(a => {
       if (a.id !== appId) return a;
       const u = { ...a, status: newStatus };
@@ -251,7 +251,7 @@ export function AppProvider({ children }) {
     }));
 
     const logRow = { app_id: appId, from_status: app?.status, to_status: newStatus, user: currentUser?.name || 'Admin', date: new Date().toLocaleString('id-ID'), notes };
-    const { data: logData } = await supabase.from('status_logs').insert(logRow).select().single();
+    const { data: logData } = await supabase.from('dsd_status_logs').insert(logRow).select().single();
     if (logData) setStatusLogs(prev => [...prev, mapStatusLog(logData)]);
 
     if (newStatus === 'approve' && app) {
@@ -262,7 +262,7 @@ export function AppProvider({ children }) {
         commission_amount: Math.round(app.pinjaman * (settings.commissionRate / 100)), status: 'unpaid',
         payment_date: null, payment_method: null, notes: '',
       };
-      const { data: commData } = await supabase.from('commissions').insert(commRow).select().single();
+      const { data: commData } = await supabase.from('dsd_commissions').insert(commRow).select().single();
       if (commData) setCommissions(prev => [mapCommission(commData), ...prev]);
     }
     await addAuditLog('Ubah Status', `${appId}: ${app?.status} → ${newStatus}`);
@@ -271,7 +271,7 @@ export function AppProvider({ children }) {
 
   const addApplication = async (data) => {
     // ID dari sequence DB (anti-tabrakan); fallback ke hitung lokal jika RPC belum ada
-    const { data: rpcId } = await supabase.rpc('next_brk_id');
+    const { data: rpcId } = await supabase.rpc('dsd_next_brk_id');
     const newId = rpcId || `BRK${String(2026000 + applications.length + 1).padStart(7, '0')}`;
     const row = {
       id: newId, status: 'pending', agent_id: data.agentId, agent_name: data.agentName,
@@ -282,23 +282,23 @@ export function AppProvider({ children }) {
       leasing_name: data.leasingName, input_date: new Date().toISOString().split('T')[0],
       notes: data.notes || '',
     };
-    const { data: inserted } = await supabase.from('applications').insert(row).select().single();
+    const { data: inserted } = await supabase.from('dsd_applications').insert(row).select().single();
     if (inserted) setApplications(prev => [mapApp(inserted), ...prev]);
     await addAuditLog('Input Berkas Baru', `Berkas ${newId} - ${data.customerName}`);
     const notifRow = { type: 'berkas-baru', message: `Berkas baru dari ${data.agentName} - ${data.customerName}`, time_ago: 'Baru saja', read: false, link: '/applications' };
-    const { data: notifData } = await supabase.from('notifications').insert(notifRow).select().single();
+    const { data: notifData } = await supabase.from('dsd_notifications').insert(notifRow).select().single();
     if (notifData) setNotifications(prev => [mapNotif(notifData), ...prev]);
     showToast(`Berkas ${newId} berhasil ditambahkan`);
   };
 
   const markNotifRead = async (id) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    await supabase.from('dsd_notifications').update({ read: true }).eq('id', id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
   const payCommission = async (id, method) => {
     const updates = { status: 'paid', payment_date: new Date().toISOString().split('T')[0], payment_method: method };
-    await supabase.from('commissions').update(updates).eq('id', id);
+    await supabase.from('dsd_commissions').update(updates).eq('id', id);
     setCommissions(prev => prev.map(c => c.id === id ? { ...c, status: 'paid', paymentDate: updates.payment_date, paymentMethod: method } : c));
     await addAuditLog('Bayar Komisi', `Komisi #${id} dibayarkan via ${method}`);
     showToast('Komisi berhasil dibayarkan');
@@ -310,7 +310,7 @@ export function AppProvider({ children }) {
       type: data.type, description: data.description, outcome: data.outcome,
       related_app_id: data.relatedAppId || null,
     };
-    const { data: inserted } = await supabase.from('agent_activities').insert(row).select().single();
+    const { data: inserted } = await supabase.from('dsd_agent_activities').insert(row).select().single();
     if (inserted) setAgentActivities(prev => [mapActivity(inserted), ...prev]);
     await addAuditLog('Catat Aktivitas', `${data.agentName} - ${data.type} (${data.date})`);
     showToast('Aktivitas berhasil dicatat');
@@ -332,7 +332,7 @@ export function AppProvider({ children }) {
       total_approve: 0, total_reject: 0, total_berkas: 0,
       spv_id: data.spvId || null,
     };
-    const { data: inserted, error } = await supabase.from('agents').insert(row).select().single();
+    const { data: inserted, error } = await supabase.from('dsd_agents').insert(row).select().single();
     if (error) { showToast('Gagal menyimpan agen: ' + error.message, 'error'); return false; }
     setAgents(prev => [...prev, mapAgent(inserted)]);
     await addAuditLog('Tambah Agen', `Agen baru: ${data.name} (${newId})`);
@@ -347,7 +347,7 @@ export function AppProvider({ children }) {
       account_name: data.accountName, target: Number(data.target), notes: data.notes,
       spv_id: data.spvId || null,
     };
-    const { error } = await supabase.from('agents').update(row).eq('id', id);
+    const { error } = await supabase.from('dsd_agents').update(row).eq('id', id);
     if (error) { showToast('Gagal memperbarui agen: ' + error.message, 'error'); return false; }
     setAgents(prev => prev.map(a => a.id === id ? { ...a, ...data, target: Number(data.target) } : a));
     await addAuditLog('Edit Agen', `Update data agen: ${data.name} (${id})`);
@@ -361,7 +361,7 @@ export function AppProvider({ children }) {
       min_pinjaman: Number(data.minPinjaman), max_pinjaman: Number(data.maxPinjaman),
       status: data.status, syarat: data.syarat || '', notes: data.notes || '',
     };
-    const { data: inserted, error } = await supabase.from('leasing_partners').insert(row).select().single();
+    const { data: inserted, error } = await supabase.from('dsd_leasing_partners').insert(row).select().single();
     if (error) { showToast('Gagal menyimpan leasing: ' + error.message, 'error'); return false; }
     setLeasing(prev => [...prev, mapLeasing(inserted)]);
     await addAuditLog('Tambah Leasing', `Mitra leasing baru: ${data.name}`);
@@ -375,7 +375,7 @@ export function AppProvider({ children }) {
       min_pinjaman: Number(data.minPinjaman), max_pinjaman: Number(data.maxPinjaman),
       status: data.status, syarat: data.syarat || '', notes: data.notes || '',
     };
-    const { error } = await supabase.from('leasing_partners').update(row).eq('id', id);
+    const { error } = await supabase.from('dsd_leasing_partners').update(row).eq('id', id);
     if (error) { showToast('Gagal memperbarui leasing: ' + error.message, 'error'); return false; }
     setLeasing(prev => prev.map(l => l.id === id ? { ...l, ...data, minPinjaman: Number(data.minPinjaman), maxPinjaman: Number(data.maxPinjaman) } : l));
     await addAuditLog('Edit Leasing', `Update mitra leasing: ${data.name} (${id})`);
@@ -412,7 +412,7 @@ export function AppProvider({ children }) {
   };
 
   const updateUserProfile = async (id, data) => {
-    const { error } = await supabase.from('profiles').update({
+    const { error } = await supabase.from('dsd_profiles').update({
       name: data.name.trim(), email: data.email.trim(),
       role: data.role, status: data.status, agent_id: data.agentId || null,
     }).eq('id', id);

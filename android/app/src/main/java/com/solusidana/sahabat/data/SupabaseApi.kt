@@ -79,7 +79,7 @@ object SupabaseApi {
     suspend fun getProfile(token: String, userId: String): Result<Profile> =
         io {
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/profiles?id=eq.$userId&select=*")
+                .url("$BASE_URL/rest/v1/dsd_profiles?id=eq.$userId&select=*")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .get()
@@ -101,7 +101,7 @@ object SupabaseApi {
             if (status != null) append("&status=eq.$status")
         }
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/applications?$filters")
+            .url("$BASE_URL/rest/v1/dsd_applications?$filters")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -114,7 +114,7 @@ object SupabaseApi {
     suspend fun getApplicationById(token: String, id: String): Result<Application> =
         io {
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/applications?id=eq.$id&select=*")
+                .url("$BASE_URL/rest/v1/dsd_applications?id=eq.$id&select=*")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .get()
@@ -145,7 +145,7 @@ object SupabaseApi {
         }.toRequestBody(JSON_TYPE)
 
         val patchReq = Request.Builder()
-            .url("$BASE_URL/rest/v1/applications?id=eq.$id")
+            .url("$BASE_URL/rest/v1/dsd_applications?id=eq.$id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -158,7 +158,7 @@ object SupabaseApi {
         val logBody = """[{"app_id":"$id","to_status":"$newStatus","user":"$userName","date":"$today","notes":${if (notes.isNullOrBlank()) "null" else "\"$notes\""}}]"""
             .toRequestBody(JSON_TYPE)
         val logReq = Request.Builder()
-            .url("$BASE_URL/rest/v1/status_logs")
+            .url("$BASE_URL/rest/v1/dsd_status_logs")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -170,7 +170,7 @@ object SupabaseApi {
     suspend fun getStatusLogs(token: String, appId: String): Result<List<StatusLog>> =
         io {
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/status_logs?app_id=eq.$appId&select=*&order=id")
+                .url("$BASE_URL/rest/v1/dsd_status_logs?app_id=eq.$appId&select=*&order=id")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .get()
@@ -182,7 +182,7 @@ object SupabaseApi {
 
     suspend fun getAgents(token: String): Result<List<Agent>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agents?select=*&order=name")
+            .url("$BASE_URL/rest/v1/dsd_agents?select=*&order=name")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -194,7 +194,7 @@ object SupabaseApi {
 
     suspend fun getLeasingPartners(token: String): Result<List<LeasingPartner>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/leasing_partners?select=id,name,rate,status,min_pinjaman,max_pinjaman&order=name")
+            .url("$BASE_URL/rest/v1/dsd_leasing_partners?select=id,name,rate,status,min_pinjaman,max_pinjaman&order=name")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -210,7 +210,7 @@ object SupabaseApi {
             if (agentId != null) append("&agent_id=eq.$agentId")
         }
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agent_activities?$filters")
+            .url("$BASE_URL/rest/v1/dsd_agent_activities?$filters")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -222,7 +222,7 @@ object SupabaseApi {
 
     suspend fun getAgentById(token: String, agentId: String): Result<Agent> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agents?id=eq.$agentId&select=*")
+            .url("$BASE_URL/rest/v1/dsd_agents?id=eq.$agentId&select=*")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -236,7 +236,7 @@ object SupabaseApi {
     suspend fun updateProfileName(token: String, userId: String, name: String): Result<Unit> = io {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/profiles?id=eq.$userId")
+            .url("$BASE_URL/rest/v1/dsd_profiles?id=eq.$userId")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -256,7 +256,7 @@ object SupabaseApi {
         val body = """{"phone":"${esc(phone)}","city":"${esc(city)}","address":"${esc(address)}","bank":"${esc(bank)}","account_number":"${esc(accountNumber)}","account_name":"${esc(accountName)}"}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agents?id=eq.$agentId")
+            .url("$BASE_URL/rest/v1/dsd_agents?id=eq.$agentId")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -294,7 +294,7 @@ object SupabaseApi {
 
         // ID format sama dengan web: AGT + urutan 3 digit
         val countReq = Request.Builder()
-            .url("$BASE_URL/rest/v1/agents?select=id")
+            .url("$BASE_URL/rest/v1/dsd_agents?select=id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "count=exact")
@@ -317,7 +317,7 @@ object SupabaseApi {
         }""".trimIndent().toRequestBody(JSON_TYPE)
 
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agents")
+            .url("$BASE_URL/rest/v1/dsd_agents")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -330,7 +330,7 @@ object SupabaseApi {
 
     suspend fun getMasterOptions(token: String): Result<List<MasterOption>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/master_options?select=id,category,value,label,sort,active&order=category,sort")
+            .url("$BASE_URL/rest/v1/dsd_master_options?select=id,category,value,label,sort,active&order=category,sort")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -345,7 +345,7 @@ object SupabaseApi {
         val body = """{"category":"${esc(category)}","value":"${esc(value)}","sort":$sort,"active":true}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/master_options")
+            .url("$BASE_URL/rest/v1/dsd_master_options")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -360,7 +360,7 @@ object SupabaseApi {
 
     suspend fun setMasterOptionActive(token: String, id: Long, active: Boolean): Result<Unit> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/master_options?id=eq.$id")
+            .url("$BASE_URL/rest/v1/dsd_master_options?id=eq.$id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -372,7 +372,7 @@ object SupabaseApi {
 
     suspend fun deleteMasterOption(token: String, id: Long): Result<Unit> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/master_options?id=eq.$id")
+            .url("$BASE_URL/rest/v1/dsd_master_options?id=eq.$id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .delete()
@@ -384,7 +384,7 @@ object SupabaseApi {
     /** Nomor berkas berikutnya dari sequence DB (anti-tabrakan). */
     suspend fun nextBrkId(token: String): Result<String> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/rpc/next_brk_id")
+            .url("$BASE_URL/rest/v1/rpc/dsd_next_brk_id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Content-Type", "application/json")
@@ -398,7 +398,7 @@ object SupabaseApi {
 
     suspend fun getApplicationsCount(token: String): Result<Int> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/applications?select=id")
+            .url("$BASE_URL/rest/v1/dsd_applications?select=id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "count=exact")
@@ -444,7 +444,7 @@ object SupabaseApi {
         }""".trimIndent().toRequestBody(JSON_TYPE)
 
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/applications")
+            .url("$BASE_URL/rest/v1/dsd_applications")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -457,7 +457,7 @@ object SupabaseApi {
         val notifBody = """{"type":"berkas-baru","message":"Berkas baru dari ${esc(agentName)} - ${esc(customerName)}","time_ago":"Baru saja","read":false,"link":"/applications"}"""
             .toRequestBody(JSON_TYPE)
         val notifReq = Request.Builder()
-            .url("$BASE_URL/rest/v1/notifications")
+            .url("$BASE_URL/rest/v1/dsd_notifications")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -468,7 +468,7 @@ object SupabaseApi {
 
     suspend fun getAgentLocations(token: String): Result<List<com.solusidana.sahabat.ui.map.AgentLocation>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agent_locations?select=*&order=updated_at.desc")
+            .url("$BASE_URL/rest/v1/dsd_agent_locations?select=*&order=updated_at.desc")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -492,7 +492,7 @@ object SupabaseApi {
         val body = """{"agent_id":"${esc(agentId)}","agent_name":"${esc(agentName)}","date":"$today","type":"${esc(type)}","description":"${esc(description)}","outcome":"${esc(outcome)}","related_app_id":${if (relatedAppId == null) "null" else "\"${esc(relatedAppId)}\""}}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agent_activities")
+            .url("$BASE_URL/rest/v1/dsd_agent_activities")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "return=minimal")
@@ -509,7 +509,7 @@ object SupabaseApi {
                 if (agentId != null) append("&agent_id=eq.$agentId")
             }
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/commissions?$filters")
+                .url("$BASE_URL/rest/v1/dsd_commissions?$filters")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .get()
@@ -527,7 +527,7 @@ object SupabaseApi {
                 if (agentId != null) append("&agent_id=eq.$agentId")
             }
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/applications?$filters")
+                .url("$BASE_URL/rest/v1/dsd_applications?$filters")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .get()
@@ -551,7 +551,7 @@ object SupabaseApi {
         val body = """{"user_id":"${esc(userId)}","name":"${esc(name)}","role":"${esc(role)}","lat":$lat,"lng":$lng,"updated_at":"$now"}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/agent_locations?on_conflict=user_id")
+            .url("$BASE_URL/rest/v1/dsd_agent_locations?on_conflict=user_id")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
@@ -611,7 +611,7 @@ object SupabaseApi {
                 if (agentId != null) append("&agent_id=eq.$agentId")
             }
             val req = Request.Builder()
-                .url("$BASE_URL/rest/v1/applications?$filter&select=id")
+                .url("$BASE_URL/rest/v1/dsd_applications?$filter&select=id")
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .addHeader("Prefer", "count=exact")

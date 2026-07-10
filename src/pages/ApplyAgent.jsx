@@ -21,7 +21,7 @@ export function ApplyAgent() {
     if (form.nik.trim().length !== 16) return setError('NIK harus 16 digit');
 
     setSaving(true);
-    const { data, error: err } = await supabase.rpc('apply_as_agent', {
+    const { data, error: err } = await supabase.rpc('dsd_apply_as_agent', {
       p_name: form.name, p_phone: form.phone, p_email: form.email,
       p_city: form.city, p_address: form.address, p_nik: form.nik,
     });

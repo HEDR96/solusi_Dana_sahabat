@@ -8,7 +8,7 @@ export function useMasterOptions(category, fallback = []) {
   useEffect(() => {
     let alive = true;
     supabase
-      .from('master_options')
+      .from('dsd_master_options')
       .select('value,sort')
       .eq('category', category)
       .eq('active', true)
@@ -28,7 +28,7 @@ export function useMasterPairs(category, fallback = []) {
   useEffect(() => {
     let alive = true;
     supabase
-      .from('master_options')
+      .from('dsd_master_options')
       .select('value,label,sort')
       .eq('category', category)
       .eq('active', true)

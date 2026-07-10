@@ -28,7 +28,7 @@ export function AgentMap() {
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from('agent_locations')
+      .from('dsd_agent_locations')
       .select('*')
       .in('role', ['agen', 'spv-agen'])
       .order('updated_at', { ascending: false });
