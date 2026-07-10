@@ -49,6 +49,21 @@ const ROLE_COLORS = {
 };
 const DEFAULT_ROLE_COLOR = { color: '#64748b', bg: 'var(--surface-alt2)' };
 
+function fmtLogin(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d)) return '-';
+  const now = new Date();
+  const mins = Math.floor((now - d) / 60000);
+  if (mins < 1)   return 'Baru saja';
+  if (mins < 60)  return `${mins} mnt lalu`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs} jam lalu`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)   return `${days} hari lalu`;
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 function RoleBadge({ role, roles }) {
   const r = roles.find(r => r.key === role);
   if (!r) return null;
@@ -162,7 +177,7 @@ export function Users() {
                     <td className="table-td"><RoleBadge role={user.role} roles={roles} /></td>
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{user.agentId || '-'}</td>
                     <td className="table-td"><Badge status={user.status} /></td>
-                    <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)', fontFamily: 'monospace' }}>{user.lastLogin}</td>
+                    <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{fmtLogin(user.lastLogin)}</td>
                     <td className="table-td" style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(user)}><Edit2 size={13} /></button>
                       {currentUser?.role === 'owner' && user.id !== currentUser.id && (
