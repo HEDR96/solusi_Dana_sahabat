@@ -14,20 +14,28 @@ async function verifyAdmin(req) {
   const auth = req.headers.authorization || '';
   if (!auth.startsWith('Bearer ')) return null;
   try {
+    // Dapatkan user dari token mereka
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: ANON_KEY, Authorization: auth },
+      headers: { apikey: ANON_KEY || SERVICE_KEY, Authorization: auth },
     });
     if (!r.ok) return null;
     const u = await r.json();
+    if (!u?.id) return null;
+
+    // Cek role pakai SERVICE_KEY (bypass RLS — lebih reliable)
     const p = await fetch(
       `${SUPABASE_URL}/rest/v1/dsd_profiles?id=eq.${u.id}&select=role`,
-      { headers: { apikey: ANON_KEY, Authorization: auth } }
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
     );
+    if (!p.ok) return null;
     const profiles = await p.json();
-    const role = profiles?.[0]?.role;
+    const role = Array.isArray(profiles) ? profiles[0]?.role : null;
     if (!['owner', 'super-admin'].includes(role)) return null;
     return u;
-  } catch { return null; }
+  } catch (e) {
+    console.error('verifyAdmin error:', e?.message);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
