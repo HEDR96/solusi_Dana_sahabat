@@ -73,7 +73,17 @@ export default async function handler(req, res) {
   if (!SERVICE_KEY) return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY belum diset di Vercel' });
 
   const caller = await verifyAdmin(req);
-  if (!caller) return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa membuat user' });
+  if (!caller) {
+    // Kumpulkan info debug untuk troubleshoot
+    const debugInfo = {
+      hasServiceKey: !!SERVICE_KEY,
+      serviceKeyLen: SERVICE_KEY?.length,
+      hasSupabaseUrl: !!SUPABASE_URL,
+      supabaseUrl: SUPABASE_URL?.slice(0, 40),
+      hasAuth: !!(req.headers.authorization),
+    };
+    return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa membuat user', debug: debugInfo });
+  }
 
   const headers = {
     apikey: SERVICE_KEY,
