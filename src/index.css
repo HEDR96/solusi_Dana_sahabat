@@ -520,7 +520,7 @@ input[type="checkbox"] {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   width: 100%;
-  max-height: 90dvh;
+  max-height: min(90dvh, 90vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -545,8 +545,10 @@ input[type="checkbox"] {
 .modal-body {
   padding: 20px 24px;
   overflow-y: auto;
-  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 0;
   min-height: 0;
+  max-height: 100%;
   overscroll-behavior: contain;
 }
 .modal-body::-webkit-scrollbar { width: 5px; }
