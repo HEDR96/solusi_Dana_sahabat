@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Layout } from '../components/Layout/Layout';
+import { Badge } from '../components/UI/Badge';
+import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { RATE_TABLE_DEFS } from '../data/rateTables';
-import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, Building2 } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [
@@ -164,11 +166,17 @@ function RateTableEditor({ def, showToast }) {
   );
 }
 
+const LEASING_EMPTY = {
+  name: '', branch: '', pic: '', contact: '', email: '',
+  products: '', rate: '', tenors: '', minPinjaman: '', maxPinjaman: '',
+  syarat: '', status: 'aktif', notes: '',
+};
+
 // ─── Halaman utama MasterData ─────────────────────────────────────────────────
 export function MasterData() {
-  const { showToast } = useApp();
+  const { showToast, leasing, addLeasing, updateLeasing } = useApp();
 
-  // Mode: 'options' | 'rates'
+  // Mode: 'options' | 'rates' | 'leasing'
   const [mode,     setMode]     = useState('options');
 
   // --- Dropdown options state ---
@@ -180,6 +188,39 @@ export function MasterData() {
 
   // --- Rate tables state ---
   const [rateTab, setRateTab] = useState(RATE_TABLE_DEFS[0].id);
+
+  // --- Leasing state ---
+  const [showLeasingModal, setShowLeasingModal] = useState(false);
+  const [editLeasing,      setEditLeasing]      = useState(null);
+  const [leasingForm,      setLeasingForm]      = useState(LEASING_EMPTY);
+  const [leasingErrors,    setLeasingErrors]    = useState({});
+  const [leasingSaving,    setLeasingSaving]    = useState(false);
+
+  const openAddLeasing  = () => { setEditLeasing(null); setLeasingForm(LEASING_EMPTY); setLeasingErrors({}); setShowLeasingModal(true); };
+  const openEditLeasing = (l) => { setEditLeasing(l); setLeasingForm({ ...l }); setLeasingErrors({}); setShowLeasingModal(true); };
+  const slf = useCallback(k => e => setLeasingForm(p => ({ ...p, [k]: typeof e === 'string' ? e : e.target.value })), []);
+
+  const validateLeasing = () => {
+    const e = {};
+    if (!leasingForm.name?.trim()) e.name = 'Nama wajib diisi';
+    setLeasingErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSaveLeasing = async () => {
+    if (!validateLeasing()) return;
+    setLeasingSaving(true);
+    let ok;
+    if (editLeasing) {
+      ok = await updateLeasing(editLeasing.id, leasingForm);
+      if (ok) showToast(`Leasing ${leasingForm.name} diperbarui`);
+    } else {
+      ok = await addLeasing(leasingForm);
+      if (ok) showToast(`Leasing ${leasingForm.name} ditambahkan`);
+    }
+    setLeasingSaving(false);
+    if (ok) setShowLeasingModal(false);
+  };
 
   const currentCat = CATEGORIES.find(c => c.key === category);
   const currentDef = RATE_TABLE_DEFS.find(d => d.id === rateTab);
@@ -229,6 +270,7 @@ export function MasterData() {
         {[
           { key:'options', label:'Dropdown Opsi' },
           { key:'rates',   label:'Tabel Rate CMD Finance' },
+          { key:'leasing', label:'Mitra Leasing' },
         ].map(m => (
           <button key={m.key} onClick={() => setMode(m.key)} style={{
             padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
@@ -343,6 +385,138 @@ export function MasterData() {
               />
             )}
           </div>
+        </>
+      )}
+
+      {/* ── MODE: Mitra Leasing ── */}
+      {mode === 'leasing' && (
+        <>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <p style={{ fontSize:12, color:'var(--c-64748b)' }}>
+              Kelola mitra leasing yang muncul sebagai pilihan di form berkas masuk.
+            </p>
+            <button className="btn btn-primary btn-sm" onClick={openAddLeasing}>
+              <Plus size={14} /> Tambah Leasing
+            </button>
+          </div>
+
+          <div className="card" style={{ padding:0, overflow:'hidden' }}>
+            {leasing.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon"><Building2 size={24} color="var(--c-94a3b8)" /></div>
+                <p style={{ fontSize:14, fontWeight:600, color:'var(--c-0f172a)' }}>Belum ada mitra leasing</p>
+                <p style={{ fontSize:13, color:'var(--c-94a3b8)' }}>Tambahkan leasing untuk muncul di dropdown form berkas</p>
+              </div>
+            ) : (
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead className="table-head">
+                  <tr>
+                    {['Nama Leasing', 'Cabang', 'Produk', 'Tenor', 'Status', 'Aksi'].map(h => (
+                      <th key={h} className="table-th">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {leasing.map(l => (
+                    <tr key={l.id} className="table-row">
+                      <td className="table-td">
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div style={{ width:32, height:32, borderRadius:8, background:'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <Building2 size={15} color="#3b82f6" />
+                          </div>
+                          <span style={{ fontSize:13, fontWeight:600, color:'var(--c-0f172a)' }}>{l.name}</span>
+                        </div>
+                      </td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.branch || '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.products || '-'}</td>
+                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.tenors ? `${l.tenors} bln` : '-'}</td>
+                      <td className="table-td"><Badge status={l.status} /></td>
+                      <td className="table-td">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEditLeasing(l)}>
+                          <Edit2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Modal leasing */}
+          <Modal
+            isOpen={showLeasingModal}
+            onClose={() => setShowLeasingModal(false)}
+            title={editLeasing ? `Edit — ${editLeasing.name}` : 'Tambah Mitra Leasing'}
+            size="lg"
+            footer={
+              <>
+                <button className="btn btn-secondary" onClick={() => setShowLeasingModal(false)}>Batal</button>
+                <button className="btn btn-primary" onClick={handleSaveLeasing} disabled={leasingSaving}>
+                  {leasingSaving ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </>
+            }
+          >
+            <div className="form-grid" style={{ gap:14 }}>
+              <div className="span-2">
+                <label className="label">Nama Leasing *</label>
+                <input className="input" value={leasingForm.name} onChange={slf('name')} style={leasingErrors.name ? { borderColor:'#ef4444' } : undefined} />
+                {leasingErrors.name && <p style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>{leasingErrors.name}</p>}
+              </div>
+              <div>
+                <label className="label">Cabang / Kota</label>
+                <input className="input" value={leasingForm.branch || ''} onChange={slf('branch')} />
+              </div>
+              <div>
+                <label className="label">PIC</label>
+                <input className="input" value={leasingForm.pic || ''} onChange={slf('pic')} />
+              </div>
+              <div>
+                <label className="label">Nomor Kontak</label>
+                <input className="input" value={leasingForm.contact || ''} onChange={slf('contact')} />
+              </div>
+              <div>
+                <label className="label">Email</label>
+                <input className="input" type="email" value={leasingForm.email || ''} onChange={slf('email')} />
+              </div>
+              <div className="span-2">
+                <label className="label">Produk (contoh: Motor &amp; Mobil BPKB)</label>
+                <input className="input" value={leasingForm.products || ''} onChange={slf('products')} />
+              </div>
+              <div>
+                <label className="label">Tenor Tersedia (pisah koma)</label>
+                <input className="input" value={leasingForm.tenors || ''} onChange={slf('tenors')} placeholder="6,12,18,24,36" />
+              </div>
+              <div>
+                <label className="label">Rate / Bunga</label>
+                <input className="input" value={leasingForm.rate || ''} onChange={slf('rate')} placeholder="0" />
+              </div>
+              <div>
+                <label className="label">Min. Pinjaman (Rp)</label>
+                <input className="input" type="number" value={leasingForm.minPinjaman || ''} onChange={slf('minPinjaman')} />
+              </div>
+              <div>
+                <label className="label">Maks. Pinjaman (Rp)</label>
+                <input className="input" type="number" value={leasingForm.maxPinjaman || ''} onChange={slf('maxPinjaman')} />
+              </div>
+              <div>
+                <label className="label">Status</label>
+                <select className="input" value={leasingForm.status} onChange={slf('status')}>
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+              <div className="span-2">
+                <label className="label">Syarat Dokumen</label>
+                <textarea className="input textarea" value={leasingForm.syarat || ''} onChange={slf('syarat')} rows={2} />
+              </div>
+              <div className="span-2">
+                <label className="label">Catatan</label>
+                <textarea className="input textarea" value={leasingForm.notes || ''} onChange={slf('notes')} rows={2} />
+              </div>
+            </div>
+          </Modal>
         </>
       )}
 
