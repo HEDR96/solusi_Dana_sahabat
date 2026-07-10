@@ -4,7 +4,8 @@ import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { useMasterOptions, useMasterPairs } from '../utils/useMasterOptions';
-import { Plus, Edit2, Shield, Check } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { Plus, Edit2, Shield, Check, RotateCcw } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
   <div>
@@ -62,13 +63,31 @@ const EMPTY_USER = { name: '', email: '', password: '', role: 'admin', status: '
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Users() {
-  const { users, createUser, updateUserProfile, agents, showToast } = useApp();
+  const { users, createUser, updateUserProfile, agents, showToast, currentUser } = useApp();
   const [showModal, setShow]        = useState(false);
   const [editUser, setEdit]         = useState(null);
   const [selectedRole, setSelRole]  = useState('super-admin');
   const [form, setForm]             = useState(EMPTY_USER);
   const [errors, setErrors]         = useState({});
   const [saving, setSaving]         = useState(false);
+  const [resetting, setResetting]   = useState(null); // userId being reset
+
+  const handleResetPassword = async (user) => {
+    if (!confirm(`Reset password ${user.name} ke "password"?`)) return;
+    setResetting(user.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { showToast('Sesi tidak valid', 'error'); setResetting(null); return; }
+    const resp = await fetch('/api/admin-user', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ userId: user.id }),
+    });
+    const result = await resp.json();
+    setResetting(null);
+    if (!resp.ok) { showToast('Gagal reset: ' + (result.error || `HTTP ${resp.status}`), 'error'); return; }
+    showToast(`Password ${user.name} direset ke "password"`);
+  };
 
   // Role & kegunaannya dari DB (menu Master Data) — fallback ke konstanta lama
   const rolePairs = useMasterPairs('role', FALLBACK_ROLES);
@@ -144,8 +163,19 @@ export function Users() {
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{user.agentId || '-'}</td>
                     <td className="table-td"><Badge status={user.status} /></td>
                     <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)', fontFamily: 'monospace' }}>{user.lastLogin}</td>
-                    <td className="table-td">
+                    <td className="table-td" style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(user)}><Edit2 size={13} /></button>
+                      {currentUser?.role === 'owner' && user.id !== currentUser.id && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Reset password ke 'password'"
+                          disabled={resetting === user.id}
+                          onClick={() => handleResetPassword(user)}
+                          style={{ color: '#f59e0b' }}
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

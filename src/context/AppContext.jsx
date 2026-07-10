@@ -199,9 +199,13 @@ export function AppProvider({ children }) {
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+    const now = new Date().toISOString();
+    await supabase.from('dsd_profiles').update({ last_login: now }).eq('id', data.user.id);
     const profile = await fetchProfile(data.user.id);
     if (!profile) return { error: 'Profil pengguna tidak ditemukan' };
     setCurrentUser(profile);
+    // Sync last_login ke daftar users
+    setUsers(prev => prev.map(u => u.id === profile.id ? { ...u, lastLogin: profile.lastLogin } : u));
     return { user: profile };
   };
   const logout = async () => {

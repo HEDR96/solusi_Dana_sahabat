@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
@@ -10,9 +10,16 @@ import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
 import { useDebounce } from '../../utils/useDebounce';
 import { useMasterOptions } from '../../utils/useMasterOptions';
+import { supabase } from '../../lib/supabaseClient';
+import {
+  MOTOR_TENORS, CAR_TENORS,
+  M_NEW_ANG, M_RO_ANG, M_NEW_FEE, M_RO_FEE,
+  C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
+  lookupVal,
+} from '../../data/rateTables';
+import { Plus, Search, Eye, Download, FileText, SlidersHorizontal, X, CheckSquare, TrendingUp } from 'lucide-react';
 
 const DEFAULT_DOC_TYPES = ['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'];
-import { Plus, Search, Eye, Download, Filter, FileText, SlidersHorizontal, X, CheckSquare } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
   <div>
@@ -37,7 +44,7 @@ const APPLICATION_COLUMNS = [
 const EMPTY = {
   customerName: '', nik: '', phone: '', city: '', address: '',
   unitType: 'Mobil', unitYear: new Date().getFullYear(), unitBrand: '',
-  pinjaman: '', tenor: 36, estimasiAngsuran: '',
+  pinjaman: '', tenor: 36, estimasiAngsuran: '', isRO: false,
   leasingId: '', leasingName: '',
   agentId: '', agentName: '', notes: '',
 };
@@ -61,7 +68,20 @@ export function ApplicationList() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [showBulkStatus, setShowBulkStatus] = useState(false);
   const [bulkStatus, setBulkStatus] = useState('');
+  const [docChecked, setDocChecked] = useState({});
+  const [docFiles, setDocFiles] = useState({});
+  const [dbTables, setDbTables] = useState(null);
   const PER = 10;
+
+  useEffect(() => {
+    supabase.from('dsd_rate_tables').select('product,tipe,data')
+      .then(({ data }) => {
+        if (!data?.length) return;
+        const map = {};
+        data.forEach(r => { map[`${r.product}_${r.tipe}`] = r.data; });
+        setDbTables(map);
+      });
+  }, []);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -77,6 +97,30 @@ export function ApplicationList() {
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
   const totalPages = Math.ceil(sorted.length / PER);
   const rows = sorted.slice((page - 1) * PER, page * PER);
+
+  // Auto-hitung angsuran & komisi dari tabel CMD Finance
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const rateResult = useMemo(() => {
+    const p = Number(form.pinjaman);
+    if (!p || p <= 0) return null;
+    const jenis = form.unitType === 'Motor' ? 'motor' : 'mobil';
+    const isRO_ = form.isRO;
+    const pRibu = p / 1000;
+    const tenors = jenis === 'motor' ? MOTOR_TENORS : CAR_TENORS;
+    const tenor = Number(form.tenor);
+    if (!tenors.includes(tenor)) return null;
+    const gt = (key, fallback) => (dbTables?.[key] && Object.keys(dbTables[key]).length ? dbTables[key] : fallback);
+    const angTable = jenis === 'motor'
+      ? gt(isRO_ ? 'motor_ro_ang' : 'motor_new_ang', isRO_ ? M_RO_ANG : M_NEW_ANG)
+      : gt(isRO_ ? 'mobil_ro_ang' : 'mobil_reg_ang', isRO_ ? C_RO_ANG : C_REG_ANG);
+    const feeTable = jenis === 'motor'
+      ? gt(isRO_ ? 'motor_ro_fee' : 'motor_new_fee', isRO_ ? M_RO_FEE : M_NEW_FEE)
+      : gt(isRO_ ? 'mobil_ro_fee' : 'mobil_reg_fee', isRO_ ? C_RO_FEE : C_REG_FEE);
+    const angsuran = lookupVal(angTable, tenors, pRibu, tenor);
+    const fee = lookupVal(feeTable, tenors, pRibu, tenor);
+    if (!angsuran || !fee) return null;
+    return { angsuran, fee };
+  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, dbTables]);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
   const toggleRow = useCallback(id => setSelectedIds(prev => {
@@ -170,7 +214,7 @@ export function ApplicationList() {
         <button className="btn btn-secondary" onClick={() => exportToCsv('berkas-masuk', APPLICATION_COLUMNS, filtered)}>
           <Download size={15} /> Export
         </button>
-        <button className="btn btn-primary" onClick={() => { setForm(EMPTY); setErrors({}); setShowModal(true); }}>
+        <button className="btn btn-primary" onClick={() => { setForm(EMPTY); setErrors({}); setDocChecked({}); setDocFiles({}); setShowModal(true); }}>
           <Plus size={16} /> Input Berkas
         </button>
       </div>
@@ -355,14 +399,63 @@ export function ApplicationList() {
               {unitTypes.map(t => <option key={t}>{t}</option>)}
             </select>
           </F>
+          {(form.unitType === 'Motor' || form.unitType === 'Mobil') && (
+            <F label="Jenis Pengajuan">
+              <select className="input" value={form.isRO ? 'ro' : 'new'} onChange={e => set('isRO')(e.target.value === 'ro')}>
+                <option value="new">{form.unitType === 'Motor' ? 'NEW' : 'REGULER'}</option>
+                <option value="ro">RO (Repeat Order)</option>
+              </select>
+            </F>
+          )}
           <F label="Merk & Model Unit" error={errors.unitBrand}><input className="input" value={form.unitBrand} onChange={e => set('unitBrand')(e.target.value)} placeholder="Toyota Avanza 1.3 G" style={errors.unitBrand ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Tahun Unit"><input className="input" type="number" value={form.unitYear} onChange={e => set('unitYear')(Number(e.target.value))} /></F>
-          <F label="Pinjaman yang Diajukan (Rp)" error={errors.pinjaman}><input className="input" type="number" value={form.pinjaman} onChange={e => set('pinjaman')(e.target.value)} placeholder="120000000" style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined} /></F>
+          <F label="Pinjaman yang Diajukan (Rp)" error={errors.pinjaman}>
+            <input
+              className="input"
+              type="text"
+              inputMode="numeric"
+              value={form.pinjaman ? Number(form.pinjaman).toLocaleString('id') : ''}
+              onChange={e => {
+                const raw = e.target.value.replace(/\D/g, '');
+                set('pinjaman')(raw);
+              }}
+              placeholder="120.000.000"
+              style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined}
+            />
+          </F>
           <F label="Tenor">
             <select className="input" value={form.tenor} onChange={e => set('tenor')(Number(e.target.value))}>
               {tenorOptions.map(t => <option key={t} value={Number(t)}>{t} bulan</option>)}
             </select>
           </F>
+
+          {/* Auto kalkulasi angsuran & komisi CMD Finance */}
+          {rateResult ? (
+            <div className="span-2" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <TrendingUp size={14} color="#16a34a" />
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                  Estimasi CMD Finance · {form.unitType} {form.isRO ? 'RO' : (form.unitType === 'Motor' ? 'NEW' : 'REGULER')} · {form.tenor} bln
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: '#16a34a', marginBottom: 2 }}>Angsuran / Bulan</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#15803d' }}>{formatRupiah(rateResult.angsuran)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: '#16a34a', marginBottom: 2 }}>Fee Agent / Komisi</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#15803d' }}>{formatRupiah(rateResult.fee)}</p>
+                </div>
+              </div>
+            </div>
+          ) : form.pinjaman && Number(form.pinjaman) > 0 && (form.unitType === 'Motor' || form.unitType === 'Mobil') ? (
+            <div className="span-2">
+              <p style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>
+                Tenor tidak tersedia di tabel · Motor: 6–36 bln, Mobil: 12–48 bln
+              </p>
+            </div>
+          ) : null}
           <F label="Leasing Tujuan">
             <select className="input" value={form.leasingId} onChange={e => {
               const ls = leasing.find(l => l.id === Number(e.target.value));
@@ -396,13 +489,36 @@ export function ApplicationList() {
 
           {/* Upload section */}
           <div className="span-2" style={{ background: 'var(--surface-alt)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-374151)', marginBottom: 10 }}>Dokumen yang Diupload</p>
-            <div className="rgrid rgrid-3" style={{ gap: 8 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-374151)', marginBottom: 10 }}>
+              Dokumen yang Diupload
+              <span style={{ fontWeight: 400, color: 'var(--c-94a3b8)', marginLeft: 6 }}>— centang untuk lampirkan file (opsional)</span>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {docTypes.map(doc => (
-                <label key={doc} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--c-374151)', cursor: 'pointer', padding: '6px 8px', background: 'var(--surface)', borderRadius: 7, border: '1px solid var(--border)' }}>
-                  <input type="checkbox" style={{ accentColor: '#2563eb' }} />
-                  {doc}
-                </label>
+                <div key={doc}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--c-374151)', cursor: 'pointer', padding: '7px 10px', background: 'var(--surface)', borderRadius: 8, border: `1px solid ${docChecked[doc] ? '#93c5fd' : 'var(--border)'}`, transition: 'border-color .15s' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!docChecked[doc]}
+                      onChange={e => setDocChecked(p => ({ ...p, [doc]: e.target.checked }))}
+                      style={{ accentColor: '#2563eb' }}
+                    />
+                    {doc}
+                  </label>
+                  {docChecked[doc] && (
+                    <div style={{ marginTop: 4, marginLeft: 10, padding: '8px 12px', background: 'var(--surface)', border: '1px dashed #93c5fd', borderRadius: 7 }}>
+                      <input
+                        type="file"
+                        onChange={e => setDocFiles(p => ({ ...p, [doc]: e.target.files?.[0] || null }))}
+                        style={{ fontSize: 12, color: 'var(--c-374151)', width: '100%' }}
+                      />
+                      {docFiles[doc] && (
+                        <p style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>✓ {docFiles[doc].name}</p>
+                      )}
+                      <p style={{ fontSize: 10, color: 'var(--c-94a3b8)', marginTop: 2 }}>Opsional — boleh dilengkapi nanti</p>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
