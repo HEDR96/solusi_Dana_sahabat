@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
 import { UserPlus, CheckCircle } from 'lucide-react';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMPTY = { name: '', phone: '', email: '', city: '', address: '', nik: '' };
 
 export function ApplyAgent() {
@@ -16,18 +16,21 @@ export function ApplyAgent() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.name.trim())        return setError('Nama wajib diisi');
-    if (!form.phone.trim())       return setError('No. HP wajib diisi');
-    if (form.nik.trim().length !== 16) return setError('NIK harus 16 digit');
+    if (!form.name.trim())               return setError('Nama wajib diisi');
+    if (!form.phone.trim())              return setError('No. HP wajib diisi');
+    if (!form.email.trim() || !EMAIL_RE.test(form.email)) return setError('Email valid wajib diisi — digunakan untuk login');
+    if (form.nik.trim().length !== 16)   return setError('NIK harus 16 digit');
 
     setSaving(true);
-    const { data, error: err } = await supabase.rpc('dsd_apply_as_agent', {
-      p_name: form.name, p_phone: form.phone, p_email: form.email,
-      p_city: form.city, p_address: form.address, p_nik: form.nik,
+    const resp = await fetch('/api/register-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
     });
+    const result = await resp.json();
     setSaving(false);
-    if (err) setError(err.message.replace(/^.*?: /, ''));
-    else setDone(data);
+    if (!resp.ok) setError(result.error || 'Terjadi kesalahan, coba lagi');
+    else setDone(result.id);
   };
 
   const F = ({ label, children }) => (
@@ -56,7 +59,8 @@ export function ApplyAgent() {
               <p style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Lamaran Terkirim! 🎉</p>
               <p style={{ fontSize: 13, color: '#64748b', marginTop: 8, lineHeight: 1.6 }}>
                 Nomor pendaftaran kamu: <strong style={{ fontFamily: 'monospace', color: '#3b82f6' }}>{done}</strong><br />
-                Tim kami akan menghubungi kamu setelah lamaran diverifikasi dan akun diaktifkan.
+                Akun login sudah dibuat dengan password sementara <strong>password</strong>.<br />
+                Tim kami akan mengaktifkan akunmu setelah verifikasi data.
               </p>
               <Link to="/login" style={{ display: 'inline-block', marginTop: 16, fontSize: 13, color: '#3b82f6' }}>← Kembali ke halaman login</Link>
             </div>
@@ -65,7 +69,7 @@ export function ApplyAgent() {
               <F label="Nama Lengkap *"><input className="input" value={form.name} onChange={set('name')} placeholder="Sesuai KTP" /></F>
               <F label="NIK / KTP (16 digit) *"><input className="input" value={form.nik} onChange={set('nik')} maxLength={16} inputMode="numeric" /></F>
               <F label="Nomor HP / WhatsApp *"><input className="input" value={form.phone} onChange={set('phone')} inputMode="tel" placeholder="08xxxxxxxxxx" /></F>
-              <F label="Email"><input className="input" type="email" value={form.email} onChange={set('email')} /></F>
+              <F label="Email *"><input className="input" type="email" value={form.email} onChange={set('email')} placeholder="email@contoh.com (untuk login)" /></F>
               <F label="Kota"><input className="input" value={form.city} onChange={set('city')} /></F>
               <F label="Alamat"><input className="input" value={form.address} onChange={set('address')} /></F>
 

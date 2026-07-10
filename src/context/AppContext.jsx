@@ -340,6 +340,36 @@ export function AppProvider({ children }) {
     if (error) { showToast('Gagal menyimpan agen: ' + error.message, 'error'); return false; }
     setAgents(prev => [...prev, mapAgent(inserted)]);
     await addAuditLog('Tambah Agen', `Agen baru: ${data.name} (${newId})`);
+
+    // Buat akun login jika email diisi agar agen bisa login & input berkas
+    if (data.email?.trim()) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (token) {
+        const resp = await fetch('/api/admin-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            name: data.name, email: data.email.trim(),
+            password: 'password', role: 'agen',
+            status: data.status, agentId: newId,
+          }),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+          setUsers(prev => [...prev, {
+            id: result.id, name: result.name, email: result.email,
+            role: 'agen', status: data.status, agentId: newId, lastLogin: '-',
+          }]);
+          showToast(`Agen ${data.name} ditambahkan + akun login dibuat (password: "password")`);
+        } else {
+          showToast(`Agen tersimpan, tapi akun login gagal: ${result.error || 'coba tambah user manual'}`, 'error');
+        }
+        return true;
+      }
+    }
+
+    showToast(`Agen ${data.name} berhasil ditambahkan (tanpa akun login — email kosong)`);
     return true;
   };
 
