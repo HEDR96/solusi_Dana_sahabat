@@ -21,7 +21,7 @@ const CATEGORIES = [
 ];
 
 // ─── Editor satu tabel rate ───────────────────────────────────────────────────
-function RateTableEditor({ def, showToast }) {
+function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CMD Finance' }) {
   const [rows,    setRows]    = useState(null);   // [{pinjaman, vals:[]}]
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
@@ -34,6 +34,7 @@ function RateTableEditor({ def, showToast }) {
     const { data } = await supabase
       .from('dsd_rate_tables')
       .select('data')
+      .eq('leasing_key', leasingKey)
       .eq('product', def.product)
       .eq('tipe', def.tipe)
       .maybeSingle();
@@ -41,11 +42,12 @@ function RateTableEditor({ def, showToast }) {
       setRows(toRows(data.data));
       setFromDB(true);
     } else {
+      // Untuk leasing selain CMD: gunakan tabel CMD Finance sebagai template awal
       setRows(toRows(def.fallback));
       setFromDB(false);
     }
     setEditing(false);
-  }, [def]);
+  }, [def, leasingKey]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -55,25 +57,32 @@ function RateTableEditor({ def, showToast }) {
     rows.forEach(r => { data[r.pinjaman] = r.vals.map(Number); });
     const { error } = await supabase
       .from('dsd_rate_tables')
-      .upsert({ product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
-               { onConflict: 'product,tipe' });
+      .upsert(
+        { leasing_key: leasingKey, product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
+        { onConflict: 'leasing_key,product,tipe' }
+      );
     setSaving(false);
     if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
     setFromDB(true);
     setEditing(false);
-    showToast(`${def.label} berhasil disimpan`);
+    showToast(`${def.label} (${leasingName}) berhasil disimpan`);
   };
 
   const reset = async () => {
-    if (!confirm('Reset tabel ini ke nilai default dari brosur CMD Finance?')) return;
+    const msg = leasingKey === 'CMD'
+      ? 'Reset tabel ini ke nilai default dari brosur CMD Finance?'
+      : `Reset tabel ini ke nilai referensi CMD Finance? Data ${leasingName} yang tersimpan akan ditimpa.`;
+    if (!confirm(msg)) return;
     setRows(toRows(def.fallback));
     const data = {};
     toRows(def.fallback).forEach(r => { data[r.pinjaman] = r.vals; });
     await supabase.from('dsd_rate_tables')
-      .upsert({ product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
-               { onConflict: 'product,tipe' });
+      .upsert(
+        { leasing_key: leasingKey, product: def.product, tipe: def.tipe, data, updated_at: new Date().toISOString() },
+        { onConflict: 'leasing_key,product,tipe' }
+      );
     setFromDB(true);
-    showToast(`${def.label} direset ke default`);
+    showToast(`${def.label} direset ke nilai CMD Finance`);
   };
 
   const updateCell = (ri, ci, val) => {
@@ -95,7 +104,7 @@ function RateTableEditor({ def, showToast }) {
         <span style={{ fontSize:11, padding:'3px 10px', borderRadius:20, fontWeight:600,
           background: fromDB ? '#dbeafe' : '#fef9c3',
           color:      fromDB ? '#1d4ed8' : '#a16207' }}>
-          {fromDB ? 'Data dari Supabase' : 'Fallback (belum disimpan)'}
+          {fromDB ? `Data dari Supabase (${leasingName})` : leasingKey === 'CMD' ? 'Fallback (belum disimpan)' : `Template CMD Finance — belum disimpan untuk ${leasingName}`}
         </span>
         <div style={{ flex:1 }} />
         {editing ? (
@@ -187,7 +196,8 @@ export function MasterData() {
   const [loading,  setLoading]  = useState(false);
 
   // --- Rate tables state ---
-  const [rateTab, setRateTab] = useState(RATE_TABLE_DEFS[0].id);
+  const [rateTab,      setRateTab]      = useState(RATE_TABLE_DEFS[0].id);
+  const [ratesLeasing, setRatesLeasing] = useState('CMD'); // 'CMD' | leasing.id.toString()
 
   // --- Leasing state ---
   const [showLeasingModal, setShowLeasingModal] = useState(false);
@@ -269,7 +279,7 @@ export function MasterData() {
       <div style={{ display:'flex', gap:4, background:'var(--surface-alt)', borderRadius:10, padding:4, marginBottom:20, width:'fit-content' }}>
         {[
           { key:'options', label:'Dropdown Opsi' },
-          { key:'rates',   label:'Tabel Rate CMD Finance' },
+          { key:'rates',   label:'Tabel Rate Leasing' },
           { key:'leasing', label:'Mitra Leasing' },
         ].map(m => (
           <button key={m.key} onClick={() => setMode(m.key)} style={{
@@ -355,10 +365,39 @@ export function MasterData() {
       {mode === 'rates' && (
         <>
           <p style={{ fontSize:12, color:'var(--c-64748b)', marginBottom:14, maxWidth:700 }}>
-            Edit tabel angsuran dan fee agent CMD Finance. Nilai dalam <strong>ribuan rupiah</strong> (×1.000) sesuai brosur resmi. Klik <strong>Edit Tabel</strong> untuk mengubah sel, lalu <strong>Simpan</strong>. Tersimpan di Supabase dan langsung dipakai halaman Simulasi.
+            Edit tabel angsuran dan fee agent per leasing. Nilai dalam <strong>ribuan rupiah</strong> (×1.000). Klik <strong>Edit Tabel</strong>, ubah sel, lalu <strong>Simpan</strong> — langsung dipakai kalkulator di form berkas.
           </p>
 
-          {/* Tab pilih tabel */}
+          {/* Pilih Leasing */}
+          <div style={{ marginBottom:14 }}>
+            <p style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', marginBottom:6, textTransform:'uppercase', letterSpacing:'.04em' }}>
+              Pilih Leasing
+            </p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <button
+                className={`btn btn-sm ${ratesLeasing === 'CMD' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setRatesLeasing('CMD')}
+              >
+                CMD Finance
+              </button>
+              {leasing.map(l => (
+                <button
+                  key={l.id}
+                  className={`btn btn-sm ${ratesLeasing === String(l.id) ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setRatesLeasing(String(l.id))}
+                >
+                  {l.name}
+                </button>
+              ))}
+            </div>
+            {ratesLeasing !== 'CMD' && (
+              <p style={{ fontSize:11, color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'7px 12px', marginTop:10, maxWidth:620 }}>
+                Tabel untuk <strong>{leasing.find(l => String(l.id) === ratesLeasing)?.name}</strong>. Jika belum pernah disimpan, nilai awal diambil dari referensi CMD Finance — edit lalu simpan sesuai brosur resmi leasing ini.
+              </p>
+            )}
+          </div>
+
+          {/* Tab pilih jenis tabel */}
           <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
             {RATE_TABLE_DEFS.map(d => (
               <button
@@ -376,12 +415,19 @@ export function MasterData() {
           <div className="card" style={{ padding:20 }}>
             <h3 style={{ fontSize:14, fontWeight:700, color:'var(--c-0f172a)', marginBottom:14 }}>
               {currentDef?.label}
+              {ratesLeasing !== 'CMD' && (
+                <span style={{ fontSize:12, fontWeight:500, color:'var(--c-64748b)', marginLeft:8 }}>
+                  — {leasing.find(l => String(l.id) === ratesLeasing)?.name}
+                </span>
+              )}
             </h3>
             {currentDef && (
               <RateTableEditor
-                key={currentDef.id}
+                key={`${ratesLeasing}_${currentDef.id}`}
                 def={currentDef}
                 showToast={showToast}
+                leasingKey={ratesLeasing}
+                leasingName={ratesLeasing === 'CMD' ? 'CMD Finance' : (leasing.find(l => String(l.id) === ratesLeasing)?.name || ratesLeasing)}
               />
             )}
           </div>

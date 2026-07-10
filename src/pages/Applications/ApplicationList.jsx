@@ -74,11 +74,16 @@ export function ApplicationList() {
   const PER = 10;
 
   useEffect(() => {
-    supabase.from('dsd_rate_tables').select('product,tipe,data')
+    // Load semua tabel, group by leasing_key → { 'CMD': {motor_new_ang:...}, '5': {...} }
+    supabase.from('dsd_rate_tables').select('leasing_key,product,tipe,data')
       .then(({ data }) => {
         if (!data?.length) return;
         const map = {};
-        data.forEach(r => { map[`${r.product}_${r.tipe}`] = r.data; });
+        data.forEach(r => {
+          const lk = r.leasing_key || 'CMD';
+          if (!map[lk]) map[lk] = {};
+          map[lk][`${r.product}_${r.tipe}`] = r.data;
+        });
         setDbTables(map);
       });
   }, []);
@@ -98,8 +103,7 @@ export function ApplicationList() {
   const totalPages = Math.ceil(sorted.length / PER);
   const rows = sorted.slice((page - 1) * PER, page * PER);
 
-  // Auto-hitung angsuran & komisi dari tabel CMD Finance
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Auto-hitung angsuran & komisi: pakai tabel leasing terpilih, fallback ke CMD Finance
   const rateResult = useMemo(() => {
     const p = Number(form.pinjaman);
     if (!p || p <= 0) return null;
@@ -109,7 +113,14 @@ export function ApplicationList() {
     const tenors = jenis === 'motor' ? MOTOR_TENORS : CAR_TENORS;
     const tenor = Number(form.tenor);
     if (!tenors.includes(tenor)) return null;
-    const gt = (key, fallback) => (dbTables?.[key] && Object.keys(dbTables[key]).length ? dbTables[key] : fallback);
+
+    // Pilih tabel: leasing terpilih → CMD Finance DB → hardcoded fallback
+    const lk = form.leasingId ? String(form.leasingId) : 'CMD';
+    const leasingTables = (dbTables?.[lk] && Object.keys(dbTables[lk]).length) ? dbTables[lk]
+      : (dbTables?.['CMD'] || {});
+    const isOwnTables = !!(dbTables?.[lk] && Object.keys(dbTables[lk]).length);
+
+    const gt = (key, fallback) => (leasingTables[key] && Object.keys(leasingTables[key]).length ? leasingTables[key] : fallback);
     const angTable = jenis === 'motor'
       ? gt(isRO_ ? 'motor_ro_ang' : 'motor_new_ang', isRO_ ? M_RO_ANG : M_NEW_ANG)
       : gt(isRO_ ? 'mobil_ro_ang' : 'mobil_reg_ang', isRO_ ? C_RO_ANG : C_REG_ANG);
@@ -119,8 +130,8 @@ export function ApplicationList() {
     const angsuran = lookupVal(angTable, tenors, pRibu, tenor);
     const fee = lookupVal(feeTable, tenors, pRibu, tenor);
     if (!angsuran || !fee) return null;
-    return { angsuran, fee };
-  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, dbTables]);
+    return { angsuran, fee, isOwnTables };
+  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables]);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
   const toggleRow = useCallback(id => setSelectedIds(prev => {
@@ -429,13 +440,14 @@ export function ApplicationList() {
             </select>
           </F>
 
-          {/* Auto kalkulasi angsuran & komisi CMD Finance */}
+          {/* Auto kalkulasi angsuran & komisi (per leasing atau CMD Finance fallback) */}
           {rateResult ? (
             <div className="span-2" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <TrendingUp size={14} color="#16a34a" />
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                  Estimasi CMD Finance · {form.unitType} {form.isRO ? 'RO' : (form.unitType === 'Motor' ? 'NEW' : 'REGULER')} · {form.tenor} bln
+                  Estimasi {rateResult.isOwnTables ? (form.leasingName || 'Leasing') : 'CMD Finance'} · {form.unitType} {form.isRO ? 'RO' : (form.unitType === 'Motor' ? 'NEW' : 'REGULER')} · {form.tenor} bln
+                  {!rateResult.isOwnTables && form.leasingId ? <span style={{ fontWeight: 400, color: '#16a34a', marginLeft: 4 }}>(referensi)</span> : null}
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
