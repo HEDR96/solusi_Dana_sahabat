@@ -55,6 +55,7 @@ export function AgentList() {
 
   const debouncedSearch = useDebounce(search, 300);
   const cityOptions = useMasterOptions('city', []);
+  const bankOptions = useMasterOptions('bank', ['BCA', 'BNI', 'BRI', 'Mandiri', 'BSI', 'BTPN', 'Danamon', 'Permata']);
 
   // Supervisors = users with spv-agen role
   const supervisors = useMemo(() => users.filter(u => u.role === 'spv-agen'), [users]);
@@ -269,7 +270,12 @@ export function AgentList() {
           <div className="span-2" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-64748b)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>Rekening Bank</p>
             <div className="form-grid" style={{ gap: 12 }}>
-              <F label="Nama Bank"><input className="input" value={form.bank} onChange={e => set('bank')(e.target.value)} /></F>
+              <F label="Nama Bank">
+                <select className="input" value={form.bank} onChange={e => set('bank')(e.target.value)}>
+                  <option value="">— Pilih Bank —</option>
+                  {bankOptions.map(b => <option key={b}>{b}</option>)}
+                </select>
+              </F>
               <F label="Nomor Rekening"><input className="input" value={form.accountNumber} onChange={e => set('accountNumber')(e.target.value)} /></F>
               <F label="Nama Pemilik Rekening"><input className="input" value={form.accountName} onChange={e => set('accountName')(e.target.value)} /></F>
               <F label="Target Bulanan (berkas)"><input className="input" type="number" value={form.target} onChange={e => set('target')(Number(e.target.value))} /></F>

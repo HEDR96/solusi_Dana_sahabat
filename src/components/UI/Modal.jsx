@@ -1,7 +1,12 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export function Modal({ isOpen, onClose, title, children, size = 'md', footer }) {
+/**
+ * Modal — backdrop click dan Escape TIDAK menutup modal secara default.
+ * Gunakan prop `dismissable={true}` hanya bila memang aman ditutup sembarangan.
+ * Tutup hanya lewat tombol X atau footer action.
+ */
+export function Modal({ isOpen, onClose, title, children, size = 'md', footer, dismissable = false }) {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     else        document.body.style.overflow = '';
@@ -9,18 +14,21 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !dismissable) return;
     const handler = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, dismissable, onClose]);
 
   if (!isOpen) return null;
 
   const sizeClass = { sm: 'modal-sm', md: 'modal-md', lg: 'modal-lg', xl: 'modal-xl' }[size] || 'modal-md';
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onClick={dismissable ? onClose : undefined}
+    >
       <div className={`modal ${sizeClass}`} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-0f172a)' }}>{title}</h2>

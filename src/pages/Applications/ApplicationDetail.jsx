@@ -6,7 +6,10 @@ import { Modal } from '../../components/UI/Modal';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabaseClient';
 import { formatRupiah, STATUSES } from '../../data/dummyData';
+import { useMasterOptions } from '../../utils/useMasterOptions';
 import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight } from 'lucide-react';
+
+const DEFAULT_DOC_TYPES = ['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'];
 
 export function ApplicationDetail() {
   const { id } = useParams();
@@ -19,10 +22,11 @@ export function ApplicationDetail() {
   const [surveyTime, setSurveyTime] = useState('');
 
   // ── Dokumen Google Drive ──
-  const [gdocs, setGdocs]       = useState([]);
-  const [docType, setDocType]   = useState('KTP');
+  const [gdocs, setGdocs]         = useState([]);
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef(null);
+  const fileRef                   = useRef(null);
+  const docTypes = useMasterOptions('doc_type', DEFAULT_DOC_TYPES);
+  const [docType, setDocType]     = useState('');
 
   const authHeader = async () => {
     const { data } = await supabase.auth.getSession();
@@ -37,6 +41,11 @@ export function ApplicationDetail() {
       .catch(() => {});
   };
   useEffect(loadDocs, [id]);
+
+  // Inisialisasi docType setelah opsi dimuat
+  useEffect(() => {
+    if (docTypes.length && !docType) setDocType(docTypes[0]);
+  }, [docTypes]);
 
   const compressImage = (file) => new Promise((resolve, reject) => {
     const img = new Image();
@@ -196,14 +205,26 @@ export function ApplicationDetail() {
           )}
 
           <Section title="Dokumen Diupload" icon={FileText}>
-            <div className="rgrid rgrid-3" style={{ gap: 8 }}>
-              {['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'].map(d => (
-                <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f0fdf4', borderRadius: 9, border: '1px solid #bbf7d0' }}>
-                  <CheckCircle size={13} color="#22c55e" />
-                  <span style={{ fontSize: 12, color: '#14532d', fontWeight: 500 }}>{d}</span>
-                </div>
-              ))}
-            </div>
+            {docTypes.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Memuat daftar dokumen...</p>
+            ) : (
+              <div className="rgrid rgrid-3" style={{ gap: 8 }}>
+                {docTypes.map(d => {
+                  const uploaded = gdocs.some(f => f.name.toLowerCase().includes(d.toLowerCase().replace(/\s+/g, '-')));
+                  return (
+                    <div key={d} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                      background: uploaded ? '#f0fdf4' : 'var(--surface-alt)',
+                      borderRadius: 9,
+                      border: `1px solid ${uploaded ? '#bbf7d0' : 'var(--border)'}`,
+                    }}>
+                      <CheckCircle size={13} color={uploaded ? '#22c55e' : 'var(--c-cbd5e1)'} />
+                      <span style={{ fontSize: 12, color: uploaded ? '#14532d' : 'var(--c-64748b)', fontWeight: 500 }}>{d}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Section>
 
           {app.notes && (
@@ -234,7 +255,7 @@ export function ApplicationDetail() {
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-94a3b8)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>Dokumen (Foto Kamera)</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <select className="input" style={{ flex: 1 }} value={docType} onChange={e => setDocType(e.target.value)}>
-                {['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'].map(d => <option key={d}>{d}</option>)}
+                {docTypes.map(d => <option key={d}>{d}</option>)}
               </select>
               <button className="btn btn-primary btn-sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
                 {uploading ? 'Mengupload...' : '📷 Ambil Foto'}

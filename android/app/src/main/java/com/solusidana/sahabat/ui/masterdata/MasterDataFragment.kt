@@ -37,7 +37,8 @@ class MasterDataFragment : Fragment() {
         "city"             to "Kota",
         "activity_type"    to "Jenis Aktivitas",
         "activity_outcome" to "Hasil Aktivitas",
-        "role"             to "Role (Label)"
+        "role"             to "Role (Label)",
+        "doc_type"         to "Tipe Dokumen"
     )
     private var currentCategory = "unit_type"
     private var allOptions = listOf<MasterOption>()

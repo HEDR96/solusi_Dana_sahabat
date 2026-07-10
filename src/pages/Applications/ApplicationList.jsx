@@ -10,6 +10,8 @@ import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
 import { useDebounce } from '../../utils/useDebounce';
 import { useMasterOptions } from '../../utils/useMasterOptions';
+
+const DEFAULT_DOC_TYPES = ['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'];
 import { Plus, Search, Eye, Download, Filter, FileText, SlidersHorizontal, X, CheckSquare } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
@@ -44,9 +46,10 @@ export function ApplicationList() {
   const { visibleApplications: applications, agents, leasing, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
-  const unitTypes = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
+  const unitTypes    = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
   const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
-  const cityOptions = useMasterOptions('city', []);
+  const cityOptions  = useMasterOptions('city', []);
+  const docTypes     = useMasterOptions('doc_type', DEFAULT_DOC_TYPES);
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
   const [filterAgent, setAgent]     = useState('all');
@@ -395,7 +398,7 @@ export function ApplicationList() {
           <div className="span-2" style={{ background: 'var(--surface-alt)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-374151)', marginBottom: 10 }}>Dokumen yang Diupload</p>
             <div className="rgrid rgrid-3" style={{ gap: 8 }}>
-              {['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'].map(doc => (
+              {docTypes.map(doc => (
                 <label key={doc} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--c-374151)', cursor: 'pointer', padding: '6px 8px', background: 'var(--surface)', borderRadius: 7, border: '1px solid var(--border)' }}>
                   <input type="checkbox" style={{ accentColor: '#2563eb' }} />
                   {doc}

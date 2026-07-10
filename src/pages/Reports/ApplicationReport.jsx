@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Layout } from '../../components/Layout/Layout';
 import { Badge } from '../../components/UI/Badge';
 import { useApp } from '../../context/AppContext';
-import { formatRupiah } from '../../data/dummyData';
+import { formatRupiah, STATUSES } from '../../data/dummyData';
 import { exportToCsv } from '../../utils/exportCsv';
 import { Download, AlertTriangle } from 'lucide-react';
 
@@ -60,8 +60,8 @@ export function ApplicationReport() {
         </select>
         <select className="input" style={{ width: 'auto' }} value={filterStatus} onChange={e => { setStatus(e.target.value); setPage(1); }}>
           <option value="all">Semua Status</option>
-          {['pending','cek-data','janji-survey','survey','komite','approve','cancel','reject'].map(s => (
-            <option key={s} value={s}>{s}</option>
+          {STATUSES.map(s => (
+            <option key={s.key} value={s.key}>{s.label}</option>
           ))}
         </select>
         <input className="input" type="date" style={{ width: 'auto' }} value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
