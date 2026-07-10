@@ -115,20 +115,34 @@ class MainActivity : AppCompatActivity() {
         val session = SessionManager(this)
         val token  = session.accessToken ?: return
         val userId = session.userId ?: return
+        val fusedClient = LocationServices.getFusedLocationProviderClient(this)
 
-        LocationServices.getFusedLocationProviderClient(this)
-            .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
-            .addOnSuccessListener { location ->
-                if (location == null) return@addOnSuccessListener
-                lifecycleScope.launch {
-                    SupabaseApi.upsertLocation(
-                        token, userId,
-                        name = session.userName ?: "",
-                        role = session.userRole ?: "",
-                        lat = location.latitude,
-                        lng = location.longitude
-                    )
+        fun sendLoc(loc: android.location.Location) {
+            lifecycleScope.launch {
+                SupabaseApi.upsertLocation(
+                    token, userId,
+                    name = session.userName ?: "",
+                    role = session.userRole ?: "",
+                    lat  = loc.latitude,
+                    lng  = loc.longitude
+                ).onFailure { e ->
+                    android.util.Log.w("LocationReport", "Upsert lokasi gagal: ${e.message}")
                 }
+            }
+        }
+
+        // Prioritas: lastLocation (cached, instan) → getCurrentLocation (active fix)
+        fusedClient.lastLocation
+            .addOnSuccessListener { cached ->
+                if (cached != null) { sendLoc(cached); return@addOnSuccessListener }
+                fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                    .addOnSuccessListener { loc -> if (loc != null) sendLoc(loc) }
+                    .addOnFailureListener { e ->
+                        android.util.Log.w("LocationReport", "getCurrentLocation gagal: ${e.message}")
+                    }
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.w("LocationReport", "lastLocation gagal: ${e.message}")
             }
     }
 }

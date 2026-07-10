@@ -31,13 +31,16 @@ class LocationWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
         val location = getLastLocation() ?: return Result.retry()
 
-        SupabaseApi.upsertLocation(
+        val result = SupabaseApi.upsertLocation(
             token, userId,
             name = session.userName ?: "",
             role = session.userRole ?: "",
             lat  = location.latitude,
             lng  = location.longitude
         )
+        result.onFailure { e ->
+            android.util.Log.w("LocationWorker", "Upsert gagal: ${e.message}")
+        }
         return Result.success()
     }
 
@@ -45,8 +48,14 @@ class LocationWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     private suspend fun getLastLocation(): android.location.Location? =
         suspendCancellableCoroutine { cont ->
             val client = LocationServices.getFusedLocationProviderClient(applicationContext)
-            client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
-                .addOnSuccessListener { loc -> cont.resume(loc) }
+            // Prioritas: lastLocation (cached, instan) → getCurrentLocation (active fix)
+            client.lastLocation
+                .addOnSuccessListener { cached ->
+                    if (cached != null) { cont.resume(cached); return@addOnSuccessListener }
+                    client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                        .addOnSuccessListener { loc -> cont.resume(loc) }
+                        .addOnFailureListener { cont.resume(null) }
+                }
                 .addOnFailureListener { cont.resume(null) }
         }
 }
