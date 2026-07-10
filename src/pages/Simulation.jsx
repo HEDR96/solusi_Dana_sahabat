@@ -184,7 +184,6 @@ function Toggle({ value, onChange, options }) {
 // ─── Komponen utama ──────────────────────────────────────────────────────────
 export function Simulation() {
   const [jenis,     setJenis]     = useState('motor');   // motor | mobil
-  const [akad,      setAkad]      = useState('konven');  // konven | syariah
   const [isRO,      setIsRO]      = useState(false);
   const [pencairan, setPencairan] = useState('');
   const [tenor,     setTenor]     = useState(12);
@@ -214,18 +213,17 @@ export function Simulation() {
     return {
       angsuran,
       fee,
-      totalBayar:  angsuran * validTenor,
-      outOfRange:  p < minP || p > maxP,
-      rangeMsg:    p < minP ? `Minimum pencairan ${formatRupiah(minP)}` : p > maxP ? `Maksimum pencairan ${formatRupiah(maxP)}` : null,
+      totalBayar: angsuran * validTenor,
+      outOfRange: p < minP || p > maxP,
+      rangeMsg:   p < minP ? `Minimum pencairan ${formatRupiah(minP)}` : p > maxP ? `Maksimum pencairan ${formatRupiah(maxP)}` : null,
     };
   }, [jenis, isRO, pencairan, validTenor, minP, maxP]);
 
-  const labelJenis  = jenis === 'motor' ? 'Motor' : 'Mobil';
-  const labelAkad   = akad  === 'syariah' ? 'Syariah' : 'Konvensional';
-  const labelJenis2 = isRO  ? 'RO' : (jenis === 'motor' ? 'NEW' : 'REGULER');
+  const labelJenis = jenis === 'motor' ? 'Motor' : 'Mobil';
+  const labelTipe  = isRO ? 'RO' : (jenis === 'motor' ? 'NEW' : 'REGULER');
 
   return (
-    <Layout title="Simulasi CMD Finance" subtitle="Hitung angsuran dan komisi dari tabel resmi CMD Finance">
+    <Layout title="Simulasi CMD Finance" subtitle="CMD Finance Medan · Hitung angsuran dan komisi dari tabel resmi">
       <div className="rgrid rgrid-2" style={{ gap:20, alignItems:'start' }}>
 
         {/* ── FORM ── */}
@@ -243,17 +241,6 @@ export function Simulation() {
                 { value:'motor', label:'Motor (BPKB)' },
                 { value:'mobil', label:'Mobil (BPKB)' },
               ]} />
-            </div>
-
-            <div>
-              <label className="label">Akad</label>
-              <Toggle value={akad} onChange={setAkad} options={[
-                { value:'konven',  label:'Konvensional' },
-                { value:'syariah', label:'Syariah' },
-              ]} />
-              <p style={{ fontSize:11, color:'var(--c-94a3b8)', marginTop:5 }}>
-                Tabel angsuran Konvensional dan Syariah identik untuk produk ini
-              </p>
             </div>
 
             <div>
@@ -330,7 +317,7 @@ export function Simulation() {
               {/* Header angsuran */}
               <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', borderRadius:16, padding:'24px 20px' }}>
                 <p style={{ fontSize:11, color:'#93c5fd', marginBottom:4, letterSpacing:'.04em', textTransform:'uppercase' }}>
-                  {labelJenis} {labelAkad} · {labelJenis2} · {validTenor} Bulan
+                  CMD Finance Medan · {labelJenis} {labelTipe} · {validTenor} Bulan
                 </p>
                 <p style={{ fontSize:11, color:'#93c5fd', marginBottom:2 }}>Angsuran per Bulan</p>
                 <p style={{ fontSize:34, fontWeight:800, color:'#fff', marginBottom:16 }}>
@@ -338,10 +325,10 @@ export function Simulation() {
                 </p>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   {[
-                    { l:'Jumlah Pinjaman',   v: formatRupiah(Number(pencairan)) },
-                    { l:'Tenor',             v: `${validTenor} bulan` },
-                    { l:'Total Bayar Nasabah', v: formatRupiah(result.totalBayar) },
-                    { l:'Jenis Akad',        v: labelAkad },
+                    { l:'Jumlah Pinjaman',    v: formatRupiah(Number(pencairan)) },
+                    { l:'Tenor',              v: `${validTenor} bulan` },
+                    { l:'Total Bayar Nasabah',v: formatRupiah(result.totalBayar) },
+                    { l:'Jenis Pengajuan',    v: labelTipe },
                   ].map(({ l, v }) => (
                     <div key={l}>
                       <p style={{ fontSize:11, color:'#93c5fd', marginBottom:2 }}>{l}</p>
@@ -363,7 +350,7 @@ export function Simulation() {
                   {formatRupiah(result.fee)}
                 </p>
                 <p style={{ fontSize:12, color:'#16a34a' }}>
-                  Per berkas disetujui · {labelJenis} {labelJenis2}
+                  Per berkas disetujui · {labelJenis} {labelTipe}
                 </p>
               </div>
 

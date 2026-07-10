@@ -20,21 +20,12 @@ ALTER TABLE dsd_leasing_partners
   ALTER COLUMN rate TYPE text USING rate::text;
 
 -- ============================================================================
--- STEP 2: Hapus data lama (seed awal dari migration) lalu insert ulang lengkap
+-- STEP 2: Hapus data lama lalu insert CMD Finance Medan
 -- ============================================================================
 DELETE FROM dsd_leasing_partners;
 
 INSERT INTO dsd_leasing_partners (name, branch, pic, contact, email, products, rate, tenors, min_pinjaman, max_pinjaman, status, syarat, notes) VALUES
-('Adira Finance',          'Jakarta Pusat',   'Budi Santoso',    '08123456701', 'budi@adira.co.id',      'Kendaraan Bermotor, Elektronik', '1.5',  '12,24,36,48,60',   5000000,    500000000,  'aktif',    'KTP, KK, Slip Gaji, STNK', ''),
-('BFI Finance',            'Jakarta Selatan', 'Rina Marlina',    '08123456702', 'rina@bfi.co.id',        'Mobil, Motor, Properti',         '1.3',  '12,24,36,48,60',   10000000,   1000000000, 'aktif',    'KTP, KK, BPKB, Slip Gaji', ''),
-('FIF Group',              'Bandung',         'Hendra Kusuma',   '08123456703', 'hendra@fifgroup.co.id', 'Motor Honda',                    '1.2',  '12,18,24,36',      2000000,    50000000,   'aktif',    'KTP, KK, STNK',            ''),
-('Mandiri Utama Finance',  'Surabaya',        'Dewi Rahayu',     '08123456704', 'dewi@muf.co.id',        'Mobil, Alat Berat',              '1.4',  '12,24,36,48,60',   15000000,   2000000000, 'aktif',    'KTP, KK, Slip Gaji, BPKB', ''),
-('OTO Finance',            'Medan',           'Ahmad Fauzi',     '08123456705', 'ahmad@oto.co.id',       'Motor, Mobil Bekas',             '1.6',  '12,24,36',         3000000,    200000000,  'aktif',    'KTP, KK, STNK, BPKB',     ''),
-('Clipan Finance',         'Semarang',        'Sri Wahyuni',     '08123456706', 'sri@clipan.co.id',      'Mobil Baru & Bekas',             '1.35', '12,24,36,48',      20000000,   800000000,  'aktif',    'KTP, NPWP, Slip Gaji',     ''),
-('ACC (Astra Credit)',     'Yogyakarta',      'Doni Prasetyo',   '08123456707', 'doni@acc.co.id',        'Mobil Astra',                    '1.1',  '12,24,36,48,60',   30000000,   1500000000, 'aktif',    'KTP, KK, Slip Gaji, BPKB', ''),
-('WOM Finance',            'Makassar',        'Fitri Handayani', '08123456708', 'fitri@wom.co.id',       'Motor Yamaha',                   '1.25', '12,18,24,36',      2000000,    40000000,   'aktif',    'KTP, KK, STNK',            ''),
-('Wahana Finance',         'Denpasar',        'Agus Setiawan',   '08123456709', 'agus@wahana.co.id',     'Motor, Elektronik',              '1.45', '12,24,36',         1500000,    30000000,   'aktif',    'KTP, Slip Gaji',           ''),
-('CIMB Niaga Auto Finance','Palembang',       'Maya Putri',      '08123456710', 'maya@cnaf.co.id',       'Mobil',                          '1.2',  '12,24,36,48,60',   25000000,   1200000000, 'aktif',    'KTP, KK, NPWP, Slip Gaji', '');
+('CMD Finance', 'Medan', '', '', '', 'Motor & Mobil (BPKB)', '0', '6,12,18,24,30,36,48', 5000000, 200000000, 'aktif', 'KTP, KK, BPKB/STNK', '');
 
 -- ============================================================================
 -- STEP 3: Seed dsd_master_options — doc_type
