@@ -83,6 +83,7 @@ data class MasterOption(
     val id: Long? = null,
     val category: String,
     val value: String,
+    val label: String? = null,
     val sort: Int = 0,
     val active: Boolean = true
 )

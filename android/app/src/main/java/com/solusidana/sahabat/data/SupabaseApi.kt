@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.TimeUnit
 
 object SupabaseApi {
 
@@ -22,8 +23,12 @@ object SupabaseApi {
     val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
     private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                    else HttpLoggingInterceptor.Level.NONE
         })
         .build()
 
@@ -325,7 +330,7 @@ object SupabaseApi {
 
     suspend fun getMasterOptions(token: String): Result<List<MasterOption>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/master_options?select=id,category,value,sort,active&order=category,sort")
+            .url("$BASE_URL/rest/v1/master_options?select=id,category,value,label,sort,active&order=category,sort")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get()
@@ -459,6 +464,18 @@ object SupabaseApi {
             .post(notifBody)
             .build()
         client.newCall(notifReq).execute()
+    }
+
+    suspend fun getAgentLocations(token: String): Result<List<com.solusidana.sahabat.ui.map.AgentLocation>> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/agent_locations?select=*&order=updated_at.desc")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        json.decodeFromString<List<com.solusidana.sahabat.ui.map.AgentLocation>>(text)
     }
 
     suspend fun insertActivity(

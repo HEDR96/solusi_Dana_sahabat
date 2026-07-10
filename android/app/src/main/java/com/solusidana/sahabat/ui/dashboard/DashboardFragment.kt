@@ -137,6 +137,14 @@ class DashboardFragment : Fragment() {
             findNavController().navigate(R.id.action_dashboard_to_activities)
         }
 
+        // Peta agen — hanya owner/super-admin yang bisa lihat lokasi semua agen
+        if (SessionManager(requireContext()).userRole in listOf("owner", "super-admin")) {
+            b.btnAgentMap.visibility = View.VISIBLE
+            b.btnAgentMap.setOnClickListener {
+                findNavController().navigate(R.id.action_dashboard_to_map)
+            }
+        }
+
         b.swipeRefresh.setOnRefreshListener {
             vm.load()
             b.swipeRefresh.isRefreshing = false
@@ -152,16 +160,7 @@ class DashboardFragment : Fragment() {
         card.tvLabel.text = label
     }
 
-    private fun roleLabel(role: String) = when (role) {
-        "owner"       -> "Owner"
-        "super-admin" -> "Super Admin"
-        "admin"       -> "Admin"
-        "spv-agen"    -> "Supervisor Agen"
-        "agen"        -> "Agen"
-        "surveyor"    -> "Surveyor"
-        "finance"     -> "Finance"
-        else          -> role
-    }
+    private fun roleLabel(role: String) = com.solusidana.sahabat.data.MasterData.labelFor(requireContext(), "role", role)
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
 }

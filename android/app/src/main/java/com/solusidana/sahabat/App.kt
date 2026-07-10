@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.work.*
+import com.solusidana.sahabat.worker.LocationWorker
 import com.solusidana.sahabat.worker.NotificationWorker
 import com.solusidana.sahabat.worker.SurveyReminderWorker
 import java.util.Calendar
@@ -15,6 +16,7 @@ class App : Application() {
         super.onCreate()
         createNotificationChannel()
         scheduleNotificationWorker()
+        scheduleLocationWorker()
     }
 
     private fun createNotificationChannel() {
@@ -69,6 +71,23 @@ class App : Application() {
             "survey_reminder",
             ExistingPeriodicWorkPolicy.UPDATE,
             surveyRequest
+        )
+    }
+
+    private fun scheduleLocationWorker() {
+        // Kirim lokasi tiap 15 menit (minimum WorkManager), tanpa HP dibuka.
+        // Worker cek role sendiri — non-agen/spv-agen langsung skip.
+        val req = PeriodicWorkRequestBuilder<LocationWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "location_update",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            req
         )
     }
 

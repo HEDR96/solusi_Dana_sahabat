@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -50,6 +51,9 @@ class AgentFormFragment : Fragment() {
                 master["bank"]?.let { banks ->
                     b.ddBank.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, banks))
                 }
+                master["city"]?.let { cities ->
+                    b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
+                }
             }
         }
 
@@ -60,7 +64,8 @@ class AgentFormFragment : Fragment() {
         val name  = b.etName.text.toString().trim()
         val nik   = b.etNik.text.toString().trim()
         val phone = b.etPhone.text.toString().trim()
-        val city  = b.etCity.text.toString().trim()
+        val city  = (b.etCity as? AutoCompleteTextView)?.text?.toString()?.trim()
+            ?: b.etCity.text?.toString()?.trim() ?: ""
 
         val error = when {
             name.isBlank()   -> "Nama wajib diisi"

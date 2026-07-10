@@ -53,6 +53,9 @@ class ApplicationFormFragment : Fragment() {
             if (master.isEmpty()) return@observe
             master["unit_type"]?.let { unitTypes = it }
             master["tenor"]?.let { list -> tenorOptions = list.mapNotNull { it.toIntOrNull() }.ifEmpty { tenorOptions } }
+            master["city"]?.let { cities ->
+                b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
+            }
             bindDropdowns()
         }
 

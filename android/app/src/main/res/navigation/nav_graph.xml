@@ -17,7 +17,15 @@
         <action
             android:id="@+id/action_dashboard_to_activities"
             app:destination="@id/activityListFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_map"
+            app:destination="@id/agentMapFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/agentMapFragment"
+        android:name="com.solusidana.sahabat.ui.map.AgentMapFragment"
+        android:label="Peta Agen" />
 
     <fragment
         android:id="@+id/activityListFragment"

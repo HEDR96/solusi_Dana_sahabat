@@ -52,6 +52,9 @@ class EditProfileFragment : Fragment() {
                 master["bank"]?.let { banks ->
                     b.ddBank.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, banks))
                 }
+                master["city"]?.let { cities ->
+                    b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
+                }
                 if (agentId != null) {
                     SupabaseApi.getAgentById(token, agentId).onSuccess { ag ->
                         if (_b == null) return@onSuccess

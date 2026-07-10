@@ -28,8 +28,15 @@ class MainActivity : AppCompatActivity() {
     private val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants.values.any { it }) reportLocation()
+        if (grants.values.any { it }) {
+            reportLocation()
+            requestBackgroundLocation()
+        }
     }
+
+    private val bgLocationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* worker lokasi background aktif setelah granted */ }
 
     private val notifPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -88,8 +95,18 @@ class MainActivity : AppCompatActivity() {
         val fine = Manifest.permission.ACCESS_FINE_LOCATION
         if (ContextCompat.checkSelfPermission(this, fine) == PackageManager.PERMISSION_GRANTED) {
             reportLocation()
+            requestBackgroundLocation()
         } else {
             locationPermission.launch(arrayOf(fine, Manifest.permission.ACCESS_COARSE_LOCATION))
+        }
+    }
+
+    /** Android 10+ wajib minta background location secara terpisah setelah foreground granted. */
+    private fun requestBackgroundLocation() {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val bgPerm = Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        if (ContextCompat.checkSelfPermission(this, bgPerm) != PackageManager.PERMISSION_GRANTED) {
+            bgLocationPermission.launch(bgPerm)
         }
     }
 

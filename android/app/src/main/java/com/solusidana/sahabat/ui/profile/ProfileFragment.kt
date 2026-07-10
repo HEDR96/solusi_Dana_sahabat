@@ -194,16 +194,7 @@ class ProfileFragment : Fragment() {
         dialog.show()
     }
 
-    private fun roleLabel(role: String) = when (role) {
-        "owner"       -> "Owner"
-        "super-admin" -> "Super Admin"
-        "admin"       -> "Admin / Back Office"
-        "spv-agen"    -> "Supervisor Agen"
-        "agen"        -> "Agen"
-        "surveyor"    -> "Surveyor"
-        "finance"     -> "Finance"
-        else          -> role
-    }
+    private fun roleLabel(role: String) = com.solusidana.sahabat.data.MasterData.labelFor(requireContext(), "role", role)
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
 }

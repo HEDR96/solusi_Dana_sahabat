@@ -61,6 +61,9 @@ class ActivityListFragment : Fragment() {
 
         b.progress.isVisible = true
         viewLifecycleOwner.lifecycleScope.launch {
+            // Refresh cache master data (jenis & hasil aktivitas dari DB, bukan hardcode)
+            com.solusidana.sahabat.data.MasterData.load(requireContext(), token)
+
             // Agen untuk dropdown (non-agen) — sekalian dimuat sekali
             if (session.userRole != "agen" && agents.isEmpty()) {
                 agents = SupabaseApi.getAgents(token).getOrDefault(emptyList())
@@ -71,17 +74,18 @@ class ActivityListFragment : Fragment() {
             if (_b == null) return@launch
             b.progress.isVisible = false
 
+            val ctx = requireContext()
             result.onSuccess { list ->
                 b.tvEmpty.isVisible = list.isEmpty()
                 b.containerItems.removeAllViews()
                 list.forEach { act ->
                     val row = layoutInflater.inflate(R.layout.item_activity, b.containerItems, false)
-                    row.findViewById<TextView>(R.id.tvType).text        = activityTypeLabel(act.type)
+                    row.findViewById<TextView>(R.id.tvType).text        = com.solusidana.sahabat.data.MasterData.labelFor(ctx, "activity_type", act.type)
                     row.findViewById<TextView>(R.id.tvDate).text        = act.date ?: ""
                     row.findViewById<TextView>(R.id.tvDescription).text = act.description ?: "-"
                     row.findViewById<TextView>(R.id.tvAgent).text       = act.agentName ?: "-"
                     row.findViewById<TextView>(R.id.tvOutcome).apply {
-                        text = activityOutcomeLabel(act.outcome)
+                        text = com.solusidana.sahabat.data.MasterData.labelFor(ctx, "activity_outcome", act.outcome)
                         setTextColor(activityOutcomeColor(act.outcome))
                     }
                     b.containerItems.addView(row)
@@ -113,11 +117,15 @@ class ActivityListFragment : Fragment() {
             ddAgent.setOnItemClickListener { _, _, pos, _ -> selectedAgent = agents[pos] }
         }
 
-        ddType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, ACTIVITY_TYPES.map { it.second }))
-        ddType.setOnItemClickListener { _, _, pos, _ -> selectedType = ACTIVITY_TYPES[pos].first }
+        // Jenis & hasil dari Master Data (owner bisa tambah/ubah tanpa update APK)
+        val types    = com.solusidana.sahabat.data.MasterData.pairs(requireContext(), "activity_type")
+        val outcomes = com.solusidana.sahabat.data.MasterData.pairs(requireContext(), "activity_outcome")
 
-        ddOutcome.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, ACTIVITY_OUTCOMES.map { it.second }))
-        ddOutcome.setOnItemClickListener { _, _, pos, _ -> selectedOutcome = ACTIVITY_OUTCOMES[pos].first }
+        ddType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, types.map { it.second }))
+        ddType.setOnItemClickListener { _, _, pos, _ -> selectedType = types[pos].first }
+
+        ddOutcome.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, outcomes.map { it.second }))
+        ddOutcome.setOnItemClickListener { _, _, pos, _ -> selectedOutcome = outcomes[pos].first }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Catat Aktivitas")

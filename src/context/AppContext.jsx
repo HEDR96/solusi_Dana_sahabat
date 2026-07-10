@@ -383,27 +383,31 @@ export function AppProvider({ children }) {
   };
 
   const createUser = async (data) => {
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email.trim(),
-      password: data.password,
+    // Pakai endpoint admin (service role di server) — tidak mengganggu sesi admin yang login
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { showToast('Sesi tidak valid — silakan login ulang', 'error'); return false; }
+
+    const resp = await fetch('/api/admin-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: data.name.trim(), email: data.email.trim(),
+        password: data.password, role: data.role,
+        status: data.status, agentId: data.agentId || null,
+      }),
     });
-    if (error) { showToast('Gagal membuat akun: ' + error.message, 'error'); return false; }
-    const userId = authData.user?.id;
-    if (!userId) { showToast('Gagal mendapatkan ID user baru', 'error'); return false; }
-    const { error: profErr } = await supabase.from('profiles').upsert({
-      id: userId, name: data.name.trim(), email: data.email.trim(),
-      role: data.role, status: data.status, agent_id: data.agentId || null,
-    });
-    if (profErr) { showToast('Profil gagal dibuat: ' + profErr.message, 'error'); return false; }
-    setUsers(prev => [...prev, { id: userId, name: data.name.trim(), email: data.email.trim(), role: data.role, status: data.status, agentId: data.agentId || null, lastLogin: '-' }]);
-    await addAuditLog('Buat User', `User baru: ${data.name} (${data.role})`);
-    // If email confirmation disabled, signUp auto-logs in as new user — sign out so admin stays
-    if (authData.session) {
-      await supabase.auth.signOut();
-      showToast('User berhasil dibuat. Silakan login ulang sebagai admin.', 'info');
-    } else {
-      showToast(`User ${data.name} berhasil dibuat — link konfirmasi dikirim ke email`);
+    const result = await resp.json();
+    if (!resp.ok) {
+      showToast('Gagal membuat akun: ' + (result.error || `HTTP ${resp.status}`), 'error');
+      return false;
     }
+    setUsers(prev => [...prev, {
+      id: result.id, name: result.name, email: result.email,
+      role: result.role, status: result.status, agentId: data.agentId || null, lastLogin: '-',
+    }]);
+    await addAuditLog('Buat User', `User baru: ${data.name} (${data.role})`);
+    showToast(`User ${data.name} berhasil dibuat ✅`);
     return true;
   };
 
