@@ -79,29 +79,50 @@ class SimulationFragment : Fragment() {
             recalc()
         }
 
-        // Tahun
-        b.ddTahun.setOnClickListener { b.ddTahun.showDropDown() }
-        b.ddTahun.setOnItemClickListener { _, _, pos, _ ->
-            selectedTahun = OTR_YEARS[pos]
-            onTahunSelected()
-        }
-
-        // Brand
+        // Brand → Tipe → Tahun
         b.ddBrand.setOnClickListener { b.ddBrand.showDropDown() }
         b.ddBrand.setOnItemClickListener { _, _, _, _ ->
             selectedBrand = b.ddBrand.text.toString()
-            selectedTipe = ""; selectedOtrRow = null
-            b.ddTipe.setText("", false)
+            selectedTipe = ""; selectedOtrRow = null; selectedTahun = 0; maxPinjaman = null
+            b.ddTipe.setText("", false); b.ddTahun.setText("", false)
+            b.tilTipe.isVisible = true
+            b.tilTahun.isVisible = false
+            b.tilPencairan.isVisible = false
+            b.tilTenor.isVisible = false
+            b.llMaksPinjaman.isVisible = false
             updateTipeDropdown()
-            onOtrRowChanged()
         }
 
-        // Tipe
         b.ddTipe.setOnClickListener { b.ddTipe.showDropDown() }
         b.ddTipe.setOnItemClickListener { _, _, _, _ ->
             selectedTipe = b.ddTipe.text.toString()
             selectedOtrRow = otrCatalog.find { it.brand == selectedBrand && it.tipe == selectedTipe }
-            onOtrRowChanged()
+            selectedTahun = 0; maxPinjaman = null
+            b.ddTahun.setText("", false)
+            b.tilTahun.isVisible = true
+            b.tilPencairan.isVisible = false
+            b.tilTenor.isVisible = false
+            b.llMaksPinjaman.isVisible = false
+            updateTahunDropdown()
+        }
+
+        b.ddTahun.setOnClickListener { b.ddTahun.showDropDown() }
+        b.ddTahun.setOnItemClickListener { _, _, pos, _ ->
+            val tahunList = availableTahuns()
+            selectedTahun = tahunList[pos]
+            onTahunSelected()
+        }
+
+        // Pakai maks tersedia
+        b.btnPakaiMaks.setOnClickListener {
+            val opts = pencairaOptions()
+            if (opts.isNotEmpty()) {
+                selectedPencairan = opts.last()
+                b.ddPencairan.setText(formatRupiah(selectedPencairan), false)
+                updateTenorDropdown()
+                b.tilTenor.isVisible = true
+                recalc()
+            }
         }
 
         // Pencairan
@@ -131,29 +152,24 @@ class SimulationFragment : Fragment() {
 
     private fun tenorList() = if (jenis == "motor") MOTOR_TENORS else CAR_TENORS
 
-    private fun onTahunSelected() {
-        // Tampilkan pencairan setelah tahun dipilih
-        updatePencairanDropdown()
-        b.tilPencairan.isVisible = true
-        onOtrRowChanged()
+    private fun availableTahuns(): List<Int> {
+        val row = selectedOtrRow ?: return OTR_YEARS
+        return OTR_YEARS.filter { row.getOtr(it) != null }
     }
 
-    private fun onOtrRowChanged() {
+    private fun onTahunSelected() {
         val row = selectedOtrRow
-        val tahun = selectedTahun
-        maxPinjaman = if (row != null && tahun > 0) row.getMaxPinjaman(tahun) else null
+        maxPinjaman = if (row != null && selectedTahun > 0) row.getMaxPinjaman(selectedTahun) else null
         val mp = maxPinjaman
         b.llMaksPinjaman.isVisible = mp != null
         if (mp != null) b.tvMaksPinjaman.text = formatRupiah(mp)
-        // Refresh opsi pencairan dengan batas baru
         updatePencairanDropdown()
-        // Reset pencairan jika sudah dipilih dan melebihi maks
-        if (selectedPencairan > 0 && mp != null && selectedPencairan > mp) {
-            selectedPencairan = 0L
-            b.ddPencairan.setText("", false)
-            b.tilTenor.isVisible = false
-            showPlaceholder("Pilih ulang jumlah pencairan (maks ${formatRupiah(mp)})")
-        }
+        b.tilPencairan.isVisible = true
+    }
+
+    private fun updateTahunDropdown() {
+        val tahuns = availableTahuns()
+        b.ddTahun.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tahuns.map { it.toString() }))
     }
 
     private fun pencairaOptions(): List<Long> {
@@ -186,8 +202,14 @@ class SimulationFragment : Fragment() {
     }
 
     private fun updateBrandDropdown() {
-        val brands = otrCatalog.map { it.brand }.distinct().sorted()
+        val unitType = if (jenis == "motor") "r2" else "r4"
+        val brands = otrCatalog
+            .filter { it.unitType == null || it.unitType == unitType }
+            .map { it.brand }.distinct().sorted()
         b.ddBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
+        // Reset tipe/tahun jika jenis berubah
+        b.tilTipe.isVisible = false
+        b.tilTahun.isVisible = false
     }
 
     private fun updateTipeDropdown() {
@@ -247,7 +269,9 @@ class SimulationFragment : Fragment() {
 
         b.llInputs.isVisible = true
         b.llCmdOtr.isVisible = isCMD
-        b.tilPencairan.isVisible = !isCMD  // non-CMD: langsung tampil; CMD: tunggu tahun
+        b.tilTipe.isVisible = false
+        b.tilTahun.isVisible = false
+        b.tilPencairan.isVisible = !isCMD
         b.tilTenor.isVisible = false
         b.llMaksPinjaman.isVisible = false
         b.ddPencairan.setText("", false)

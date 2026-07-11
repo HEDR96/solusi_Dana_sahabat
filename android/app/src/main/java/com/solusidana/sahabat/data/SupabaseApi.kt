@@ -646,14 +646,14 @@ object SupabaseApi {
 
     suspend fun getOtrCatalog(token: String): Result<List<OtrCatalogRow>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/dsd_otr_catalog?leasing_key=eq.CMD&select=id,brand,tipe,ltv,ltv_rule,kategori,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015&order=brand&order=tipe")
+            .url("$BASE_URL/rest/v1/dsd_otr_catalog?leasing_key=eq.CMD&select=id,brand,tipe,ltv,ltv_rule,kategori,unit_type,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015&order=brand&order=tipe")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get().build()
-        val resp = client.newCall(req).execute()
-        val text = resp.body?.string() ?: "[]"
-        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
-        json.decodeFromString<List<OtrCatalogRow>>(text)
+        val resp2 = client.newCall(req).execute()
+        val text2 = resp2.body?.string() ?: "[]"
+        if (!resp2.isSuccessful) error(supabaseError(resp2.code, text2))
+        json.decodeFromString<List<OtrCatalogRow>>(text2)
     }
 
     /**

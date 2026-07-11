@@ -108,6 +108,7 @@ data class OtrCatalogRow(
     val ltv: Double? = null,
     @SerialName("ltv_rule") val ltvRule: String? = null,
     val kategori: String? = null,
+    @SerialName("unit_type") val unitType: String? = null,
     @SerialName("otr_2026") val otr2026: Long? = null,
     @SerialName("otr_2025") val otr2025: Long? = null,
     @SerialName("otr_2024") val otr2024: Long? = null,

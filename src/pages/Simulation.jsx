@@ -78,21 +78,24 @@ export function Simulation() {
     const tList = v === 'motor' ? MOTOR_TENORS : CAR_TENORS;
     if (!tList.includes(tenor)) setTenor(tList[0]);
     setPencairan('');
-    setOtrBrand(''); setOtrTipe(''); setOtrRow(null);
+    setOtrBrand(''); setOtrTipe(''); setOtrRow(null); setTahunKendaraan('');
   };
 
-  // Load OTR catalog CMD Finance
+  // Load OTR catalog CMD Finance (include unit_type)
   useEffect(() => {
     supabase.from('dsd_otr_catalog')
-      .select('brand,tipe,ltv,ltv_rule,kategori,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
+      .select('brand,tipe,ltv,ltv_rule,kategori,unit_type,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
       .eq('leasing_key', 'CMD')
       .order('brand').order('tipe')
       .then(({ data }) => { if (data) setOtrList(data); });
   }, []);
 
-  // Derived OTR values
-  const otrBrands  = useMemo(() => [...new Set(otrList.map(r => r.brand))], [otrList]);
-  const otrTipes   = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
+  // Derived OTR values — brand difilter by R2/R4 sesuai jenis produk
+  const otrBrands = useMemo(() => {
+    const unitType = jenis === 'motor' ? 'r2' : 'r4';
+    return [...new Set(otrList.filter(r => !r.unit_type || r.unit_type === unitType).map(r => r.brand))];
+  }, [otrList, jenis]);
+  const otrTipes = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
   const otrInfo = useMemo(() => {
     if (!otrRow || !tahunKendaraan) return null;
     const tahun = Number(tahunKendaraan);
@@ -188,71 +191,73 @@ export function Simulation() {
                 />
               </div>
 
-              {/* ── Tahun Kendaraan + OTR Catalog (CMD Finance only) ── */}
-              {rateKey === 'CMD' && <>
-              <div>
-                <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <Car size={13} color="var(--c-64748b)" /> Tahun Kendaraan
-                </label>
-                <select className="input" value={tahunKendaraan} onChange={e => setTahunKendaraan(e.target.value)}>
-                  <option value="">— Pilih Tahun —</option>
-                  {OTR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-
-              {/* ── OTR Catalog ── */}
+              {/* ── OTR Lookup CMD Finance: Brand → Tipe → Tahun ── */}
+              {rateKey === 'CMD' && (
               <div style={{ background:'var(--surface-alt)', borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
                   <Car size={13} color="var(--c-64748b)" />
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', textTransform:'uppercase', letterSpacing:'.04em' }}>
-                    Lookup OTR Kendaraan (opsional)
+                    OTR Kendaraan — {jenis === 'motor' ? 'Motor (R2)' : 'Mobil (R4)'}
                   </span>
                 </div>
 
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                  <div>
-                    <label className="label" style={{ fontSize:11 }}>Brand</label>
-                    <select className="input" style={{ fontSize:13 }} value={otrBrand} onChange={e => {
-                      setOtrBrand(e.target.value); setOtrTipe(''); setOtrRow(null);
-                    }}>
-                      <option value="">— Brand —</option>
-                      {otrBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label" style={{ fontSize:11 }}>Tipe</label>
-                    <select className="input" style={{ fontSize:13 }} value={otrTipe} onChange={e => {
-                      const t = e.target.value;
-                      setOtrTipe(t);
-                      const row = otrList.find(r => r.brand === otrBrand && r.tipe === t);
-                      setOtrRow(row || null);
-                    }} disabled={!otrBrand}>
-                      <option value="">— Tipe —</option>
-                      {otrTipes.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                {/* Brand */}
+                <div>
+                  <label className="label" style={{ fontSize:11 }}>Brand</label>
+                  <select className="input" style={{ fontSize:13 }} value={otrBrand} onChange={e => {
+                    setOtrBrand(e.target.value); setOtrTipe(''); setOtrRow(null); setTahunKendaraan(''); setPencairan('');
+                  }}>
+                    <option value="">— Pilih Brand —</option>
+                    {otrBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
                 </div>
 
+                {/* Tipe */}
+                {otrBrand && (
+                <div>
+                  <label className="label" style={{ fontSize:11 }}>Tipe</label>
+                  <select className="input" style={{ fontSize:13 }} value={otrTipe} onChange={e => {
+                    const t = e.target.value;
+                    setOtrTipe(t); setTahunKendaraan(''); setPencairan('');
+                    setOtrRow(otrList.find(r => r.brand === otrBrand && r.tipe === t) || null);
+                  }}>
+                    <option value="">— Pilih Tipe —</option>
+                    {otrTipes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                )}
+
+                {/* Tahun */}
+                {otrRow && (
+                <div>
+                  <label className="label" style={{ fontSize:11 }}>Tahun Kendaraan</label>
+                  <select className="input" style={{ fontSize:13 }} value={tahunKendaraan} onChange={e => {
+                    setTahunKendaraan(e.target.value); setPencairan('');
+                  }}>
+                    <option value="">— Pilih Tahun —</option>
+                    {OTR_YEARS.filter(y => otrRow[`otr_${y}`]).map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                )}
+
+                {/* Info maks pinjaman */}
                 {otrInfo && (
                   <div style={{ background:'#eff6ff', borderRadius:8, padding:'10px 12px', fontSize:12 }}>
-                    <div style={{ marginBottom:6 }}>
-                      <span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman ({otrInfo.tahun})</span>
-                      <br/>
-                      <strong style={{ fontSize:16, color:'#1d4ed8' }}>{formatRupiah(otrInfo.max)}</strong>
-                    </div>
-                    <button className="btn btn-sm btn-primary" style={{ width:'100%', fontSize:12 }}
-                      onClick={() => setPencairan(String(otrInfo.max))}>
-                      Pakai sebagai Jumlah Pinjaman
-                    </button>
+                    <span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman ({otrInfo.tahun})</span>
+                    <br/>
+                    <strong style={{ fontSize:16, color:'#1d4ed8' }}>{formatRupiah(otrInfo.max)}</strong>
+                    {pinjamanOptions.length > 0 && (
+                      <button className="btn btn-sm btn-primary" style={{ marginTop:8, width:'100%', fontSize:12 }}
+                        onClick={() => setPencairan(String(pinjamanOptions[pinjamanOptions.length - 1]))}>
+                        Pakai Maks Tersedia ({formatRupiah(pinjamanOptions[pinjamanOptions.length - 1])})
+                      </button>
+                    )}
                   </div>
                 )}
-                {otrRow && !tahunKendaraan && (
-                  <p style={{ fontSize:11, color:'#f59e0b', margin:0 }}>⚠ Pilih tahun kendaraan di atas untuk melihat OTR & maks pinjaman</p>
-                )}
               </div>
-              </>}
+              )}
 
-              {/* Pencairan & Tenor: untuk CMD harus pilih tahun dulu, untuk lain langsung tampil */}
+              {/* Pencairan & Tenor: CMD tunggu tahun; lain langsung tampil */}
               {(rateKey !== 'CMD' || tahunKendaraan) && <>
               <div>
                 <label className="label">Jumlah Pencairan</label>
