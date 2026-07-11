@@ -1,6 +1,7 @@
 package com.solusidana.sahabat.ui.applications
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
@@ -18,13 +19,27 @@ class ApplicationAdapter(
 
     inner class VH(private val b: ItemApplicationBinding) : RecyclerView.ViewHolder(b.root) {
         fun bind(app: Application) {
+            val color = statusColor(app.status)
+
             b.tvCustomer.text = app.customerName
             b.tvAgent.text    = "Agen: ${app.agentName ?: "-"}"
             b.tvDate.text     = app.inputDate ?: ""
-            b.tvStatus.text   = statusLabel(app.status)
-            b.tvStatus.setTextColor(statusColor(app.status))
             b.tvAmount.text   = formatRupiah(app.pinjaman)
             b.tvAppId.text    = app.id
+            b.tvLeasing.text  = app.leasingName ?: "—"
+
+            // Status badge (pill dengan warna status)
+            b.tvStatus.text = statusLabel(app.status)
+            b.tvStatus.setTextColor(Color.WHITE)
+            val pill = GradientDrawable().apply {
+                cornerRadius = 40f
+                setColor(color)
+            }
+            b.tvStatus.background = pill
+
+            // Left accent bar
+            b.statusBar.setBackgroundColor(color)
+
             b.root.setOnClickListener { onClick(app) }
         }
     }

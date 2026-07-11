@@ -1,5 +1,7 @@
 package com.solusidana.sahabat.ui.dashboard
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -11,6 +13,7 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.solusidana.sahabat.R
 import com.solusidana.sahabat.data.SessionManager
+import com.solusidana.sahabat.data.statusColor
 import com.solusidana.sahabat.data.statusLabel
 import com.solusidana.sahabat.databinding.FragmentDashboardBinding
 
@@ -35,10 +38,10 @@ class DashboardFragment : Fragment() {
         vm.data.observe(viewLifecycleOwner) { d ->
             if (d == null) return@observe
 
-            bindStat(b.cardTotalBerkas, d.totalBerkas.toString(), "Total Berkas", "#3B82F6")
-            bindStat(b.cardPending,     d.pending.toString(),     "Proses",        "#F59E0B")
-            bindStat(b.cardApprove,     d.approve.toString(),     "Approve",       "#22C55E")
-            bindStat(b.cardReject,      d.reject.toString(),      "Reject",        "#EF4444")
+            bindStat(b.cardTotalBerkas, d.totalBerkas.toString(), "Total Berkas", "#3B82F6", "📁")
+            bindStat(b.cardPending,     d.pending.toString(),     "Proses",        "#F59E0B", "⏳")
+            bindStat(b.cardApprove,     d.approve.toString(),     "Approve",       "#22C55E", "✅")
+            bindStat(b.cardReject,      d.reject.toString(),      "Reject",        "#EF4444", "❌")
 
             // Target bulanan (role agen)
             if (d.myTarget != null && d.myTarget > 0) {
@@ -97,7 +100,7 @@ class DashboardFragment : Fragment() {
                 b.containerSurveys.addView(row)
             }
 
-            // Recent items
+            // Recent items — pakai badge status
             b.containerRecent.removeAllViews()
             if (d.recentApps.isEmpty()) {
                 val tv = TextView(requireContext()).apply {
@@ -110,10 +113,25 @@ class DashboardFragment : Fragment() {
             } else {
                 d.recentApps.forEach { app ->
                     val row = layoutInflater.inflate(R.layout.item_application, b.containerRecent, false)
+                    val color = statusColor(app.status)
+
                     row.findViewById<TextView>(R.id.tvCustomer).text = app.customerName
                     row.findViewById<TextView>(R.id.tvAgent).text    = "Agen: ${app.agentName ?: "-"}"
-                    row.findViewById<TextView>(R.id.tvStatus).text   = statusLabel(app.status)
                     row.findViewById<TextView>(R.id.tvDate).text     = app.inputDate ?: ""
+                    row.findViewById<TextView>(R.id.tvLeasing).text  = app.leasingName ?: "—"
+                    row.findViewById<TextView>(R.id.tvAmount).text   = com.solusidana.sahabat.data.formatRupiah(app.pinjaman)
+                    row.findViewById<TextView>(R.id.tvAppId).text    = app.id
+
+                    val tvStatus = row.findViewById<TextView>(R.id.tvStatus)
+                    tvStatus.text = statusLabel(app.status)
+                    tvStatus.setTextColor(Color.WHITE)
+                    tvStatus.background = GradientDrawable().apply {
+                        cornerRadius = 40f
+                        setColor(color)
+                    }
+
+                    row.findViewById<View>(R.id.statusBar).setBackgroundColor(color)
+
                     row.setOnClickListener {
                         findNavController().navigate(
                             R.id.action_dashboard_to_detail,
@@ -137,7 +155,6 @@ class DashboardFragment : Fragment() {
             findNavController().navigate(R.id.action_dashboard_to_activities)
         }
 
-        // Peta agen — hanya owner/super-admin yang bisa lihat lokasi semua agen
         if (SessionManager(requireContext()).userRole in listOf("owner", "super-admin")) {
             b.btnAgentMap.visibility = View.VISIBLE
             b.btnAgentMap.setOnClickListener {
@@ -153,12 +170,20 @@ class DashboardFragment : Fragment() {
         vm.load()
     }
 
-    private fun bindStat(card: com.solusidana.sahabat.databinding.CardStatBinding, value: String, label: String, hexColor: String) {
-        val color = android.graphics.Color.parseColor(hexColor)
+    private fun bindStat(
+        card: com.solusidana.sahabat.databinding.CardStatBinding,
+        value: String, label: String, hexColor: String, icon: String
+    ) {
+        val color = Color.parseColor(hexColor)
         card.tvValue.text = value
         card.tvValue.setTextColor(color)
         card.tvLabel.text = label
-        card.accentBar.setBackgroundColor(color)
+        card.tvIcon.text  = icon
+        val iconBgColor = Color.argb(40, Color.red(color), Color.green(color), Color.blue(color))
+        card.tvIcon.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(iconBgColor)
+        }
     }
 
     private fun roleLabel(role: String) = com.solusidana.sahabat.data.MasterData.labelFor(requireContext(), "role", role)
