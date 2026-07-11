@@ -115,6 +115,11 @@ export function ApplicationList() {
   const totalPages = Math.ceil(sorted.length / PER);
   const rows = sorted.slice((page - 1) * PER, page * PER);
 
+  const selLeasingName = useMemo(() =>
+    leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase() ?? ''
+  , [leasing, form.leasingId]);
+  const isCMD = selLeasingName === 'cmd finance';
+
   // Auto-hitung angsuran & komisi: pakai tabel leasing terpilih, fallback ke CMD Finance
   const rateResult = useMemo(() => {
     const p = Number(form.pinjaman);
@@ -143,11 +148,6 @@ export function ApplicationList() {
     if (!angsuran || !fee) return null;
     return { angsuran, fee, isOwnTables };
   }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables, isCMD]);
-
-  const selLeasingName = useMemo(() =>
-    leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase() ?? ''
-  , [leasing, form.leasingId]);
-  const isCMD = selLeasingName === 'cmd finance';
 
   // OTR derived
   const otrBrands = useMemo(() => [...new Set(otrList.map(r => r.brand))], [otrList]);
