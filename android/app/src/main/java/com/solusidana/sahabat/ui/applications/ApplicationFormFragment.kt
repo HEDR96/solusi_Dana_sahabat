@@ -29,6 +29,10 @@ class ApplicationFormFragment : Fragment() {
     // Diisi dari master_options DB (owner kelola di menu Master Data web)
     private var unitTypes = listOf("Motor", "Mobil", "Sertifikat")
     private var tenorOptions = listOf(6, 12, 18, 24, 36, 48)
+    private val fallbackCities = listOf(
+        "Medan", "Binjai", "Deli Serdang", "Langkat",
+        "Tebing Tinggi", "Pematang Siantar"
+    )
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _b = FragmentApplicationFormBinding.inflate(i, c, false)
@@ -49,13 +53,15 @@ class ApplicationFormFragment : Fragment() {
         }
         bindDropdowns()
 
+        // Kota: pakai fallback dulu, nanti ditimpa dari DB
+        b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, fallbackCities))
+
         vm.masterOptions.observe(viewLifecycleOwner) { master ->
             if (master.isEmpty()) return@observe
             master["unit_type"]?.let { unitTypes = it }
             master["tenor"]?.let { list -> tenorOptions = list.mapNotNull { it.toIntOrNull() }.ifEmpty { tenorOptions } }
-            master["city"]?.let { cities ->
-                b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
-            }
+            val cities = master["city"]?.takeIf { it.isNotEmpty() } ?: fallbackCities
+            b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, cities))
             bindDropdowns()
         }
 

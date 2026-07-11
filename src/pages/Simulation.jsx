@@ -41,22 +41,24 @@ export function Simulation() {
   const [dbTables,  setDbTables]  = useState(null);
 
   const selectedLeasing = activeLeasings.find(l => String(l.id) === selectedLeasingId);
+  // Baris "CMD Finance" di leasing partners memakai kunci rate khusus 'CMD'
+  const rateKey = selectedLeasing?.name?.trim().toLowerCase() === 'cmd finance' ? 'CMD' : selectedLeasingId;
 
   // Load tabel dari DB saat leasing berubah
   useEffect(() => {
-    if (!selectedLeasingId) {
+    if (!rateKey) {
       setDbTables(null);
       return;
     }
     supabase.from('dsd_rate_tables').select('product,tipe,data')
-      .eq('leasing_key', selectedLeasingId)
+      .eq('leasing_key', rateKey)
       .then(({ data }) => {
         if (!data?.length) { setDbTables(null); return; }
         const map = {};
         data.forEach(r => { map[`${r.product}_${r.tipe}`] = r.data; });
         setDbTables(map);
       });
-  }, [selectedLeasingId]);
+  }, [rateKey]);
 
   const getTable = (key, fallback) => (dbTables?.[key] && Object.keys(dbTables[key]).length ? dbTables[key] : fallback);
 

@@ -104,7 +104,12 @@ export function ApplicationDetail() {
     </Layout>
   );
 
-  const logs = statusLogs.filter(l => l.appId === id);
+  // Fallback: berkas lama tanpa log (riwayat dulu gagal tersimpan) tetap
+  // menampilkan minimal entri pembuatan + status saat ini
+  const realLogs = statusLogs.filter(l => l.appId === id);
+  const logs = realLogs.length > 0 ? realLogs : [
+    { id: 'synthetic-created', appId: id, fromStatus: null, toStatus: app?.status || 'pending', user: app?.agentName || '-', date: app?.inputDate || '-', notes: 'Berkas dibuat' },
+  ];
   const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const needsSurvey = ['janji-survey', 'survey'].includes(newStatus);
 

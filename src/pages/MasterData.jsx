@@ -1,11 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Layout } from '../components/Layout/Layout';
-import { Badge } from '../components/UI/Badge';
-import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { RATE_TABLE_DEFS } from '../data/rateTables';
-import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, Building2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [
@@ -176,16 +174,11 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
   );
 }
 
-const LEASING_EMPTY = {
-  name: '', pic: '', contact: '', notes: '', branch: '', status: 'aktif',
-  email: '', products: '', rate: '', tenors: '', minPinjaman: '', maxPinjaman: '', syarat: '',
-};
-
 // ─── Halaman utama MasterData ─────────────────────────────────────────────────
 export function MasterData() {
-  const { showToast, leasing, addLeasing, updateLeasing } = useApp();
+  const { showToast, leasing, setLeasing } = useApp();
 
-  // Mode: 'options' | 'rates' | 'leasing'
+  // Mode: 'options' | 'rates'
   const [mode,     setMode]     = useState('options');
 
   // --- Dropdown options state ---
@@ -199,51 +192,37 @@ export function MasterData() {
   const [rateTab,      setRateTab]      = useState(RATE_TABLE_DEFS[0].id);
   const [ratesLeasing, setRatesLeasing] = useState('CMD'); // 'CMD' | leasing.id.toString()
 
-  // --- Leasing state ---
-  const [showLeasingModal, setShowLeasingModal] = useState(false);
-  const [editLeasing,      setEditLeasing]      = useState(null);
-  const [leasingForm,      setLeasingForm]      = useState(LEASING_EMPTY);
-  const [leasingErrors,    setLeasingErrors]    = useState({});
-  const [leasingSaving,    setLeasingSaving]    = useState(false);
-
-  const openAddLeasing  = () => { setEditLeasing(null); setLeasingForm(LEASING_EMPTY); setLeasingErrors({}); setShowLeasingModal(true); };
-  const openEditLeasing = (l) => { setEditLeasing(l); setLeasingForm({ ...l }); setLeasingErrors({}); setShowLeasingModal(true); };
-  const slf = useCallback(k => e => setLeasingForm(p => ({ ...p, [k]: typeof e === 'string' ? e : e.target.value })), []);
-
-  const validateLeasing = () => {
-    const e = {};
-    if (!leasingForm.name?.trim()) e.name = 'Nama wajib diisi';
-    setLeasingErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSaveLeasing = async () => {
-    if (!validateLeasing()) return;
-    setLeasingSaving(true);
-    let ok;
-    if (editLeasing) {
-      ok = await updateLeasing(editLeasing.id, leasingForm);
-      if (ok) showToast(`Leasing ${leasingForm.name} diperbarui`);
-    } else {
-      ok = await addLeasing(leasingForm);
-      if (ok) showToast(`Leasing ${leasingForm.name} ditambahkan`);
-    }
-    setLeasingSaving(false);
-    if (ok) setShowLeasingModal(false);
-  };
-
   const currentCat = CATEGORIES.find(c => c.key === category);
   const currentDef = RATE_TABLE_DEFS.find(d => d.id === rateTab);
 
+  // Kategori "Nama Leasing" mengelola tabel dsd_leasing_partners langsung —
+  // inilah sumber dropdown Leasing Tujuan di form berkas & simulasi.
+  const isLeasingCat = category === 'leasing_type';
+
+  const syncLeasingContext = (rows) => {
+    setLeasing(rows.map(r => ({
+      id: r.id, name: r.name, branch: r.branch, pic: r.pic, contact: r.contact,
+      email: r.email, products: r.products, rate: r.rate, tenors: r.tenors,
+      minPinjaman: r.min_pinjaman, maxPinjaman: r.max_pinjaman, status: r.status,
+      syarat: r.syarat || '', notes: r.notes || '',
+    })));
+  };
+
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('dsd_master_options')
-      .select('*')
-      .eq('category', category)
-      .order('sort')
-      .order('value');
-    setOptions(data || []);
+    if (isLeasingCat) {
+      const { data } = await supabase.from('dsd_leasing_partners').select('*').order('id');
+      setOptions((data || []).map(r => ({ id: r.id, value: r.name, active: r.status === 'aktif' })));
+      if (data) syncLeasingContext(data);
+    } else {
+      const { data } = await supabase
+        .from('dsd_master_options')
+        .select('*')
+        .eq('category', category)
+        .order('sort')
+        .order('value');
+      setOptions(data || []);
+    }
     setLoading(false);
   };
 
@@ -252,6 +231,12 @@ export function MasterData() {
   const add = async () => {
     const v = newValue.trim();
     if (!v) return;
+    if (isLeasingCat) {
+      const { error } = await supabase.from('dsd_leasing_partners').insert({ name: v, status: 'aktif' });
+      if (error) showToast(error.message, 'error');
+      else { setNewValue(''); showToast(`Leasing "${v}" ditambahkan`); load(); }
+      return;
+    }
     const maxSort = Math.max(0, ...options.map(o => o.sort || 0));
     const row = { category, value: v, sort: maxSort + 1, active: true };
     if (currentCat?.hasLabel && newLabel.trim()) row.label = newLabel.trim();
@@ -261,11 +246,29 @@ export function MasterData() {
   };
 
   const toggle = async (opt) => {
+    if (isLeasingCat) {
+      await supabase.from('dsd_leasing_partners').update({ status: opt.active ? 'nonaktif' : 'aktif' }).eq('id', opt.id);
+      load();
+      return;
+    }
     await supabase.from('dsd_master_options').update({ active: !opt.active }).eq('id', opt.id);
     load();
   };
 
   const remove = async (opt) => {
+    if (isLeasingCat) {
+      if (!confirm(`Hapus leasing "${opt.value}"? Tidak akan muncul lagi di form berkas & simulasi.`)) return;
+      const { error } = await supabase.from('dsd_leasing_partners').delete().eq('id', opt.id);
+      if (error) {
+        // Masih direferensikan berkas lama (FK leasing_id) — nonaktifkan saja
+        await supabase.from('dsd_leasing_partners').update({ status: 'nonaktif' }).eq('id', opt.id);
+        showToast('Masih dipakai berkas lama — leasing dinonaktifkan saja', 'info');
+      } else {
+        showToast(`"${opt.value}" dihapus`);
+      }
+      load();
+      return;
+    }
     if (!confirm(`Hapus "${opt.value}"? Dropdown di web & aplikasi tidak akan menampilkannya lagi.`)) return;
     await supabase.from('dsd_master_options').delete().eq('id', opt.id);
     showToast(`"${opt.value}" dihapus`);
@@ -280,7 +283,6 @@ export function MasterData() {
         {[
           { key:'options', label:'Dropdown Opsi' },
           { key:'rates',   label:'Tabel Rate Leasing' },
-          { key:'leasing', label:'Mitra Leasing' },
         ].map(m => (
           <button key={m.key} onClick={() => setMode(m.key)} style={{
             padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
@@ -356,7 +358,9 @@ export function MasterData() {
           </div>
 
           <p style={{ fontSize:12, color:'var(--c-94a3b8)', marginTop:14, maxWidth:560 }}>
-            Perubahan langsung berlaku di form web dan aplikasi Android.
+            {isLeasingCat
+              ? 'Daftar ini menjadi pilihan "Leasing Tujuan" di form berkas & simulasi (web dan Android). Nonaktifkan untuk menyembunyikan tanpa menghapus.'
+              : 'Perubahan langsung berlaku di form web dan aplikasi Android.'}
           </p>
         </>
       )}
@@ -380,15 +384,17 @@ export function MasterData() {
               >
                 CMD Finance
               </button>
-              {leasing.map(l => (
-                <button
-                  key={l.id}
-                  className={`btn btn-sm ${ratesLeasing === String(l.id) ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setRatesLeasing(String(l.id))}
-                >
-                  {l.name}
-                </button>
-              ))}
+              {leasing
+                .filter(l => l.status === 'aktif' && l.name.trim().toLowerCase() !== 'cmd finance')
+                .map(l => (
+                  <button
+                    key={l.id}
+                    className={`btn btn-sm ${ratesLeasing === String(l.id) ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setRatesLeasing(String(l.id))}
+                  >
+                    {l.name}
+                  </button>
+                ))}
             </div>
             {ratesLeasing !== 'CMD' && (
               <p style={{ fontSize:11, color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'7px 12px', marginTop:10, maxWidth:620 }}>
@@ -434,110 +440,6 @@ export function MasterData() {
         </>
       )}
 
-      {/* ── MODE: Mitra Leasing ── */}
-      {mode === 'leasing' && (
-        <>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <p style={{ fontSize:12, color:'var(--c-64748b)' }}>
-              Kelola mitra leasing yang muncul sebagai pilihan di form berkas masuk.
-            </p>
-            <button className="btn btn-primary btn-sm" onClick={openAddLeasing}>
-              <Plus size={14} /> Tambah Leasing
-            </button>
-          </div>
-
-          <div className="card" style={{ padding:0, overflow:'hidden' }}>
-            {leasing.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon"><Building2 size={24} color="var(--c-94a3b8)" /></div>
-                <p style={{ fontSize:14, fontWeight:600, color:'var(--c-0f172a)' }}>Belum ada mitra leasing</p>
-                <p style={{ fontSize:13, color:'var(--c-94a3b8)' }}>Tambahkan leasing untuk muncul di dropdown form berkas</p>
-              </div>
-            ) : (
-              <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                <thead className="table-head">
-                  <tr>
-                    {['Nama Leasing', 'PIC', 'Telepon', 'Nomor MOU', 'Target/Bln', 'Status', 'Aksi'].map(h => (
-                      <th key={h} className="table-th">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leasing.map(l => (
-                    <tr key={l.id} className="table-row">
-                      <td className="table-td">
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <div style={{ width:32, height:32, borderRadius:8, background:'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            <Building2 size={15} color="#3b82f6" />
-                          </div>
-                          <span style={{ fontSize:13, fontWeight:600, color:'var(--c-0f172a)' }}>{l.name}</span>
-                        </div>
-                      </td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.pic || '-'}</td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)' }}>{l.contact || '-'}</td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)', fontFamily:'monospace' }}>{l.notes || '-'}</td>
-                      <td className="table-td" style={{ fontSize:12, color:'var(--c-64748b)', textAlign:'center' }}>{l.branch || '-'}</td>
-                      <td className="table-td"><Badge status={l.status} /></td>
-                      <td className="table-td">
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEditLeasing(l)}>
-                          <Edit2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Modal leasing */}
-          <Modal
-            isOpen={showLeasingModal}
-            onClose={() => setShowLeasingModal(false)}
-            title={editLeasing ? `Edit — ${editLeasing.name}` : 'Tambah Mitra Leasing'}
-            size="sm"
-            footer={
-              <>
-                <button className="btn btn-secondary" onClick={() => setShowLeasingModal(false)}>Batal</button>
-                <button className="btn btn-primary" onClick={handleSaveLeasing} disabled={leasingSaving}>
-                  {leasingSaving ? 'Menyimpan...' : 'Simpan'}
-                </button>
-              </>
-            }
-          >
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              <div>
-                <label className="label">Nama Leasing *</label>
-                <input className="input" value={leasingForm.name} onChange={slf('name')} style={leasingErrors.name ? { borderColor:'#ef4444' } : undefined} />
-                {leasingErrors.name && <p style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>{leasingErrors.name}</p>}
-              </div>
-              <div>
-                <label className="label">Nama PIC</label>
-                <input className="input" value={leasingForm.pic || ''} onChange={slf('pic')} placeholder="Nama PIC / Marketing" />
-              </div>
-              <div>
-                <label className="label">Nomor Telepon PIC</label>
-                <input className="input" value={leasingForm.contact || ''} onChange={slf('contact')} placeholder="08xx-xxxx-xxxx" />
-              </div>
-              <div>
-                <label className="label">Nomor MOU</label>
-                <input className="input" value={leasingForm.notes || ''} onChange={slf('notes')} placeholder="Contoh: MOU/2026/CMD/001" />
-              </div>
-              <div>
-                <label className="label">Target MOU (berkas/bulan)</label>
-                <input className="input" value={leasingForm.branch || ''} onChange={slf('branch')} placeholder="Contoh: 10" />
-              </div>
-              <div>
-                <label className="label">Status</label>
-                <select className="input" value={leasingForm.status} onChange={slf('status')}>
-                  <option value="aktif">Aktif</option>
-                  <option value="nonaktif">Nonaktif</option>
-                </select>
-              </div>
-            </div>
-          </Modal>
-        </>
-      )}
 
     </Layout>
   );

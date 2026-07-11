@@ -208,3 +208,15 @@ fun formatRupiah(amount: Long?): String {
     if (amount == null) return "-"
     return "Rp ${String.format("%,d", amount).replace(',', '.')}"
 }
+
+/** Terjemahkan error jaringan mentah menjadi pesan yang dimengerti user. */
+fun humanError(e: Throwable?): String = when {
+    e == null -> "Terjadi kesalahan"
+    e is java.net.UnknownHostException || e.message?.contains("Unable to resolve host") == true ->
+        "📡 Tidak ada koneksi internet.\nPeriksa sinyal / WiFi HP, lalu tarik ke bawah untuk memuat ulang."
+    e is java.net.SocketTimeoutException ->
+        "🐢 Koneksi lambat — waktu habis.\nTarik ke bawah untuk coba lagi."
+    e is java.io.IOException ->
+        "Koneksi terputus. Tarik ke bawah untuk coba lagi."
+    else -> e.message ?: "Terjadi kesalahan"
+}

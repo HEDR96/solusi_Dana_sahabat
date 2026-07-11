@@ -85,6 +85,63 @@ async function fetchProfile(userId) {
   return { id: data.id, name: data.name, email: data.email, role: data.role, agentId: data.agent_id, status: data.status, lastLogin: data.last_login };
 }
 
+// Sanitasi data satu kali (marker tersimpan di dsd_master_options):
+// 1. dsd_leasing_partners: sisakan CMD Finance & BFI Finance (permintaan owner Jul 2026);
+//    baris lain dihapus, atau dinonaktifkan jika masih direferensikan berkas (FK leasing_id)
+// 2. Backfill dsd_status_logs untuk berkas lama yang riwayatnya kosong
+//    (insert riwayat dulu gagal diam-diam karena format tanggal salah)
+async function runDataCleanup(apps, leasingRows) {
+  const MARKER = { category: 'app_settings', value: 'cleanup_leasing_v1' };
+  const { data: done } = await supabase.from('dsd_master_options')
+    .select('id').eq('category', MARKER.category).eq('value', MARKER.value).limit(1);
+  if (done?.length) return null;
+
+  const KEEP = ['cmd finance', 'bfi finance'];
+  const norm = s => (s || '').trim().toLowerCase();
+  const referenced = new Set(apps.map(a => a.leasingId).filter(Boolean));
+
+  const keeperIds = new Set();
+  for (const nm of KEEP) {
+    const rows = leasingRows.filter(l => norm(l.name) === nm);
+    const chosen = rows.sort((a, b) =>
+      (referenced.has(b.id) - referenced.has(a.id)) || (a.id - b.id))[0];
+    if (chosen) keeperIds.add(chosen.id);
+  }
+  const toDelete = [], toDeactivate = [];
+  leasingRows.forEach(l => {
+    if (keeperIds.has(l.id)) return;
+    (referenced.has(l.id) ? toDeactivate : toDelete).push(l.id);
+  });
+  if (toDelete.length)     await supabase.from('dsd_leasing_partners').delete().in('id', toDelete);
+  if (toDeactivate.length) await supabase.from('dsd_leasing_partners').update({ status: 'nonaktif' }).in('id', toDeactivate);
+  if (keeperIds.size)      await supabase.from('dsd_leasing_partners').update({ status: 'aktif' }).in('id', [...keeperIds]);
+  if (!leasingRows.some(l => norm(l.name) === 'cmd finance')) {
+    await supabase.from('dsd_leasing_partners').insert({ name: 'CMD Finance', branch: 'Medan', status: 'aktif' });
+  }
+
+  const { data: logRows } = await supabase.from('dsd_status_logs').select('app_id');
+  const hasLog = new Set((logRows || []).map(r => r.app_id));
+  const missing = apps.filter(a => !hasLog.has(a.id));
+  if (missing.length) {
+    await supabase.from('dsd_status_logs').insert(missing.map(a => ({
+      app_id: a.id, from_status: null, to_status: a.status,
+      user: a.agentName || 'System', date: a.inputDate || new Date().toISOString().split('T')[0],
+      notes: 'Riwayat awal (dipulihkan otomatis)',
+    })));
+  }
+
+  await supabase.from('dsd_master_options').insert({ ...MARKER, label: new Date().toISOString(), sort: 0, active: false });
+
+  const [{ data: newLeasing }, { data: newLogs }] = await Promise.all([
+    supabase.from('dsd_leasing_partners').select('*').order('id'),
+    supabase.from('dsd_status_logs').select('*').order('id'),
+  ]);
+  return {
+    leasing: (newLeasing || []).map(mapLeasing),
+    statusLogs: (newLogs || []).map(mapStatusLog),
+  };
+}
+
 async function loadAll() {
   const [apps, agents, leasing, commissions, statusLogs, activities, notifs, auditLogs, profileRows] = await Promise.all([
     supabase.from('dsd_applications').select('*').order('input_date', { ascending: false }),
@@ -201,7 +258,7 @@ export function AppProvider({ children }) {
     if (authLoading) return;
     if (!currentUser) { setDataLoading(false); return; }
     setDataLoading(true);
-    loadAll().then(data => {
+    loadAll().then(async data => {
       setApplications(data.applications);
       setAgents(data.agents);
       setLeasing(data.leasing);
@@ -212,6 +269,16 @@ export function AppProvider({ children }) {
       setAuditLogs(data.auditLogs);
       setUsers(data.users);
       setDataLoading(false);
+      // Sanitasi data satu kali — butuh hak tulis RLS (owner/super-admin/admin)
+      if (['owner', 'super-admin', 'admin'].includes(currentUser.role)) {
+        try {
+          const cleaned = await runDataCleanup(data.applications, data.leasing);
+          if (cleaned) {
+            setLeasing(cleaned.leasing);
+            setStatusLogs(cleaned.statusLogs);
+          }
+        } catch { /* non-fatal — dicoba lagi di login berikutnya */ }
+      }
     }).catch(() => setDataLoading(false));
   }, [authLoading, currentUser?.id]);
 

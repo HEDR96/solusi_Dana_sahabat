@@ -114,8 +114,10 @@ export function ApplicationList() {
     const tenor = Number(form.tenor);
     if (!tenors.includes(tenor)) return null;
 
-    // Pilih tabel: leasing terpilih → CMD Finance DB → hardcoded fallback
-    const lk = form.leasingId ? String(form.leasingId) : 'CMD';
+    // Pilih tabel: leasing terpilih → CMD Finance DB → hardcoded fallback.
+    // Baris "CMD Finance" di leasing partners memakai kunci rate khusus 'CMD'.
+    const selName = leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase();
+    const lk = form.leasingId ? (selName === 'cmd finance' ? 'CMD' : String(form.leasingId)) : 'CMD';
     const leasingTables = (dbTables?.[lk] && Object.keys(dbTables[lk]).length) ? dbTables[lk]
       : (dbTables?.['CMD'] || {});
     const isOwnTables = !!(dbTables?.[lk] && Object.keys(dbTables[lk]).length);
@@ -131,7 +133,7 @@ export function ApplicationList() {
     const fee = lookupVal(feeTable, tenors, pRibu, tenor);
     if (!angsuran || !fee) return null;
     return { angsuran, fee, isOwnTables };
-  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables]);
+  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables, leasing]);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
   const toggleRow = useCallback(id => setSelectedIds(prev => {

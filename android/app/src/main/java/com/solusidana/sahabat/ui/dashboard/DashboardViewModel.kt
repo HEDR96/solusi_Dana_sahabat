@@ -9,6 +9,8 @@ import com.solusidana.sahabat.data.Agent
 import com.solusidana.sahabat.data.Application as App
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
+import com.solusidana.sahabat.data.humanError
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 data class DashboardData(
@@ -43,8 +45,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val token = session.accessToken ?: return@launch
             val agentId = if (session.userRole == "agen") session.agentId else null
 
-            val surveys = SupabaseApi.getTodaySurveys(token, agentId).getOrDefault(emptyList())
-            val allAgents = SupabaseApi.getAgents(token).getOrDefault(emptyList())
+            // Tiga request berjalan PARALEL — jauh lebih cepat di sinyal lemah
+            val surveysDef = async { SupabaseApi.getTodaySurveys(token, agentId) }
+            val agentsDef  = async { SupabaseApi.getAgents(token) }
+            val appsDef    = async { SupabaseApi.getApplications(token, agentId = agentId) }
+
+            val surveys   = surveysDef.await().getOrDefault(emptyList())
+            val allAgents = agentsDef.await().getOrDefault(emptyList())
 
             // Top 5 agen berdasarkan total approve
             val leaderboard = allAgents
@@ -52,7 +59,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 .sortedByDescending { it.totalApprove ?: 0 }
                 .take(5)
 
-            SupabaseApi.getApplications(token, agentId = agentId)
+            appsDef.await()
                 .onSuccess { apps ->
                     // Target bulanan untuk role agen
                     var myTarget: Int? = null
@@ -76,7 +83,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         myMonthCount = myMonthCount
                     )
                 }
-                .onFailure { _error.value = it.message }
+                .onFailure { _error.value = humanError(it) }
 
             _loading.value = false
         }

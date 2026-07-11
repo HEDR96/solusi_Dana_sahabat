@@ -1,6 +1,7 @@
 package com.solusidana.sahabat.ui.applications
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -8,11 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.solusidana.sahabat.data.Application as App
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
+import com.solusidana.sahabat.data.humanError
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
 
 class ApplicationListViewModel(application: Application) : AndroidViewModel(application) {
 
     private val session = SessionManager(application)
+    private val cache = application.getSharedPreferences("apps_cache", Context.MODE_PRIVATE)
 
     private val _apps = MutableLiveData<List<App>>(emptyList())
     val apps: LiveData<List<App>> = _apps
@@ -31,6 +35,15 @@ class ApplicationListViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
+
+            // Tampilkan cache dulu supaya layar tidak kosong saat koneksi lambat/putus
+            if (allApps.isEmpty()) {
+                cache.getString("apps", null)?.let { saved ->
+                    runCatching { SupabaseApi.json.decodeFromString<List<App>>(saved) }
+                        .onSuccess { allApps = it; applyFilter() }
+                }
+            }
+
             val token   = session.accessToken ?: return@launch
             val agentId = if (session.userRole == "agen") session.agentId else null
 
@@ -38,8 +51,12 @@ class ApplicationListViewModel(application: Application) : AndroidViewModel(appl
                 .onSuccess { list ->
                     allApps = list
                     applyFilter()
+                    runCatching { cache.edit().putString("apps", SupabaseApi.json.encodeToString(list)).apply() }
                 }
-                .onFailure { _error.value = it.message }
+                .onFailure {
+                    // Kalau ada data cache, tetap tampilkan — jangan timpa dengan pesan error
+                    _error.value = if (allApps.isEmpty()) humanError(it) else null
+                }
             _loading.value = false
         }
     }
