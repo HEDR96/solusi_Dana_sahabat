@@ -208,10 +208,14 @@ function OtrCatalogEditor({ showToast }) {
   const [editing, setEditing] = useState(null); // row id being edited
   const [editBuf, setEditBuf] = useState({});
 
+  const [loadErr, setLoadErr] = useState('');
+
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('dsd_otr_catalog')
+    setLoadErr('');
+    const { data, error } = await supabase.from('dsd_otr_catalog')
       .select('*').eq('leasing_key','CMD').order('brand').order('tipe');
+    if (error) setLoadErr(error.message);
     setRows(data || []);
     setLoading(false);
   }, []);
@@ -256,6 +260,15 @@ function OtrCatalogEditor({ showToast }) {
   };
 
   if (loading) return <p style={{ fontSize:13, color:'var(--c-94a3b8)', padding:20 }}>Memuat katalog OTR...</p>;
+  if (loadErr) return (
+    <div style={{ padding:20, background:'#fef2f2', borderRadius:10, border:'1px solid #fecaca' }}>
+      <p style={{ fontSize:13, fontWeight:700, color:'#dc2626', marginBottom:6 }}>Tabel belum tersedia</p>
+      <p style={{ fontSize:12, color:'#ef4444', marginBottom:12 }}>Jalankan migrasi SQL terlebih dahulu di Supabase SQL Editor:</p>
+      <code style={{ fontSize:11, background:'#fff', padding:'6px 10px', borderRadius:6, display:'block', color:'#b91c1c' }}>
+        supabase/migrations/002_otr_catalog.sql
+      </code>
+    </div>
+  );
 
   const curRow = editing ? rows.find(r => r.id === editing) : null;
 

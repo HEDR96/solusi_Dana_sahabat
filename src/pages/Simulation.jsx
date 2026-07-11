@@ -252,6 +252,8 @@ export function Simulation() {
               </div>
               </>}
 
+              {/* Pencairan & Tenor: untuk CMD harus pilih tahun dulu, untuk lain langsung tampil */}
+              {(rateKey !== 'CMD' || tahunKendaraan) && <>
               <div>
                 <label className="label">Jumlah Pencairan</label>
                 <select
@@ -278,6 +280,7 @@ export function Simulation() {
                   ))}
                 </select>
               </div>
+              </>}
             </>}
 
           </div>
