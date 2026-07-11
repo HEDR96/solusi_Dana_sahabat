@@ -12,10 +12,17 @@ import {
 import { Calculator, TrendingUp, Building2, Car } from 'lucide-react';
 import { OTR_YEARS, getLtv, getOtr, getMaxPinjaman } from '../data/otrCatalog';
 
-// Tentukan jenis kendaraan dari brand (sama dengan MasterData)
+// Tentukan jenis kendaraan dari brand+tipe (sama dengan MasterData)
 function isMotorBrand(brand) {
   const b = (brand || '').toUpperCase().trim();
   return b === 'YAMAHA' || b === 'HONDA';
+}
+function isPickupBrand(brand, tipe) {
+  const b = (brand || '').toUpperCase().trim();
+  const t = (tipe  || '').toUpperCase().trim();
+  if (b === 'TRAGA' || b === 'CARRY') return true;
+  if (b === 'GRAND MAX') return !t.includes('MB');
+  return false;
 }
 
 // ─── Segmented toggle ────────────────────────────────────────────────────────
@@ -85,6 +92,7 @@ export function Simulation() {
     if (!tList.includes(tenor)) setTenor(tList[0]);
     setPencairan('');
     setOtrBrand(''); setOtrTipe(''); setOtrRow(null); setTahunKendaraan('');
+    setOtrBrand(''); setOtrTipe(''); setOtrRow(null); setTahunKendaraan('');
   };
 
   // Load OTR catalog CMD Finance
@@ -96,11 +104,14 @@ export function Simulation() {
       .then(({ data }) => { if (data) setOtrList(data); });
   }, []);
 
-  // Derived OTR values — brand difilter by Motor/Mobil sesuai jenis produk
+  // Derived OTR values — brand difilter by Motor/Mobil/Pick Up sesuai jenis produk
   const otrBrands = useMemo(() => {
     return [...new Set(otrList.filter(r => {
-      const isM = isMotorBrand(r.brand);
-      return jenis === 'motor' ? isM : !isM;
+      const motor  = isMotorBrand(r.brand);
+      const pickup = isPickupBrand(r.brand, r.tipe);
+      if (jenis === 'motor')  return motor;
+      if (jenis === 'pickup') return pickup;
+      return !motor && !pickup;
     }).map(r => r.brand))];
   }, [otrList, jenis]);
   const otrTipes = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
@@ -115,12 +126,14 @@ export function Simulation() {
 
   // Pinjaman options: keys dari tabel angsuran (ribuan × 1000), dibatasi maks pinjaman jika ada
   const pinjamanOptions = useMemo(() => {
-    const typeKey = isRO ? 'ro' : (jenis === 'motor' ? 'new' : 'reg');
-    const dbKey   = jenis === 'motor'
+    const isMotorJenis = jenis === 'motor';
+    const produk  = isMotorJenis ? 'motor' : 'mobil';
+    const typeKey = isRO ? 'ro' : (isMotorJenis ? 'new' : 'reg');
+    const dbKey   = isMotorJenis
       ? (isRO ? 'motor_ro_ang'  : 'motor_new_ang')
       : (isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang');
     const dbTable = dbTables?.[dbKey];
-    const all = getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
+    const all = getPinjamanOptions(dbTable, produk, typeKey).map(v => v * 1000);
     return otrInfo?.max ? all.filter(v => v <= otrInfo.max) : all;
   }, [jenis, isRO, dbTables, otrInfo]);
 
@@ -129,11 +142,12 @@ export function Simulation() {
     const p = Number(pencairan);
     if (!p || p <= 0) return null;
     const pRibu    = p / 1000;
-    const tenors   = jenis === 'motor' ? MOTOR_TENORS : CAR_TENORS;
-    const angTable = jenis === 'motor'
+    const isMotorJenis = jenis === 'motor';
+    const tenors   = isMotorJenis ? MOTOR_TENORS : CAR_TENORS;
+    const angTable = isMotorJenis
       ? getTable(isRO ? 'motor_ro_ang'  : 'motor_new_ang', isRO ? M_RO_ANG  : M_NEW_ANG)
       : getTable(isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang', isRO ? C_RO_ANG  : C_REG_ANG);
-    const feeTable = jenis === 'motor'
+    const feeTable = isMotorJenis
       ? getTable(isRO ? 'motor_ro_fee'  : 'motor_new_fee', isRO ? M_RO_FEE  : M_NEW_FEE)
       : getTable(isRO ? 'mobil_ro_fee'  : 'mobil_reg_fee', isRO ? C_RO_FEE  : C_REG_FEE);
     const angsuran = lookupVal(angTable, tenors, pRibu, validTenor);
@@ -182,8 +196,9 @@ export function Simulation() {
               <div>
                 <label className="label">Jenis Produk</label>
                 <Toggle value={jenis} onChange={handleJenis} options={[
-                  { value:'motor', label:'Motor (BPKB)' },
-                  { value:'mobil', label:'Mobil (BPKB)' },
+                  { value:'motor',  label:'Motor (BPKB)' },
+                  { value:'mobil',  label:'Mobil (BPKB)' },
+                  { value:'pickup', label:'Pick Up (BPKB)' },
                 ]} />
               </div>
 
@@ -205,7 +220,7 @@ export function Simulation() {
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
                   <Car size={13} color="var(--c-64748b)" />
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', textTransform:'uppercase', letterSpacing:'.04em' }}>
-                    OTR Kendaraan — {jenis === 'motor' ? 'Motor (R2)' : 'Mobil (R4)'}
+                    OTR Kendaraan — {jenis === 'motor' ? 'Motor (R2)' : jenis === 'pickup' ? 'Pick Up' : 'Mobil (R4)'}
                   </span>
                 </div>
 
