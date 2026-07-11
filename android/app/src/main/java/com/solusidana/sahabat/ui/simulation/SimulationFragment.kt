@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
@@ -18,6 +19,7 @@ import com.solusidana.sahabat.data.RateTable
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.data.formatRupiah
+import com.solusidana.sahabat.data.humanError
 import com.solusidana.sahabat.databinding.FragmentSimulationBinding
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonArray
@@ -95,17 +97,36 @@ class SimulationFragment : Fragment() {
     }
 
     private fun loadLeasing() {
-        val token = SessionManager(requireContext()).accessToken ?: return
+        val token = SessionManager(requireContext()).accessToken ?: run {
+            showPlaceholder("Sesi belum aktif — coba logout dan login ulang")
+            return
+        }
+        b.progress.isVisible = true
         viewLifecycleOwner.lifecycleScope.launch {
-            SupabaseApi.getLeasingPartners(token).onSuccess { list ->
-                if (_b == null) return@onSuccess
-                leasingList = list.filter { it.status == null || it.status == "aktif" }
-                b.ddLeasing.setAdapter(ArrayAdapter(requireContext(),
-                    android.R.layout.simple_dropdown_item_1line, leasingList.map { it.name }))
-                b.ddLeasing.setOnItemClickListener { _, _, pos, _ ->
-                    onLeasingSelected(leasingList[pos], token)
+            SupabaseApi.getLeasingPartners(token)
+                .onSuccess { list ->
+                    if (_b == null) return@onSuccess
+                    leasingList = list.filter { it.status == null || it.status == "aktif" }
+                    val names = leasingList.map { it.name }
+                    val adapter = ArrayAdapter(requireContext(),
+                        android.R.layout.simple_list_item_1, names)
+                    b.ddLeasing.setAdapter(adapter)
+                    b.ddLeasing.setOnClickListener { b.ddLeasing.showDropDown() }
+                    b.ddLeasing.setOnItemClickListener { _, _, pos, _ ->
+                        onLeasingSelected(leasingList[pos], token)
+                    }
+                    if (leasingList.isEmpty()) {
+                        showPlaceholder("Belum ada leasing aktif — tambahkan di Master Data")
+                    } else {
+                        showPlaceholder("Pilih leasing tujuan untuk memulai simulasi")
+                    }
                 }
-            }
+                .onFailure { e ->
+                    if (_b == null) return@onFailure
+                    showPlaceholder("Gagal memuat leasing — tarik untuk coba lagi")
+                    Toast.makeText(requireContext(), humanError(e), Toast.LENGTH_LONG).show()
+                }
+            b.progress.isVisible = false
         }
     }
 
