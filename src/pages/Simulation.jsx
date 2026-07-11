@@ -7,9 +7,9 @@ import {
   MOTOR_TENORS, CAR_TENORS,
   M_NEW_ANG, M_RO_ANG, M_NEW_FEE, M_RO_FEE,
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
-  lookupVal,
+  lookupVal, getPinjamanOptions,
 } from '../data/rateTables';
-import { Calculator, TrendingUp, AlertCircle, Building2 } from 'lucide-react';
+import { Calculator, TrendingUp, Building2 } from 'lucide-react';
 
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 function Toggle({ value, onChange, options }) {
@@ -64,8 +64,6 @@ export function Simulation() {
 
   const tenorList  = jenis === 'motor' ? MOTOR_TENORS : CAR_TENORS;
   const validTenor = tenorList.includes(tenor) ? tenor : tenorList[0];
-  const minP       = jenis === 'motor' ?  5_000_000 :  30_000_000;
-  const maxP       = jenis === 'motor' ? 20_000_000 : 200_000_000;
 
   const handleJenis = (v) => {
     setJenis(v);
@@ -73,6 +71,16 @@ export function Simulation() {
     if (!tList.includes(tenor)) setTenor(tList[0]);
     setPencairan('');
   };
+
+  // Pinjaman options: keys dari tabel angsuran (ribuan × 1000)
+  const pinjamanOptions = useMemo(() => {
+    const typeKey = isRO ? 'ro' : (jenis === 'motor' ? 'new' : 'reg');
+    const dbKey   = jenis === 'motor'
+      ? (isRO ? 'motor_ro_ang'  : 'motor_new_ang')
+      : (isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang');
+    const dbTable = dbTables?.[dbKey];
+    return getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
+  }, [jenis, isRO, dbTables]);
 
   const result = useMemo(() => {
     if (!selectedLeasingId) return null;
@@ -89,15 +97,8 @@ export function Simulation() {
     const angsuran = lookupVal(angTable, tenors, pRibu, validTenor);
     const fee      = lookupVal(feeTable, tenors, pRibu, validTenor);
     if (!angsuran || !fee) return null;
-    return {
-      angsuran,
-      fee,
-      totalBayar: angsuran * validTenor,
-      outOfRange: p < minP || p > maxP,
-      rangeMsg:   p < minP ? `Minimum pencairan ${formatRupiah(minP)}` : p > maxP ? `Maksimum pencairan ${formatRupiah(maxP)}` : null,
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jenis, isRO, pencairan, validTenor, minP, maxP, dbTables, selectedLeasingId]);
+    return { angsuran, fee, totalBayar: angsuran * validTenor };
+  }, [jenis, isRO, pencairan, validTenor, dbTables, selectedLeasingId]);
 
   const labelJenis = jenis === 'motor' ? 'Motor' : 'Mobil';
   const labelTipe  = isRO ? 'RO' : (jenis === 'motor' ? 'NEW' : 'REGULER');
@@ -157,31 +158,17 @@ export function Simulation() {
               </div>
 
               <div>
-                <label className="label">
-                  Jumlah Pencairan (Rp)
-                  <span style={{ marginLeft:8, fontSize:11, color:'var(--c-94a3b8)', fontWeight:400 }}>
-                    {formatRupiah(minP)} – {formatRupiah(maxP)}
-                  </span>
-                </label>
-                <div style={{ position:'relative' }}>
-                  <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color:'var(--c-94a3b8)', pointerEvents:'none' }}>Rp</span>
-                  <input
-                    className="input"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder={jenis === 'motor' ? '8500000' : '50000000'}
-                    value={pencairan}
-                    onChange={e => setPencairan(e.target.value)}
-                    style={{ paddingLeft:36 }}
-                    min={minP} max={maxP}
-                    step={jenis === 'motor' ? 500000 : 5000000}
-                  />
-                </div>
-                {pencairan && Number(pencairan) > 0 && (
-                  <p style={{ fontSize:12, color:'var(--c-64748b)', marginTop:4 }}>
-                    = {formatRupiah(Number(pencairan))}
-                  </p>
-                )}
+                <label className="label">Jumlah Pencairan</label>
+                <select
+                  className="input"
+                  value={pencairan}
+                  onChange={e => setPencairan(e.target.value)}
+                >
+                  <option value="">— Pilih jumlah pinjaman —</option>
+                  {pinjamanOptions.map(v => (
+                    <option key={v} value={v}>{formatRupiah(v)}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -215,16 +202,7 @@ export function Simulation() {
             </div>
           </div>
         ) : result ? (
-          result.outOfRange ? (
-            <div className="card" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:300, gap:12, textAlign:'center' }}>
-              <div style={{ width:52, height:52, background:'#fef2f2', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <AlertCircle size={26} color="#ef4444" />
-              </div>
-              <p style={{ fontSize:14, fontWeight:700, color:'#dc2626' }}>{result.rangeMsg}</p>
-              <p style={{ fontSize:12, color:'var(--c-64748b)' }}>Silakan sesuaikan jumlah pencairan</p>
-            </div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', borderRadius:16, padding:'24px 20px' }}>
                 <p style={{ fontSize:11, color:'#93c5fd', marginBottom:4, letterSpacing:'.04em', textTransform:'uppercase' }}>
                   {leasingName} · {labelJenis} {labelTipe} · {validTenor} Bulan
@@ -269,7 +247,6 @@ export function Simulation() {
                 </p>
               </div>
             </div>
-          )
         ) : (
           <div className="card" style={{ minHeight:340, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
             <div style={{ width:64, height:64, background:'#eff6ff', borderRadius:20, display:'flex', alignItems:'center', justifyContent:'center' }}>

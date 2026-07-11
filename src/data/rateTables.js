@@ -146,24 +146,71 @@ export const C_RO_FEE = {
   200000:[4500,6900,7500,8100],
 };
 
+// ─── Struktur produk yang extensible (tambah pickup dll di sini) ─────────────
+export const PRODUCTS = [
+  {
+    key: 'motor', label: 'Motor',
+    types: [{ key: 'new', label: 'NEW' }, { key: 'ro', label: 'RO' }],
+    tenors: MOTOR_TENORS,
+  },
+  {
+    key: 'mobil', label: 'Mobil',
+    types: [{ key: 'reg', label: 'REGULER' }, { key: 'ro', label: 'RO' }],
+    tenors: CAR_TENORS,
+  },
+  // { key: 'pickup', label: 'Pick Up', types: [...], tenors: [...] },
+];
+
+export const RATE_TABLE_GROUPS = [
+  { key: 'ang',            label: 'Angsuran',       tipeSuffix: 'ang' },
+  { key: 'komisi_leasing', label: 'Komisi Leasing', tipeSuffix: 'fee' },
+  { key: 'komisi_agen',    label: 'Komisi Agen',    tipeSuffix: 'fee_agen' },
+];
+
+// ─── Fallback map: product_typeKey_groupSuffix → data ────────────────────────
+const FALLBACKS = {
+  motor_new_ang: M_NEW_ANG, motor_ro_ang: M_RO_ANG,
+  motor_new_fee: M_NEW_FEE, motor_ro_fee: M_RO_FEE,
+  motor_new_fee_agen: M_NEW_FEE, motor_ro_fee_agen: M_RO_FEE,
+  mobil_reg_ang: C_REG_ANG, mobil_ro_ang: C_RO_ANG,
+  mobil_reg_fee: C_REG_FEE, mobil_ro_fee: C_RO_FEE,
+  mobil_reg_fee_agen: C_REG_FEE, mobil_ro_fee_agen: C_RO_FEE,
+};
+
 // ─── Daftar 12 tabel (angsuran + komisi leasing + komisi agen) ───────────────
 export const RATE_TABLE_DEFS = [
   // Angsuran
-  { id:'motor_new_ang',      product:'motor', tipe:'new_ang',      label:'Motor NEW – Angsuran',         tenors: MOTOR_TENORS, fallback: M_NEW_ANG, group:'ang' },
-  { id:'motor_ro_ang',       product:'motor', tipe:'ro_ang',       label:'Motor RO – Angsuran',          tenors: MOTOR_TENORS, fallback: M_RO_ANG,  group:'ang' },
-  { id:'mobil_reg_ang',      product:'mobil', tipe:'reg_ang',      label:'Mobil REGULER – Angsuran',     tenors: CAR_TENORS,   fallback: C_REG_ANG, group:'ang' },
-  { id:'mobil_ro_ang',       product:'mobil', tipe:'ro_ang',       label:'Mobil RO – Angsuran',          tenors: CAR_TENORS,   fallback: C_RO_ANG,  group:'ang' },
-  // Komisi Leasing (total fee yang dibayar leasing ke kantor)
-  { id:'motor_new_fee',      product:'motor', tipe:'new_fee',      label:'Motor NEW – Komisi Leasing',   tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_leasing' },
-  { id:'motor_ro_fee',       product:'motor', tipe:'ro_fee',       label:'Motor RO – Komisi Leasing',    tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_leasing' },
-  { id:'mobil_reg_fee',      product:'mobil', tipe:'reg_fee',      label:'Mobil REGULER – Komisi Leasing',tenors: CAR_TENORS,  fallback: C_REG_FEE, group:'komisi_leasing' },
-  { id:'mobil_ro_fee',       product:'mobil', tipe:'ro_fee',       label:'Mobil RO – Komisi Leasing',    tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_leasing' },
-  // Komisi Agen (bagian yang diteruskan ke agen — owner kelola di sini)
-  { id:'motor_new_fee_agen', product:'motor', tipe:'new_fee_agen', label:'Motor NEW – Komisi Agen',      tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_agen' },
-  { id:'motor_ro_fee_agen',  product:'motor', tipe:'ro_fee_agen',  label:'Motor RO – Komisi Agen',       tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_agen' },
-  { id:'mobil_reg_fee_agen', product:'mobil', tipe:'reg_fee_agen', label:'Mobil REGULER – Komisi Agen',  tenors: CAR_TENORS,   fallback: C_REG_FEE, group:'komisi_agen' },
-  { id:'mobil_ro_fee_agen',  product:'mobil', tipe:'ro_fee_agen',  label:'Mobil RO – Komisi Agen',       tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_agen' },
+  { id:'motor_new_ang',      product:'motor', tipe:'new_ang',      label:'Motor NEW – Angsuran',          tenors: MOTOR_TENORS, fallback: M_NEW_ANG, group:'ang' },
+  { id:'motor_ro_ang',       product:'motor', tipe:'ro_ang',       label:'Motor RO – Angsuran',           tenors: MOTOR_TENORS, fallback: M_RO_ANG,  group:'ang' },
+  { id:'mobil_reg_ang',      product:'mobil', tipe:'reg_ang',      label:'Mobil REGULER – Angsuran',      tenors: CAR_TENORS,   fallback: C_REG_ANG, group:'ang' },
+  { id:'mobil_ro_ang',       product:'mobil', tipe:'ro_ang',       label:'Mobil RO – Angsuran',           tenors: CAR_TENORS,   fallback: C_RO_ANG,  group:'ang' },
+  // Komisi Leasing
+  { id:'motor_new_fee',      product:'motor', tipe:'new_fee',      label:'Motor NEW – Komisi Leasing',    tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_leasing' },
+  { id:'motor_ro_fee',       product:'motor', tipe:'ro_fee',       label:'Motor RO – Komisi Leasing',     tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_leasing' },
+  { id:'mobil_reg_fee',      product:'mobil', tipe:'reg_fee',      label:'Mobil REGULER – Komisi Leasing',tenors: CAR_TENORS,   fallback: C_REG_FEE, group:'komisi_leasing' },
+  { id:'mobil_ro_fee',       product:'mobil', tipe:'ro_fee',       label:'Mobil RO – Komisi Leasing',     tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_leasing' },
+  // Komisi Agen
+  { id:'motor_new_fee_agen', product:'motor', tipe:'new_fee_agen', label:'Motor NEW – Komisi Agen',       tenors: MOTOR_TENORS, fallback: M_NEW_FEE, group:'komisi_agen' },
+  { id:'motor_ro_fee_agen',  product:'motor', tipe:'ro_fee_agen',  label:'Motor RO – Komisi Agen',        tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_agen' },
+  { id:'mobil_reg_fee_agen', product:'mobil', tipe:'reg_fee_agen', label:'Mobil REGULER – Komisi Agen',   tenors: CAR_TENORS,   fallback: C_REG_FEE, group:'komisi_agen' },
+  { id:'mobil_ro_fee_agen',  product:'mobil', tipe:'ro_fee_agen',  label:'Mobil RO – Komisi Agen',        tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_agen' },
 ];
+
+// ─── Helper: cari def berdasarkan product + typeKey + group ──────────────────
+export function findDef(product, typeKey, group) {
+  const g = RATE_TABLE_GROUPS.find(r => r.key === group);
+  if (!g) return null;
+  const tipe = `${typeKey}_${g.tipeSuffix}`;
+  return RATE_TABLE_DEFS.find(d => d.product === product && d.tipe === tipe) || null;
+}
+
+// ─── Helper: ambil pinjaman options (ribuan) dari tabel DB atau fallback ──────
+export function getPinjamanOptions(dbTable, product, typeKey) {
+  const fbKey = `${product}_${typeKey}_ang`;
+  const fallback = FALLBACKS[fbKey] || {};
+  const src = (dbTable && Object.keys(dbTable).length) ? dbTable : fallback;
+  return Object.keys(src).map(Number).sort((a, b) => a - b);
+}
 
 // ─── Lookup (interpolasi linear) ─────────────────────────────────────────────
 export function lookupVal(table, tenors, pinjRibu, tenorBln) {

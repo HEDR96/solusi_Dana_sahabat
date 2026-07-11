@@ -15,7 +15,7 @@ import {
   MOTOR_TENORS, CAR_TENORS,
   M_NEW_ANG, M_RO_ANG, M_NEW_FEE, M_RO_FEE,
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
-  lookupVal,
+  lookupVal, getPinjamanOptions,
 } from '../../data/rateTables';
 import { Plus, Search, Eye, Download, FileText, SlidersHorizontal, X, CheckSquare, TrendingUp } from 'lucide-react';
 
@@ -134,6 +134,20 @@ export function ApplicationList() {
     if (!angsuran || !fee) return null;
     return { angsuran, fee, isOwnTables };
   }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables, leasing]);
+
+  // Pinjaman dropdown options dari tabel angsuran
+  const pinjamanOptions = useMemo(() => {
+    if (!form.unitType) return [];
+    const jenis = form.unitType === 'Motor' ? 'motor' : 'mobil';
+    const typeKey = form.isRO ? 'ro' : (jenis === 'motor' ? 'new' : 'reg');
+    const dbKey = jenis === 'motor'
+      ? (form.isRO ? 'motor_ro_ang' : 'motor_new_ang')
+      : (form.isRO ? 'mobil_ro_ang' : 'mobil_reg_ang');
+    const selName = leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase();
+    const lk = form.leasingId ? (selName === 'cmd finance' ? 'CMD' : String(form.leasingId)) : 'CMD';
+    const dbTable = dbTables?.[lk]?.[dbKey];
+    return getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
+  }, [form.unitType, form.isRO, form.leasingId, dbTables, leasing]);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
   const toggleRow = useCallback(id => setSelectedIds(prev => {
@@ -424,19 +438,30 @@ export function ApplicationList() {
           )}
           <F label="Merk & Model Unit" error={errors.unitBrand}><input className="input" value={form.unitBrand} onChange={e => set('unitBrand')(e.target.value)} placeholder="Toyota Avanza 1.3 G" style={errors.unitBrand ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Tahun Unit"><input className="input" type="number" value={form.unitYear} onChange={e => set('unitYear')(Number(e.target.value))} /></F>
-          <F label="Pinjaman yang Diajukan (Rp)" error={errors.pinjaman}>
-            <input
-              className="input"
-              type="text"
-              inputMode="numeric"
-              value={form.pinjaman ? Number(form.pinjaman).toLocaleString('id') : ''}
-              onChange={e => {
-                const raw = e.target.value.replace(/\D/g, '');
-                set('pinjaman')(raw);
-              }}
-              placeholder="120.000.000"
-              style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined}
-            />
+          <F label="Pinjaman yang Diajukan" error={errors.pinjaman}>
+            {pinjamanOptions.length > 0 ? (
+              <select
+                className="input"
+                value={form.pinjaman || ''}
+                onChange={e => set('pinjaman')(e.target.value)}
+                style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined}
+              >
+                <option value="">— Pilih jumlah pinjaman —</option>
+                {pinjamanOptions.map(v => (
+                  <option key={v} value={v}>{formatRupiah(v)}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="input"
+                type="text"
+                inputMode="numeric"
+                value={form.pinjaman ? Number(form.pinjaman).toLocaleString('id') : ''}
+                onChange={e => set('pinjaman')(e.target.value.replace(/\D/g, ''))}
+                placeholder="Pilih tipe unit & leasing terlebih dahulu"
+                style={errors.pinjaman ? { borderColor: '#ef4444' } : undefined}
+              />
+            )}
           </F>
           <F label="Tenor">
             <select className="input" value={form.tenor} onChange={e => set('tenor')(Number(e.target.value))}>

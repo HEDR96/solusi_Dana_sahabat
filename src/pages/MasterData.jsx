@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
-import { RATE_TABLE_DEFS } from '../data/rateTables';
-import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2 } from 'lucide-react';
+import { RATE_TABLE_DEFS, RATE_TABLE_GROUPS, PRODUCTS, findDef } from '../data/rateTables';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, X } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [
@@ -90,11 +90,25 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
     ));
   };
 
+  const addRow = () => {
+    const raw = window.prompt('Nilai pinjaman baru (ribuan rupiah, contoh: 21000 = Rp 21.000.000):');
+    if (!raw) return;
+    const val = Number(raw.replace(/\D/g, ''));
+    if (!val || val <= 0) return;
+    if (rows.find(r => r.pinjaman === val)) { alert('Nilai sudah ada'); return; }
+    setRows(prev => [...prev, { pinjaman: val, vals: Array(def.tenors.length).fill(0) }]
+      .sort((a, b) => a.pinjaman - b.pinjaman));
+  };
+
+  const removeRow = (ri) => {
+    setRows(prev => prev.filter((_, i) => i !== ri));
+  };
+
   if (!rows) return <p style={{ fontSize:13, color:'var(--c-94a3b8)', padding:20 }}>Memuat...</p>;
 
   const isFee = def.tipe.includes('fee');
   const colW  = 68;
-  const pinjW = 90;
+  const pinjW = editing ? 110 : 90;
 
   return (
     <div>
@@ -108,6 +122,9 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
         <div style={{ flex:1 }} />
         {editing ? (
           <>
+            <button className="btn btn-sm btn-secondary" onClick={addRow} title="Tambah baris pinjaman baru">
+              <Plus size={13} /> Tambah Baris
+            </button>
             <button className="btn btn-sm btn-secondary" onClick={() => { load(); }}>Batal</button>
             <button className="btn btn-sm btn-primary" onClick={save} disabled={saving}>
               <Save size={13} /> {saving ? 'Menyimpan...' : 'Simpan'}
@@ -131,7 +148,7 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
           <thead>
             <tr style={{ background:'var(--surface-alt)' }}>
               <th style={{ padding:'8px 10px', textAlign:'left', fontWeight:700, color:'var(--c-64748b)', width:pinjW, position:'sticky', left:0, background:'var(--surface-alt)', borderRight:'1px solid var(--border-light)' }}>
-                Pinjaman
+                Pinjaman (rb)
               </th>
               {def.tenors.map(t => (
                 <th key={t} style={{ padding:'8px 6px', textAlign:'right', fontWeight:700, color:'var(--c-64748b)', width:colW, minWidth:colW }}>
@@ -143,8 +160,15 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
           <tbody>
             {rows.map((r, ri) => (
               <tr key={r.pinjaman} style={{ borderTop:'1px solid var(--border-light)', background: ri % 2 ? 'var(--surface-alt)' : 'var(--surface)' }}>
-                <td style={{ padding:'5px 10px', fontWeight:600, color:'var(--c-64748b)', fontSize:11, position:'sticky', left:0, background: ri % 2 ? 'var(--surface-alt)' : 'var(--surface)', borderRight:'1px solid var(--border-light)' }}>
-                  {(r.pinjaman).toLocaleString('id')}
+                <td style={{ padding:'5px 6px', fontWeight:600, color:'var(--c-64748b)', fontSize:11, position:'sticky', left:0, background: ri % 2 ? 'var(--surface-alt)' : 'var(--surface)', borderRight:'1px solid var(--border-light)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                    {editing && (
+                      <button onClick={() => removeRow(ri)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', padding:'0 2px', lineHeight:1, flexShrink:0 }} title="Hapus baris">
+                        <X size={11} />
+                      </button>
+                    )}
+                    {(r.pinjaman).toLocaleString('id')}
+                  </div>
                 </td>
                 {r.vals.map((v, ci) => (
                   <td key={ci} style={{ padding:'3px 4px', textAlign:'right' }}>
@@ -189,11 +213,14 @@ export function MasterData() {
   const [loading,  setLoading]  = useState(false);
 
   // --- Rate tables state ---
-  const [rateTab,      setRateTab]      = useState(RATE_TABLE_DEFS[0].id);
-  const [ratesLeasing, setRatesLeasing] = useState('CMD'); // 'CMD' | leasing.id.toString()
+  const [ratesLeasing,  setRatesLeasing]  = useState('CMD');
+  const [rateGroup,     setRateGroup]     = useState('ang');
+  const [rateProduct,   setRateProduct]   = useState('motor');
+  const [rateType,      setRateType]      = useState('new');
 
-  const currentCat = CATEGORIES.find(c => c.key === category);
-  const currentDef = RATE_TABLE_DEFS.find(d => d.id === rateTab);
+  const currentCat     = CATEGORIES.find(c => c.key === category);
+  const currentProduct = PRODUCTS.find(p => p.key === rateProduct);
+  const currentDef     = findDef(rateProduct, rateType, rateGroup);
 
   // Kategori "Nama Leasing" mengelola tabel dsd_leasing_partners langsung —
   // inilah sumber dropdown Leasing Tujuan di form berkas & simulasi.
@@ -403,16 +430,46 @@ export function MasterData() {
             )}
           </div>
 
-          {/* Tab pilih jenis tabel */}
-          <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
-            {RATE_TABLE_DEFS.map(d => (
+          {/* Level 1: Group (Angsuran / Komisi Leasing / Komisi Agen) */}
+          <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+            {RATE_TABLE_GROUPS.map(g => (
               <button
-                key={d.id}
-                className={`btn btn-sm ${rateTab === d.id ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setRateTab(d.id)}
-                style={{ fontSize:11 }}
+                key={g.key}
+                className={`btn btn-sm ${rateGroup === g.key ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setRateGroup(g.key)}
               >
-                {d.label}
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Level 2: Produk (Motor / Mobil / Pick Up ...) */}
+          <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+            {PRODUCTS.map(p => (
+              <button
+                key={p.key}
+                className={`btn btn-sm ${rateProduct === p.key ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => {
+                  setRateProduct(p.key);
+                  setRateType(p.types[0].key);
+                }}
+                style={{ fontSize:12 }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Level 3: Tipe (NEW/RO atau REGULER/RO) */}
+          <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+            {currentProduct?.types.map(t => (
+              <button
+                key={t.key}
+                className={`btn btn-sm ${rateType === t.key ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setRateType(t.key)}
+                style={{ fontSize:12 }}
+              >
+                {t.label}
               </button>
             ))}
           </div>
@@ -427,7 +484,7 @@ export function MasterData() {
                 </span>
               )}
             </h3>
-            {currentDef && (
+            {currentDef ? (
               <RateTableEditor
                 key={`${ratesLeasing}_${currentDef.id}`}
                 def={currentDef}
@@ -435,6 +492,8 @@ export function MasterData() {
                 leasingKey={ratesLeasing}
                 leasingName={ratesLeasing === 'CMD' ? 'CMD Finance' : (leasing.find(l => String(l.id) === ratesLeasing)?.name || ratesLeasing)}
               />
+            ) : (
+              <p style={{ fontSize:13, color:'var(--c-94a3b8)' }}>Tabel belum tersedia untuk kombinasi ini.</p>
             )}
           </div>
         </>
