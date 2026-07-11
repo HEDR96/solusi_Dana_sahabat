@@ -49,7 +49,10 @@ const mapCommission = r => ({
 });
 const mapStatusLog = r => ({
   id: r.id, appId: r.app_id, fromStatus: r.from_status, toStatus: r.to_status,
-  user: r.user, date: r.date, notes: r.notes,
+  user: r.user,
+  // Tampilkan tanggal+jam dari created_at; fallback kolom date (tipe date, tanpa jam)
+  date: r.created_at ? new Date(r.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : r.date,
+  notes: r.notes,
 });
 const mapActivity = r => ({
   id: r.id, agentId: r.agent_id, agentName: r.agent_name, date: r.date,
@@ -270,20 +273,30 @@ export function AppProvider({ children }) {
       return u;
     }));
 
-    const logRow = { app_id: appId, from_status: app?.status, to_status: newStatus, user: currentUser?.name || 'Admin', date: new Date().toLocaleString('id-ID'), notes };
-    const { data: logData } = await supabase.from('dsd_status_logs').insert(logRow).select().single();
+    // Kolom `date` bertipe DATE di Postgres — WAJIB format ISO (yyyy-mm-dd).
+    // Sebelumnya dikirim toLocaleString id-ID → insert gagal diam-diam → riwayat kosong.
+    const logRow = { app_id: appId, from_status: app?.status, to_status: newStatus, user: currentUser?.name || 'Admin', date: new Date().toISOString().split('T')[0], notes };
+    const { data: logData, error: logError } = await supabase.from('dsd_status_logs').insert(logRow).select().single();
     if (logData) setStatusLogs(prev => [...prev, mapStatusLog(logData)]);
+    else if (logError) showToast('Riwayat status gagal disimpan: ' + logError.message, 'error');
 
     if (newStatus === 'approve' && app && settings.autoCommission !== false) {
-      const commRow = {
-        app_id: appId, customer_name: app.customerName, agent_id: app.agentId, agent_name: app.agentName,
-        leasing_name: app.leasingName, approve_pinjaman: app.pinjaman,
-        approve_date: new Date().toISOString().split('T')[0], commission_rate: settings.commissionRate,
-        commission_amount: Math.round(app.pinjaman * (settings.commissionRate / 100)), status: 'unpaid',
-        payment_date: null, payment_method: null, notes: '',
-      };
-      const { data: commData } = await supabase.from('dsd_commissions').insert(commRow).select().single();
-      if (commData) setCommissions(prev => [mapCommission(commData), ...prev]);
+      // Trigger DB (trg_commission_on_approve) biasanya sudah membuat komisi otomatis
+      // saat update status di atas — cek dulu agar tidak tercipta baris dobel.
+      let { data: existingComm } = await supabase.from('dsd_commissions')
+        .select('*').eq('app_id', appId).order('id', { ascending: false }).limit(1);
+      let commData = existingComm?.[0] || null;
+      if (!commData) {
+        const commRow = {
+          app_id: appId, customer_name: app.customerName, agent_id: app.agentId, agent_name: app.agentName,
+          leasing_name: app.leasingName, approve_pinjaman: app.pinjaman,
+          approve_date: new Date().toISOString().split('T')[0], commission_rate: settings.commissionRate,
+          commission_amount: Math.round(app.pinjaman * (settings.commissionRate / 100)), status: 'unpaid',
+          payment_date: null, payment_method: null, notes: '',
+        };
+        ({ data: commData } = await supabase.from('dsd_commissions').insert(commRow).select().single());
+      }
+      if (commData) setCommissions(prev => prev.some(c => c.id === commData.id) ? prev : [mapCommission(commData), ...prev]);
     }
     await addAuditLog('Ubah Status', `${appId}: ${app?.status} → ${newStatus}`);
     showToast(`Status berkas ${appId} diubah ke ${newStatus}`);
@@ -304,6 +317,11 @@ export function AppProvider({ children }) {
     };
     const { data: inserted } = await supabase.from('dsd_applications').insert(row).select().single();
     if (inserted) setApplications(prev => [mapApp(inserted), ...prev]);
+    // Log status awal agar riwayat berkas tidak kosong sejak dibuat
+    const { data: firstLog } = await supabase.from('dsd_status_logs')
+      .insert({ app_id: newId, from_status: null, to_status: 'pending', user: currentUser?.name || data.agentName, date: row.input_date, notes: 'Berkas dibuat' })
+      .select().single();
+    if (firstLog) setStatusLogs(prev => [...prev, mapStatusLog(firstLog)]);
     await addAuditLog('Input Berkas Baru', `Berkas ${newId} - ${data.customerName}`);
     const notifRow = { type: 'berkas-baru', message: `Berkas baru dari ${data.agentName} - ${data.customerName}`, time_ago: 'Baru saja', read: false, link: '/applications' };
     const { data: notifData } = await supabase.from('dsd_notifications').insert(notifRow).select().single();
@@ -351,13 +369,15 @@ export function AppProvider({ children }) {
     else showToast('Pengaturan berhasil disimpan');
   }, [showToast]);
 
-  const addAgent = async (data) => {
+  // Return: id agen baru (string) jika sukses, false jika gagal.
+  // createAccount=false dipakai alur Manajemen User (akun dibuat via createUser dengan password pilihan admin).
+  const addAgent = async (data, { createAccount = true } = {}) => {
     const newId = `AGT${String(agents.length + 1).padStart(3, '0')}`;
     const row = {
       id: newId, name: data.name, phone: data.phone, email: data.email,
       city: data.city, address: data.address, nik: data.nik, status: data.status,
-      join_date: data.joinDate, bank: data.bank, account_number: data.accountNumber,
-      account_name: data.accountName, target: Number(data.target), notes: data.notes,
+      join_date: data.joinDate || new Date().toISOString().split('T')[0], bank: data.bank, account_number: data.accountNumber,
+      account_name: data.accountName, target: Number(data.target) || 10, notes: data.notes,
       total_approve: 0, total_reject: 0, total_berkas: 0,
       spv_id: data.spvId || null,
     };
@@ -367,7 +387,7 @@ export function AppProvider({ children }) {
     await addAuditLog('Tambah Agen', `Agen baru: ${data.name} (${newId})`);
 
     // Buat akun login jika email diisi agar agen bisa login & input berkas
-    if (data.email?.trim()) {
+    if (createAccount && data.email?.trim()) {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (token) {
@@ -390,12 +410,11 @@ export function AppProvider({ children }) {
         } else {
           showToast(`Agen tersimpan, tapi akun login gagal: ${result.error || 'coba tambah user manual'}`, 'error');
         }
-        return true;
+        return newId;
       }
     }
 
-    showToast(`Agen ${data.name} berhasil ditambahkan (tanpa akun login — email kosong)`);
-    return true;
+    return newId;
   };
 
   const updateAgent = async (id, data) => {

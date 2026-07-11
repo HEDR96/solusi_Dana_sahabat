@@ -110,11 +110,19 @@ class ProfileFragment : Fragment() {
     }
 
     private fun updateLockStatus(lock: AppLockManager) {
-        b.tvLockStatus.text = when (lock.lockType) {
+        // Dipanggil dari callback dialog — view fragment bisa saja sudah hancur
+        _b?.tvLockStatus?.text = when (lock.lockType) {
             AppLockManager.TYPE_PIN     -> "Kunci aplikasi: PIN aktif ✅"
             AppLockManager.TYPE_PATTERN -> "Kunci aplikasi: Pola aktif ✅"
             else                        -> "Kunci aplikasi: Nonaktif"
         }
+    }
+
+    /** Snackbar aman: tidak crash bila callback dialog berjalan setelah view hancur. */
+    private fun snack(msg: String) {
+        val root = _b?.root
+        if (root != null) Snackbar.make(root, msg, Snackbar.LENGTH_SHORT).show()
+        else context?.let { android.widget.Toast.makeText(it, msg, android.widget.Toast.LENGTH_SHORT).show() }
     }
 
     private fun showSetPinDialog(lock: AppLockManager) {
@@ -129,7 +137,7 @@ class ProfileFragment : Fragment() {
             .setPositiveButton("Lanjut") { _, _ ->
                 val pin = et.text.toString()
                 if (pin.length != 6) {
-                    Snackbar.make(b.root, "PIN harus 6 digit", Snackbar.LENGTH_SHORT).show()
+                    snack("PIN harus 6 digit")
                     return@setPositiveButton
                 }
                 confirmPin(lock, pin)
@@ -151,9 +159,9 @@ class ProfileFragment : Fragment() {
                 if (et.text.toString() == firstPin) {
                     lock.setLock(AppLockManager.TYPE_PIN, firstPin)
                     updateLockStatus(lock)
-                    Snackbar.make(b.root, "PIN berhasil diatur 🔒", Snackbar.LENGTH_SHORT).show()
+                    snack("PIN berhasil diatur 🔒")
                 } else {
-                    Snackbar.make(b.root, "PIN tidak cocok, ulangi", Snackbar.LENGTH_SHORT).show()
+                    snack("PIN tidak cocok, ulangi")
                 }
             }
             .setNegativeButton("Batal", null)
@@ -177,17 +185,18 @@ class ProfileFragment : Fragment() {
 
         pattern.onPatternComplete = { result ->
             if (result.isBlank()) {
-                Snackbar.make(b.root, "Pola minimal 4 titik", Snackbar.LENGTH_SHORT).show()
+                snack("Pola minimal 4 titik")
             } else {
                 dialog.dismiss()
                 if (!isConfirm) {
-                    showSetPatternDialog(lock, isConfirm = true, firstPattern = result)
+                    // Fragment bisa saja sudah tidak attached saat callback jalan
+                    if (isAdded) showSetPatternDialog(lock, isConfirm = true, firstPattern = result)
                 } else if (result == firstPattern) {
                     lock.setLock(AppLockManager.TYPE_PATTERN, result)
                     updateLockStatus(lock)
-                    Snackbar.make(b.root, "Pola berhasil diatur 🔒", Snackbar.LENGTH_SHORT).show()
+                    snack("Pola berhasil diatur 🔒")
                 } else {
-                    Snackbar.make(b.root, "Pola tidak cocok, ulangi dari awal", Snackbar.LENGTH_SHORT).show()
+                    snack("Pola tidak cocok, ulangi dari awal")
                 }
             }
         }

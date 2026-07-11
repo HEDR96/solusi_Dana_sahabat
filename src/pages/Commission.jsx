@@ -64,6 +64,16 @@ export function Commission() {
     return { ...ag, totalKomisi: total, paidKomisi: paid, unpaidKomisi: total - paid };
   }).filter(a => a.totalKomisi > 0);
 
+  const exportColumns = [
+    { label: 'No. Berkas', key: 'appId' }, { label: 'Nasabah', key: 'customerName' },
+    { label: 'Agen', key: 'agentName' }, { label: 'Leasing', key: 'leasingName' },
+    { label: 'Pinjaman', key: 'approvePinjaman' }, { label: 'Tgl Approve', key: 'approveDate' },
+    { label: 'Komisi Leasing', get: c => getBreakdown(c).leasing },
+    { label: 'Komisi Agen', get: c => getBreakdown(c).agent },
+    ...(isOwner ? [{ label: 'Keuntungan Owner', get: c => getBreakdown(c).owner }] : []),
+    { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
+  ];
+
   const summaryCards = [
     { label: 'Komisi Agen Belum Dibayar', value: formatRupiah(totalUnpaid), icon: CreditCard, bg: '#fef2f2', border: '#fecaca', color: '#dc2626', val_color: '#dc2626' },
     { label: 'Komisi Agen Sudah Dibayar', value: formatRupiah(totalPaid), icon: CheckCircle, bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', val_color: '#15803d' },
@@ -77,7 +87,7 @@ export function Commission() {
     <Layout
       title="Pembayaran Komisi"
       subtitle="Kelola pembayaran komisi agen"
-      actions={<button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', [], filtered)}><Download size={15} /> Export</button>}
+      actions={<button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', exportColumns, filtered)}><Download size={15} /> Export</button>}
     >
       {/* Summary */}
       <div className={`rgrid rgrid-${isOwner ? 4 : 3}`} style={{ gap: 14, marginBottom: 24 }}>

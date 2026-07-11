@@ -20,7 +20,9 @@ object SupabaseApi {
     private suspend fun <T> io(block: () -> T): Result<T> =
         withContext(Dispatchers.IO) { runCatching(block) }
 
-    val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+    // isLenient: kolom DB bertipe angka (int/bigint) tetap bisa masuk ke field String
+    // tanpa crash "Expected quotation mark" — pengaman untuk mismatch tipe yang belum ketahuan.
+    val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; isLenient = true }
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -437,7 +439,7 @@ object SupabaseApi {
             "agent_id":"${esc(agentId)}","agent_name":"${esc(agentName)}",
             "customer_name":"${esc(customerName)}","nik":"${esc(nik)}","phone":"${esc(phone)}",
             "city":"${esc(city)}","address":"${esc(address)}",
-            "unit_type":"${esc(unitType)}","unit_brand":"${esc(unitBrand)}","unit_year":"${esc(unitYear)}",
+            "unit_type":"${esc(unitType)}","unit_brand":"${esc(unitBrand)}","unit_year":${unitYear.trim().toIntOrNull() ?: "null"},
             "pinjaman":$pinjaman,"tenor":$tenor,"estimasi_angsuran":$estimasiAngsuran,
             "leasing_id":$leasingId,"leasing_name":"${esc(leasingName)}",
             "input_date":"$today","notes":"${esc(notes)}"
@@ -452,6 +454,18 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         if (!resp.isSuccessful) error("Gagal simpan berkas: ${resp.code} ${resp.body?.string()?.take(200)}")
+
+        // Log status awal agar riwayat berkas terisi sejak dibuat
+        val firstLogBody = """[{"app_id":"${esc(id)}","to_status":"pending","user":"${esc(agentName)}","date":"$today","notes":"Berkas dibuat via aplikasi"}]"""
+            .toRequestBody(JSON_TYPE)
+        val firstLogReq = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_status_logs")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Prefer", "return=minimal")
+            .post(firstLogBody)
+            .build()
+        client.newCall(firstLogReq).execute()
 
         // Notifikasi untuk web ERP
         val notifBody = """{"type":"berkas-baru","message":"Berkas baru dari ${esc(agentName)} - ${esc(customerName)}","time_ago":"Baru saja","read":false,"link":"/applications"}"""

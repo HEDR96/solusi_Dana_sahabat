@@ -40,7 +40,7 @@ data class Application(
     val city: String? = null,
     val address: String? = null,
     @SerialName("unit_type") val unitType: String? = null,
-    @SerialName("unit_year") val unitYear: String? = null,
+    @SerialName("unit_year") val unitYear: Int? = null,   // kolom int di DB
     @SerialName("unit_brand") val unitBrand: String? = null,
     val pinjaman: Long? = null,
     val tenor: Int? = null,
@@ -161,7 +161,7 @@ data class LeasingPartner(
 
 @Serializable
 data class StatusLog(
-    val id: String,
+    val id: Long,   // bigint identity di DB — String menyebabkan error parsing (riwayat kosong)
     @SerialName("app_id") val appId: String,
     @SerialName("from_status") val fromStatus: String? = null,
     @SerialName("to_status") val toStatus: String,

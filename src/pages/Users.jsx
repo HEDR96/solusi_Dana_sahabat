@@ -75,10 +75,11 @@ function RoleBadge({ role, roles }) {
 }
 
 const EMPTY_USER = { name: '', email: '', password: '', role: 'admin', status: 'aktif', agentId: null };
+const EMPTY_AGENT = { phone: '', city: '', nik: '', address: '', bank: '', accountNumber: '', accountName: '', target: 10, spvId: '' };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Users() {
-  const { users, createUser, updateUserProfile, agents, showToast, currentUser, assignAgentsToSpv } = useApp();
+  const { users, createUser, updateUserProfile, agents, addAgent, showToast, currentUser, assignAgentsToSpv } = useApp();
   const [showModal, setShow]        = useState(false);
   const [editUser, setEdit]         = useState(null);
   const [selectedRole, setSelRole]  = useState('super-admin');
@@ -87,6 +88,12 @@ export function Users() {
   const [saving, setSaving]         = useState(false);
   const [resetting, setResetting]   = useState(null);
   const [spvAgentIds, setSpvAgentIds] = useState([]); // agent IDs assigned to SPV being edited
+  const [agentMode, setAgentMode]   = useState('new');       // 'new' = daftarkan agen baru | 'existing' = hubungkan agen lama
+  const [agentForm, setAgentForm]   = useState(EMPTY_AGENT); // data agen baru (role agen)
+
+  const cityOptions = useMasterOptions('city', ['Medan', 'Binjai', 'Deli Serdang', 'Langkat', 'Tebing Tinggi', 'Pematang Siantar']);
+  const bankOptions = useMasterOptions('bank', ['BCA', 'BNI', 'BRI', 'Mandiri', 'BSI', 'BTPN', 'Danamon', 'Permata']);
+  const supervisors = users.filter(u => u.role === 'spv-agen');
 
   const handleResetPassword = async (user) => {
     if (!confirm(`Reset password ${user.name} ke "password"?`)) return;
@@ -115,9 +122,13 @@ export function Users() {
     setForm({ ...user, password: '' });
     setErrors({});
     setSpvAgentIds(user.role === 'spv-agen' ? agents.filter(a => a.spvId === user.id).map(a => a.id) : []);
+    setAgentMode('existing');
+    setAgentForm(EMPTY_AGENT);
     setShow(true);
   }, [agents]);
-  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setSpvAgentIds([]); setShow(true); }, []);
+  const openAdd  = useCallback(()   => { setEdit(null); setForm(EMPTY_USER); setErrors({}); setSpvAgentIds([]); setAgentMode('new'); setAgentForm(EMPTY_AGENT); setShow(true); }, []);
+
+  const isNewAgent = !editUser && form.role === 'agen' && agentMode === 'new';
 
   const validate = () => {
     const e = {};
@@ -126,7 +137,16 @@ export function Users() {
     else if (!EMAIL_RE.test(form.email.trim())) e.email = 'Format email tidak valid';
     else if (users.some(u => u.email === form.email.trim() && u.id !== editUser?.id)) e.email = 'Email sudah digunakan';
     if (!editUser && !form.password?.trim()) e.password = 'Password wajib diisi';
-    if (form.role === 'agen' && !form.agentId) e.agentId = 'Pilih agen terkait';
+    if (form.role === 'agen') {
+      if (isNewAgent) {
+        if (!agentForm.phone?.trim()) e.agentPhone = 'Nomor HP wajib diisi';
+        if (!agentForm.city?.trim())  e.agentCity  = 'Pilih kota';
+        if (!agentForm.nik?.trim())   e.agentNik   = 'NIK wajib diisi';
+        else if (agentForm.nik.trim().length !== 16) e.agentNik = 'NIK harus 16 digit';
+      } else if (!form.agentId) {
+        e.agentId = 'Pilih agen terkait';
+      }
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -141,6 +161,13 @@ export function Users() {
         if (form.role === 'spv-agen') await assignAgentsToSpv(editUser.id, spvAgentIds);
         showToast(`Data user ${form.name} berhasil diperbarui`);
       }
+    } else if (isNewAgent) {
+      // Buat record agen dulu (tanpa auto-akun), lalu akun login dengan password pilihan admin
+      const newAgentId = await addAgent(
+        { ...agentForm, name: form.name.trim(), email: form.email.trim(), status: form.status, notes: '' },
+        { createAccount: false },
+      );
+      ok = newAgentId ? await createUser({ ...form, agentId: newAgentId }) : false;
     } else {
       ok = await createUser(form);
     }
@@ -148,7 +175,8 @@ export function Users() {
     if (ok) setShow(false);
   };
 
-  const sf = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
+  const sf  = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
+  const sfA = useCallback(k => v => setAgentForm(p => ({ ...p, [k]: v })), []);
 
   return (
     <Layout
@@ -242,8 +270,8 @@ export function Users() {
       <Modal
         isOpen={showModal}
         onClose={() => setShow(false)}
-        title={editUser ? 'Edit User' : 'Tambah User Baru'}
-        size="sm"
+        title={editUser ? 'Edit User' : (isNewAgent ? 'Daftarkan Agen Baru' : 'Tambah User Baru')}
+        size={isNewAgent ? 'md' : 'sm'}
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShow(false)}>Batal</button>
@@ -268,13 +296,85 @@ export function Users() {
               {roles.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
             </select>
           </F>
-          {form.role === 'agen' && (
+          {form.role === 'agen' && editUser && (
             <F label="Agen Terkait" error={errors.agentId}>
               <select className="input" value={form.agentId || ''} onChange={e => sf('agentId')(e.target.value)} style={errors.agentId ? { borderColor: '#ef4444' } : undefined}>
                 <option value="">-- Pilih Agen --</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </F>
+          )}
+          {form.role === 'agen' && !editUser && (
+            <>
+              {/* Pilihan: daftarkan agen baru vs hubungkan agen lama */}
+              <div style={{ display: 'flex', gap: 6, background: 'var(--surface-alt)', borderRadius: 10, padding: 4 }}>
+                {[
+                  { key: 'new',      label: 'Daftarkan Agen Baru' },
+                  { key: 'existing', label: 'Agen Sudah Ada' },
+                ].map(m => (
+                  <button key={m.key} type="button" onClick={() => setAgentMode(m.key)} style={{
+                    flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600, transition: 'all .15s',
+                    background: agentMode === m.key ? 'var(--surface)' : 'transparent',
+                    color: agentMode === m.key ? 'var(--c-0f172a)' : 'var(--c-64748b)',
+                    boxShadow: agentMode === m.key ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
+                  }}>{m.label}</button>
+                ))}
+              </div>
+
+              {agentMode === 'existing' ? (
+                <F label="Agen Terkait" error={errors.agentId}>
+                  <select className="input" value={form.agentId || ''} onChange={e => sf('agentId')(e.target.value)} style={errors.agentId ? { borderColor: '#ef4444' } : undefined}>
+                    <option value="">-- Pilih Agen --</option>
+                    {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </F>
+              ) : (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <p className="form-section-label" style={{ marginBottom: 0 }}>Data Agen</p>
+                  <div className="form-grid" style={{ gap: 12 }}>
+                    <F label="Nomor HP" error={errors.agentPhone}>
+                      <input className="input" value={agentForm.phone} onChange={e => sfA('phone')(e.target.value)} placeholder="08xx-xxxx-xxxx" style={errors.agentPhone ? { borderColor: '#ef4444' } : undefined} />
+                    </F>
+                    <F label="NIK / KTP" error={errors.agentNik}>
+                      <input className="input" value={agentForm.nik} onChange={e => sfA('nik')(e.target.value)} placeholder="16 digit" style={errors.agentNik ? { borderColor: '#ef4444' } : undefined} />
+                    </F>
+                    <F label="Kota" error={errors.agentCity}>
+                      <select className="input" value={agentForm.city} onChange={e => sfA('city')(e.target.value)} style={errors.agentCity ? { borderColor: '#ef4444' } : undefined}>
+                        <option value="">— Pilih Kota —</option>
+                        {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </F>
+                    <F label="Target Berkas/Bulan">
+                      <input className="input" type="number" value={agentForm.target} onChange={e => sfA('target')(Number(e.target.value))} />
+                    </F>
+                    <div className="span-2">
+                      <F label="Alamat"><input className="input" value={agentForm.address} onChange={e => sfA('address')(e.target.value)} /></F>
+                    </div>
+                    <F label="Bank">
+                      <select className="input" value={agentForm.bank} onChange={e => sfA('bank')(e.target.value)}>
+                        <option value="">— Pilih Bank —</option>
+                        {bankOptions.map(b => <option key={b}>{b}</option>)}
+                      </select>
+                    </F>
+                    <F label="Nomor Rekening">
+                      <input className="input" value={agentForm.accountNumber} onChange={e => sfA('accountNumber')(e.target.value)} />
+                    </F>
+                    <F label="Nama Pemilik Rekening">
+                      <input className="input" value={agentForm.accountName} onChange={e => sfA('accountName')(e.target.value)} />
+                    </F>
+                    {supervisors.length > 0 && (
+                      <F label="Supervisor">
+                        <select className="input" value={agentForm.spvId} onChange={e => sfA('spvId')(e.target.value)}>
+                          <option value="">— Tanpa Supervisor —</option>
+                          {supervisors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </F>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
           {form.role === 'spv-agen' && editUser && (
             <div style={{ gridColumn: '1/-1' }}>

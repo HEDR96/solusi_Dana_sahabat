@@ -18,7 +18,7 @@ const CATEGORIES = [
   { key: 'activity_type',    label: 'Jenis Aktivitas', hasLabel: true },
   { key: 'activity_outcome', label: 'Hasil Aktivitas', hasLabel: true },
   { key: 'role',             label: 'Role (label tampilan)', hasLabel: true },
-  { key: 'leasing_type',     label: 'Tipe Leasing' },
+  { key: 'leasing_type',     label: 'Nama Leasing' },
 ];
 
 // ─── Editor satu tabel rate ───────────────────────────────────────────────────

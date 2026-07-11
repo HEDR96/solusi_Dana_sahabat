@@ -46,16 +46,25 @@ function Field({ label, type = 'text', value, onChange, suffix, prefix }) {
   );
 }
 
-function Section({ icon: Icon, title, children }) {
+function Section({ icon: Icon, title, desc, color = '#3b82f6', bg = '#eff6ff', children }) {
   return (
-    <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border-light)' }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={16} color="#3b82f6" />
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '16px 22px', borderBottom: '1px solid var(--border-light)',
+        background: 'var(--surface-alt)',
+      }}>
+        <div style={{ width: 38, height: 38, borderRadius: 11, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={18} color={color} />
         </div>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-0f172a)' }}>{title}</h3>
+        <div>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-0f172a)' }}>{title}</h3>
+          {desc && <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', marginTop: 1 }}>{desc}</p>}
+        </div>
       </div>
-      {children}
+      <div style={{ padding: '20px 22px' }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -103,7 +112,7 @@ export function Settings() {
     <Layout title="Pengaturan Sistem" subtitle="Konfigurasi perusahaan, komisi, dan tampilan — berlaku untuk semua user">
       <div className="rgrid rgrid-2" style={{ gap: 20 }}>
         {/* Company profile */}
-        <Section icon={SettingsIcon} title="Profil Perusahaan">
+        <Section icon={SettingsIcon} title="Profil Perusahaan" desc="Identitas perusahaan untuk laporan & cetakan" color="#3b82f6" bg="#eff6ff">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Nama Perusahaan" value={localSettings.companyName} onChange={sf('companyName')} />
             <Field label="Alamat" value={localSettings.address} onChange={sf('address')} />
@@ -113,7 +122,7 @@ export function Settings() {
         </Section>
 
         {/* Commission */}
-        <Section icon={Percent} title="Aturan Komisi">
+        <Section icon={Percent} title="Aturan Komisi" desc="Berlaku untuk semua user setelah disimpan" color="#16a34a" bg="#f0fdf4">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Rate Komisi Leasing Default (%)" value={localSettings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
             <Field label="Porsi Komisi Agen (% dari Komisi Leasing)" value={localSettings.commissionAgentRate ?? 80} type="number" onChange={sf('commissionAgentRate')} suffix="%" />
@@ -153,7 +162,7 @@ export function Settings() {
         </Section>
 
         {/* Appearance & data */}
-        <Section icon={Sun} title="Tampilan & Tema">
+        <Section icon={Sun} title="Tampilan & Tema" desc="Preferensi tampilan per perangkat" color="#f59e0b" bg="#fffbeb">
           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 12 }}>Mode Tampilan</p>
           <div className="rgrid rgrid-2" style={{ gap: 10 }}>
             {[
@@ -179,7 +188,7 @@ export function Settings() {
         </Section>
 
         {/* Backup */}
-        <Section icon={Database} title="Backup Data">
+        <Section icon={Database} title="Backup Data" desc="Arsip data dalam format JSON" color="#8b5cf6" bg="#f5f3ff">
           <p style={{ fontSize: 12, color: 'var(--c-64748b)', marginBottom: 14, lineHeight: 1.6 }}>
             Unduh salinan seluruh data (berkas, agen, komisi, leasing, user, log) sebagai file JSON untuk arsip.
             Data utama tetap tersimpan aman di server.

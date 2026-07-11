@@ -10,7 +10,7 @@ import { useSortableData } from '../../utils/useSortableData';
 import { SortableTh } from '../../components/UI/SortableTh';
 import { useDebounce } from '../../utils/useDebounce';
 import { useMasterOptions } from '../../utils/useMasterOptions';
-import { Plus, Search, Eye, Edit2, Download, MapPin, TrendingUp } from 'lucide-react';
+import { Search, Eye, Edit2, Download, MapPin } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
   <div>
@@ -40,7 +40,7 @@ const EMPTY = {
 };
 
 export function AgentList() {
-  const { visibleAgents: agents, agents: allAgents, users, addAgent, updateAgent, showToast, currentUser } = useApp();
+  const { visibleAgents: agents, users, updateAgent, showToast, currentUser } = useApp();
   const navigate = useNavigate();
   const canManage = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const [search, setSearch]       = useState('');
@@ -76,7 +76,6 @@ export function AgentList() {
   const totalPages = Math.ceil(sorted.length / PER);
 
   const openEdit = useCallback(a => { setEditItem(a); setForm({ ...a, spvId: a.spvId || '' }); setErrors({}); setShowModal(true); }, []);
-  const openAdd  = useCallback(() => { setEditItem(null); setForm(EMPTY); setErrors({}); setShowModal(true); }, []);
   const set = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
 
   const validate = useCallback(() => {
@@ -92,20 +91,15 @@ export function AgentList() {
 
   const [saving, setSaving] = useState(false);
 
+  // Pendaftaran agen baru hanya lewat Manajemen User — halaman ini untuk edit saja
   const handleSave = useCallback(async () => {
-    if (!validate()) return;
+    if (!editItem || !validate()) return;
     setSaving(true);
-    let ok;
-    if (editItem) {
-      ok = await updateAgent(editItem.id, form);
-      if (ok) showToast(`Data agen ${form.name} berhasil diperbarui`);
-    } else {
-      ok = await addAgent(form);
-      if (ok) showToast(`Agen ${form.name} berhasil ditambahkan`);
-    }
+    const ok = await updateAgent(editItem.id, form);
+    if (ok) showToast(`Data agen ${form.name} berhasil diperbarui`);
     setSaving(false);
     if (ok) setShowModal(false);
-  }, [editItem, form, addAgent, updateAgent, showToast, validate]);
+  }, [editItem, form, updateAgent, showToast, validate]);
 
   return (
     <Layout title="Daftar Agen" subtitle={`${agents.filter(a => a.status === 'aktif').length} agen aktif dari ${agents.length} total`}>
@@ -127,7 +121,6 @@ export function AgentList() {
         <button className="btn btn-secondary" onClick={() => exportToCsv('daftar-agen', AGENT_COLUMNS, filtered)}>
           <Download size={15} /> Export
         </button>
-        {canManage && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Tambah Agen</button>}
       </div>
 
       {/* Table */}
