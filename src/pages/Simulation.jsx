@@ -42,11 +42,11 @@ export function Simulation() {
   const [dbTables,  setDbTables]  = useState(null);
 
   // OTR catalog state
-  const [otrList,   setOtrList]   = useState([]);
-  const [otrBrand,  setOtrBrand]  = useState('');
-  const [otrTipe,   setOtrTipe]   = useState('');
-  const [otrTahun,  setOtrTahun]  = useState('');
-  const [otrRow,    setOtrRow]    = useState(null);
+  const [otrList,        setOtrList]        = useState([]);
+  const [otrBrand,       setOtrBrand]       = useState('');
+  const [otrTipe,        setOtrTipe]        = useState('');
+  const [tahunKendaraan, setTahunKendaraan] = useState('');
+  const [otrRow,         setOtrRow]         = useState(null);
 
   const selectedLeasing = activeLeasings.find(l => String(l.id) === selectedLeasingId);
   // Baris "CMD Finance" di leasing partners memakai kunci rate khusus 'CMD'
@@ -78,7 +78,7 @@ export function Simulation() {
     const tList = v === 'motor' ? MOTOR_TENORS : CAR_TENORS;
     if (!tList.includes(tenor)) setTenor(tList[0]);
     setPencairan('');
-    setOtrBrand(''); setOtrTipe(''); setOtrTahun(''); setOtrRow(null);
+    setOtrBrand(''); setOtrTipe(''); setOtrRow(null);
   };
 
   // Load OTR catalog CMD Finance
@@ -93,19 +93,14 @@ export function Simulation() {
   // Derived OTR values
   const otrBrands  = useMemo(() => [...new Set(otrList.map(r => r.brand))], [otrList]);
   const otrTipes   = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
-  const otrTahuns  = useMemo(() => {
-    if (!otrRow) return [];
-    return OTR_YEARS.filter(y => otrRow[`otr_${y}`]);
-  }, [otrRow]);
-
   const otrInfo = useMemo(() => {
-    if (!otrRow || !otrTahun) return null;
-    const tahun = Number(otrTahun);
+    if (!otrRow || !tahunKendaraan) return null;
+    const tahun = Number(tahunKendaraan);
     const otr   = getOtr(otrRow, tahun);
     const ltv   = getLtv(otrRow, tahun);
     const max   = getMaxPinjaman(otrRow, tahun);
     return { otr, ltv, max, tahun, kategori: otrRow.kategori };
-  }, [otrRow, otrTahun]);
+  }, [otrRow, tahunKendaraan]);
 
   // Pinjaman options: keys dari tabel angsuran (ribuan × 1000)
   const pinjamanOptions = useMemo(() => {
@@ -192,6 +187,17 @@ export function Simulation() {
                 />
               </div>
 
+              {/* ── Tahun Kendaraan ── */}
+              <div>
+                <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <Car size={13} color="var(--c-64748b)" /> Tahun Kendaraan
+                </label>
+                <select className="input" value={tahunKendaraan} onChange={e => setTahunKendaraan(e.target.value)}>
+                  <option value="">— Pilih Tahun —</option>
+                  {OTR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
               {/* ── OTR Catalog ── */}
               <div style={{ background:'var(--surface-alt)', borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
@@ -205,7 +211,7 @@ export function Simulation() {
                   <div>
                     <label className="label" style={{ fontSize:11 }}>Brand</label>
                     <select className="input" style={{ fontSize:13 }} value={otrBrand} onChange={e => {
-                      setOtrBrand(e.target.value); setOtrTipe(''); setOtrTahun(''); setOtrRow(null);
+                      setOtrBrand(e.target.value); setOtrTipe(''); setOtrRow(null);
                     }}>
                       <option value="">— Brand —</option>
                       {otrBrands.map(b => <option key={b} value={b}>{b}</option>)}
@@ -215,7 +221,7 @@ export function Simulation() {
                     <label className="label" style={{ fontSize:11 }}>Tipe</label>
                     <select className="input" style={{ fontSize:13 }} value={otrTipe} onChange={e => {
                       const t = e.target.value;
-                      setOtrTipe(t); setOtrTahun('');
+                      setOtrTipe(t);
                       const row = otrList.find(r => r.brand === otrBrand && r.tipe === t);
                       setOtrRow(row || null);
                     }} disabled={!otrBrand}>
@@ -224,16 +230,6 @@ export function Simulation() {
                     </select>
                   </div>
                 </div>
-
-                {otrRow && (
-                  <div>
-                    <label className="label" style={{ fontSize:11 }}>Tahun Kendaraan</label>
-                    <select className="input" style={{ fontSize:13 }} value={otrTahun} onChange={e => setOtrTahun(e.target.value)}>
-                      <option value="">— Tahun —</option>
-                      {otrTahuns.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                )}
 
                 {otrInfo && (
                   <div style={{ background:'#eff6ff', borderRadius:8, padding:'10px 12px', fontSize:12 }}>
@@ -249,6 +245,9 @@ export function Simulation() {
                       Pakai sebagai Jumlah Pinjaman
                     </button>
                   </div>
+                )}
+                {otrRow && !tahunKendaraan && (
+                  <p style={{ fontSize:11, color:'#f59e0b', margin:0 }}>⚠ Pilih tahun kendaraan di atas untuk melihat OTR & maks pinjaman</p>
                 )}
               </div>
 
