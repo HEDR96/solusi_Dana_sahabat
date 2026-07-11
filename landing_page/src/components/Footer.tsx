@@ -14,7 +14,7 @@ const navLinks = {
     { label: 'Blog & Artikel', to: '/blog' },
     { label: 'FAQ', to: '/faq' },
     { label: 'Hubungi Kami', to: '/hubungi-kami' },
-    { label: 'Kebijakan Privasi', to: '#' },
+    { label: 'Kebijakan Privasi', to: '/kebijakan-privasi' },
   ],
 }
 

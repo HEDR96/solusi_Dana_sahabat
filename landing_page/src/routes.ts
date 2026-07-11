@@ -11,6 +11,7 @@ import HubungiKami from './pages/HubungiKami'
 import Blog from './pages/Blog'
 import BlogPost from './pages/BlogPost'
 import NotFound from './pages/NotFound'
+import KebijakanPrivasi from './pages/KebijakanPrivasi'
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'hubungi-kami', Component: HubungiKami },
       { path: 'blog', Component: Blog },
       { path: 'blog/:slug', Component: BlogPost },
+      { path: 'kebijakan-privasi', Component: KebijakanPrivasi },
       { path: '*', Component: NotFound },
     ],
   },
