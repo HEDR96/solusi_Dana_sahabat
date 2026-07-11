@@ -100,6 +100,44 @@ data class AgentActivity(
     @SerialName("related_app_id") val relatedAppId: String? = null
 )
 
+@Serializable
+data class OtrCatalogRow(
+    val id: Long? = null,
+    val brand: String,
+    val tipe: String,
+    val ltv: Double? = null,
+    @SerialName("ltv_rule") val ltvRule: String? = null,
+    val kategori: String? = null,
+    @SerialName("otr_2026") val otr2026: Long? = null,
+    @SerialName("otr_2025") val otr2025: Long? = null,
+    @SerialName("otr_2024") val otr2024: Long? = null,
+    @SerialName("otr_2023") val otr2023: Long? = null,
+    @SerialName("otr_2022") val otr2022: Long? = null,
+    @SerialName("otr_2021") val otr2021: Long? = null,
+    @SerialName("otr_2020") val otr2020: Long? = null,
+    @SerialName("otr_2019") val otr2019: Long? = null,
+    @SerialName("otr_2018") val otr2018: Long? = null,
+    @SerialName("otr_2017") val otr2017: Long? = null,
+    @SerialName("otr_2016") val otr2016: Long? = null,
+    @SerialName("otr_2015") val otr2015: Long? = null,
+) {
+    fun getOtr(tahun: Int): Long? = when(tahun) {
+        2026->otr2026; 2025->otr2025; 2024->otr2024; 2023->otr2023
+        2022->otr2022; 2021->otr2021; 2020->otr2020; 2019->otr2019
+        2018->otr2018; 2017->otr2017; 2016->otr2016; 2015->otr2015
+        else -> null
+    }
+    fun getLtv(tahun: Int): Double = if (ltvRule == "year_based") {
+        if (tahun >= 2021) 0.8 else 0.75
+    } else ltv ?: 0.7
+    fun getMaxPinjaman(tahun: Int): Long? {
+        val otr = getOtr(tahun) ?: return null
+        return (otr * getLtv(tahun)).toLong()
+    }
+}
+
+val OTR_YEARS = listOf(2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015)
+
 // Sinkron dengan ACTIVITY_TYPES / ACTIVITY_OUTCOMES di web ERP
 val ACTIVITY_TYPES = listOf(
     "kunjungan-dealer" to "Kunjungan Dealer",

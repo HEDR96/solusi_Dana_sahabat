@@ -644,6 +644,18 @@ object SupabaseApi {
             .toList()
     }
 
+    suspend fun getOtrCatalog(token: String): Result<List<OtrCatalogRow>> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_otr_catalog?leasing_key=eq.CMD&select=id,brand,tipe,ltv,ltv_rule,kategori,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015&order=brand&order=tipe")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get().build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        json.decodeFromString<List<OtrCatalogRow>>(text)
+    }
+
     /**
      * Ambil tabel rate untuk leasing tertentu.
      * leasingKey = "CMD" untuk CMD Finance, String(leasing.id) untuk leasing lain.

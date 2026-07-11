@@ -9,20 +9,30 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.solusidana.sahabat"
+        applicationId = "solusidanasahabat.myapp"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+        versionCode = 3
+        versionName = "1.2"
 
         buildConfigField("String", "SUPABASE_URL", "\"https://jltdidqhdqdsyiakdaqy.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdGRpZHFoZHFkc3lpYWtkYXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDQ4MzcsImV4cCI6MjA5MzIyMDgzN30.IxAEaotwiKoNpIBlXtq9t9x_n0hOPujlddstAA2TPGo\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../solusidana-release.jks")
+            storePassword = "SolusiDana2025!"
+            keyAlias = "solusidana"
+            keyPassword = "SolusiDana2025!"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

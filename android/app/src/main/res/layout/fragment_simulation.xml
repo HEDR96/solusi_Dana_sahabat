@@ -148,18 +148,112 @@
                                 android:textSize="13sp" />
                         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-                        <!-- Jumlah Pencairan -->
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        <!-- ── CMD Finance only: Tahun + OTR Lookup ── -->
+                        <LinearLayout
+                            android:id="@+id/llCmdOtr"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="Jumlah Pencairan (Rp)"
-                            android:layout_marginBottom="16dp">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/etPencairan"
+                            android:orientation="vertical"
+                            android:background="#F1F5F9"
+                            android:padding="12dp"
+                            android:layout_marginBottom="16dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="TAHUN &amp; OTR KENDARAAN"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:textColor="#64748B"
+                                android:letterSpacing="0.05"
+                                android:layout_marginBottom="10dp" />
+
+                            <!-- Tahun Kendaraan -->
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/tilTahun"
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="number" />
+                                android:hint="Tahun Kendaraan *"
+                                android:layout_marginBottom="10dp">
+                                <AutoCompleteTextView
+                                    android:id="@+id/ddTahun"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:inputType="none" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <!-- Brand -->
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/tilBrand"
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Brand (opsional)"
+                                android:layout_marginBottom="10dp">
+                                <AutoCompleteTextView
+                                    android:id="@+id/ddBrand"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:inputType="none" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <!-- Tipe -->
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/tilTipe"
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Tipe (opsional)"
+                                android:layout_marginBottom="10dp">
+                                <AutoCompleteTextView
+                                    android:id="@+id/ddTipe"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:inputType="none" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <!-- Maks Pinjaman info -->
+                            <LinearLayout
+                                android:id="@+id/llMaksPinjaman"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:background="#EFF6FF"
+                                android:padding="10dp"
+                                android:visibility="gone">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Maks Pinjaman"
+                                    android:textSize="11sp"
+                                    android:textColor="#64748B" />
+                                <TextView
+                                    android:id="@+id/tvMaksPinjaman"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#1D4ED8" />
+                            </LinearLayout>
+
+                        </LinearLayout>
+
+                        <!-- Jumlah Pencairan — dropdown (muncul setelah tahun dipilih untuk CMD, atau langsung untuk lain) -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilPencairan"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Jumlah Pencairan"
+                            android:layout_marginBottom="16dp"
+                            android:visibility="gone">
+                            <AutoCompleteTextView
+                                android:id="@+id/ddPencairan"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="none" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <!-- Tenor -->
@@ -169,7 +263,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="Tenor"
-                            android:layout_marginBottom="4dp">
+                            android:layout_marginBottom="4dp"
+                            android:visibility="gone">
                             <AutoCompleteTextView
                                 android:id="@+id/ddTenor"
                                 android:layout_width="match_parent"

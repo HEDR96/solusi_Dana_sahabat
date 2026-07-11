@@ -53,6 +53,7 @@ class AgentFormFragment : Fragment() {
                 }
                 master["city"]?.let { cities ->
                     b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
+                    b.etCity.setOnClickListener { b.etCity.showDropDown() }
                 }
             }
         }
