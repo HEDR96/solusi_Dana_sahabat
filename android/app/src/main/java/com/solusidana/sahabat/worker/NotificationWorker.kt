@@ -38,6 +38,7 @@ class NotificationWorker(
         checkStatusChanges(token, agentId)
         checkNewPaidCommissions(token, agentId)
         checkPendingReminder(token, agentId)
+        checkPushMessages(token, session.userId ?: "")
 
         return Result.success()
     }
@@ -107,6 +108,24 @@ class NotificationWorker(
         }
     }
 
+    // ── 4. Push messages dari web ERP ────────────────────────────────────────
+    private suspend fun checkPushMessages(token: String, userId: String) {
+        if (userId.isEmpty()) return
+        val lastId = prefs.getLong(KEY_LAST_PUSH_ID, 0L)
+        SupabaseApi.getPushMessages(token, userId, lastId).onSuccess { messages ->
+            messages.forEach { msg ->
+                notify(
+                    NOTIF_PUSH_BASE + (msg.id % 500).toInt(),
+                    msg.title,
+                    msg.body
+                )
+            }
+            if (messages.isNotEmpty()) {
+                prefs.edit().putLong(KEY_LAST_PUSH_ID, messages.maxOf { it.id }).apply()
+            }
+        }
+    }
+
     private fun notify(id: Int, title: String, text: String) {
         val intent = PendingIntent.getActivity(
             applicationContext, 0,
@@ -132,7 +151,9 @@ class NotificationWorker(
         private const val NOTIF_PENDING         = 1001
         private const val NOTIF_COMMISSION_BASE = 2000
         private const val NOTIF_STATUS_BASE     = 3000
+        private const val NOTIF_PUSH_BASE       = 4000
         private const val KEY_PAID_IDS          = "paid_commission_ids"
         private const val KEY_APP_STATUSES      = "app_statuses"
+        private const val KEY_LAST_PUSH_ID      = "last_push_msg_id"
     }
 }

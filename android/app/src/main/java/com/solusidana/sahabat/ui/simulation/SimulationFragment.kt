@@ -64,6 +64,9 @@ class SimulationFragment : Fragment() {
         b.toggleJenis.check(R.id.btnMotor)
         b.togglePengajuan.check(R.id.btnNew)
 
+        // Pasang click listener leasing sejak awal — tidak bergantung pada hasil network
+        b.ddLeasing.setOnClickListener { b.ddLeasing.showDropDown() }
+
         b.toggleJenis.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
             jenis = if (checkedId == R.id.btnMotor) "motor" else "mobil"
@@ -233,7 +236,6 @@ class SimulationFragment : Fragment() {
                     leasingList = list.filter { it.status == null || it.status == "aktif" }
                     val names = leasingList.map { it.name }
                     b.ddLeasing.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, names))
-                    b.ddLeasing.setOnClickListener { b.ddLeasing.showDropDown() }
                     b.ddLeasing.setOnItemClickListener { _, _, pos, _ ->
                         onLeasingSelected(leasingList[pos], token)
                     }

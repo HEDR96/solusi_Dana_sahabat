@@ -96,6 +96,11 @@
         android:label="Master Data" />
 
     <fragment
+        android:id="@+id/notificationsFragment"
+        android:name="com.solusidana.sahabat.ui.notifications.NotificationsFragment"
+        android:label="Notifikasi" />
+
+    <fragment
         android:id="@+id/applicationDetailFragment"
         android:name="com.solusidana.sahabat.ui.applications.ApplicationDetailFragment"
         android:label="Detail Berkas">

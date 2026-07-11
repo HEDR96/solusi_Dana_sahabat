@@ -690,4 +690,35 @@ object SupabaseApi {
             val contentRange = resp.header("Content-Range") ?: "0/0"
             contentRange.substringAfter("/").toIntOrNull() ?: 0
         }
+
+    /**
+     * Ambil push messages untuk user ini sejak lastId yang sudah diproses.
+     * Mengambil broadcast (target_user_id IS NULL) ATAU targeted ke userId ini.
+     */
+    suspend fun getPushMessages(token: String, userId: String, afterId: Long = 0L): Result<List<PushMessage>> {
+        val idPart = if (afterId > 0L) "&id=gt.$afterId" else ""
+
+        fun buildReq(extraFilter: String) = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_push_messages?$extraFilter$idPart&order=id.desc&limit=100")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get().build()
+
+        val broadcast = io {
+            val resp = client.newCall(buildReq("target_user_id=is.null")).execute()
+            val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+            json.decodeFromString<List<PushMessage>>(text)
+        }.getOrElse { emptyList() }
+
+        val targeted = io {
+            val resp = client.newCall(buildReq("target_user_id=eq.$userId")).execute()
+            val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+            json.decodeFromString<List<PushMessage>>(text)
+        }.getOrElse { emptyList() }
+
+        val merged = (broadcast + targeted).distinctBy { it.id }.sortedByDescending { it.id }
+        return Result.success(merged)
+    }
 }

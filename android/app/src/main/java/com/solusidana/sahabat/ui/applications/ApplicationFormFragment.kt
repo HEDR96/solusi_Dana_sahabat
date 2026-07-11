@@ -9,12 +9,18 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.snackbar.Snackbar
 import com.solusidana.sahabat.data.Agent
 import com.solusidana.sahabat.data.LeasingPartner
+import com.solusidana.sahabat.data.OTR_YEARS
+import com.solusidana.sahabat.data.OtrCatalogRow
+import com.solusidana.sahabat.data.SessionManager
+import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.data.formatRupiah
 import com.solusidana.sahabat.databinding.FragmentApplicationFormBinding
+import kotlinx.coroutines.launch
 
 class ApplicationFormFragment : Fragment() {
 
@@ -25,8 +31,17 @@ class ApplicationFormFragment : Fragment() {
     private var selectedAgent: Agent? = null
     private var selectedLeasing: LeasingPartner? = null
     private var selectedTenor = 0
+    private var isCMD = false
 
-    // Diisi dari master_options DB (owner kelola di menu Master Data web)
+    // OTR state
+    private var otrCatalog: List<OtrCatalogRow> = emptyList()
+    private var selectedOtrBrand = ""
+    private var selectedOtrTipe = ""
+    private var selectedOtrRow: OtrCatalogRow? = null
+    private var selectedOtrTahun = 0
+    private var maxPinjaman: Long? = null
+    private var selectedPinjaman = 0L
+
     private var unitTypes = listOf("Motor", "Mobil", "Sertifikat")
     private var tenorOptions = listOf(6, 12, 18, 24, 36, 48)
     private val fallbackCities = listOf(
@@ -42,7 +57,6 @@ class ApplicationFormFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         b.toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
 
-        // Dropdown tipe unit & tenor — dimuat dari master data DB
         fun bindDropdowns() {
             b.ddUnitType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, unitTypes))
             b.ddTenor.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tenorOptions.map { "$it bulan" }))
@@ -53,7 +67,7 @@ class ApplicationFormFragment : Fragment() {
         }
         bindDropdowns()
 
-        // Kota: pakai fallback dulu, nanti ditimpa dari DB
+        b.etCity.setOnClickListener { b.etCity.showDropDown() }
         b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, fallbackCities))
 
         vm.masterOptions.observe(viewLifecycleOwner) { master ->
@@ -65,32 +79,100 @@ class ApplicationFormFragment : Fragment() {
             bindDropdowns()
         }
 
-        // Dropdown agen (untuk non-agen)
         b.tilAgent.isVisible = !vm.isAgen
         vm.agents.observe(viewLifecycleOwner) { list ->
             b.ddAgent.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, list.map { it.name }))
             b.ddAgent.setOnItemClickListener { _, _, pos, _ -> selectedAgent = list[pos] }
         }
 
-        // Dropdown leasing
         vm.leasing.observe(viewLifecycleOwner) { list ->
             b.ddLeasing.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, list.map { it.name }))
             b.ddLeasing.setOnItemClickListener { _, _, pos, _ ->
                 selectedLeasing = list[pos]
+                isCMD = list[pos].name.trim().lowercase() == "cmd finance"
+                onLeasingChanged()
                 updateEstimasi()
             }
         }
 
-        b.etPinjaman.doAfterTextChanged { updateEstimasi() }
+        // OTR Brand → Tipe → Tahun
+        b.ddOtrBrand.setOnClickListener { b.ddOtrBrand.showDropDown() }
+        b.ddOtrBrand.setOnItemClickListener { _, _, _, _ ->
+            selectedOtrBrand = b.ddOtrBrand.text.toString()
+            selectedOtrTipe = ""; selectedOtrRow = null; selectedOtrTahun = 0; maxPinjaman = null
+            b.ddOtrTipe.setText("", false); b.ddOtrTahun.setText("", false)
+            b.tilOtrTipe.isVisible = true
+            b.tilOtrTahun.isVisible = false
+            b.llOtrMaks.isVisible = false
+            b.tilUnitYearDropdown.isVisible = false
+            resetPinjamanToText()
+            val tipes = otrCatalog.filter { it.brand == selectedOtrBrand }.map { it.tipe }
+            b.ddOtrTipe.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tipes))
+        }
+
+        b.ddOtrTipe.setOnClickListener { b.ddOtrTipe.showDropDown() }
+        b.ddOtrTipe.setOnItemClickListener { _, _, _, _ ->
+            selectedOtrTipe = b.ddOtrTipe.text.toString()
+            selectedOtrRow = otrCatalog.find { it.brand == selectedOtrBrand && it.tipe == selectedOtrTipe }
+            selectedOtrTahun = 0; maxPinjaman = null
+            b.ddOtrTahun.setText("", false)
+            b.tilOtrTahun.isVisible = true
+            b.llOtrMaks.isVisible = false
+            resetPinjamanToText()
+            val tahuns = OTR_YEARS.filter { yr -> selectedOtrRow?.getOtr(yr) != null }
+            b.ddOtrTahun.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tahuns.map { it.toString() }))
+            // Sync ke tilUnitYearDropdown juga
+            b.tilUnitYearDropdown.isVisible = false
+        }
+
+        b.ddOtrTahun.setOnClickListener { b.ddOtrTahun.showDropDown() }
+        b.ddOtrTahun.setOnItemClickListener { _, _, _, _ ->
+            selectedOtrTahun = b.ddOtrTahun.text.toString().toIntOrNull() ?: 0
+            maxPinjaman = selectedOtrRow?.getMaxPinjaman(selectedOtrTahun)
+            val mp = maxPinjaman
+            b.llOtrMaks.isVisible = mp != null
+            if (mp != null) b.tvOtrMaks.text = formatRupiah(mp)
+            // Sync tahun ke unitYear dropdown
+            b.ddUnitYear.setText(selectedOtrTahun.toString(), false)
+            b.tilUnitYearDropdown.isVisible = true
+            b.tilUnitYearText.isVisible = false
+            // Auto-fill brand
+            b.etUnitBrand.setText("${selectedOtrBrand} ${selectedOtrTipe}")
+            // Switch pinjaman ke dropdown
+            updatePinjamanDropdown()
+        }
+
+        // Tahun dropdown standalone (non-OTR atau OTR sudah memilih tahun)
+        b.ddUnitYear.setOnClickListener { b.ddUnitYear.showDropDown() }
+        b.ddUnitYear.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, OTR_YEARS.map { it.toString() }))
+        b.ddUnitYear.setOnItemClickListener { _, _, _, _ ->
+            if (selectedOtrRow != null) {
+                selectedOtrTahun = b.ddUnitYear.text.toString().toIntOrNull() ?: 0
+                maxPinjaman = selectedOtrRow?.getMaxPinjaman(selectedOtrTahun)
+                val mp = maxPinjaman
+                b.llOtrMaks.isVisible = mp != null
+                if (mp != null) b.tvOtrMaks.text = formatRupiah(mp)
+                updatePinjamanDropdown()
+            }
+        }
+
+        // Pinjaman dropdown (CMD mode)
+        b.ddPinjaman.setOnClickListener { b.ddPinjaman.showDropDown() }
+        b.ddPinjaman.setOnItemClickListener { _, _, pos, _ ->
+            selectedPinjaman = pinjamanOptions()[pos]
+            updateEstimasi()
+        }
+
+        b.etPinjaman.doAfterTextChanged {
+            selectedPinjaman = b.etPinjaman.text.toString().toLongOrNull() ?: 0
+            updateEstimasi()
+        }
 
         b.btnSave.setOnClickListener { save() }
 
         vm.state.observe(viewLifecycleOwner) { state ->
             when (state) {
-                is FormState.Saving -> {
-                    b.btnSave.isEnabled = false
-                    b.progress.isVisible = true
-                }
+                is FormState.Saving -> { b.btnSave.isEnabled = false; b.progress.isVisible = true }
                 is FormState.Saved -> {
                     Snackbar.make(b.root, "Berkas ${state.appId} berhasil disimpan", Snackbar.LENGTH_LONG).show()
                     findNavController().navigateUp()
@@ -100,22 +182,77 @@ class ApplicationFormFragment : Fragment() {
                     findNavController().navigateUp()
                 }
                 is FormState.Error -> {
-                    b.btnSave.isEnabled = true
-                    b.progress.isVisible = false
+                    b.btnSave.isEnabled = true; b.progress.isVisible = false
                     Snackbar.make(b.root, state.message, Snackbar.LENGTH_LONG).show()
                 }
-                else -> {
-                    b.btnSave.isEnabled = true
-                    b.progress.isVisible = false
-                }
+                else -> { b.btnSave.isEnabled = true; b.progress.isVisible = false }
             }
         }
 
+        val token = SessionManager(requireContext()).accessToken
         vm.loadOptions()
+        if (token != null) loadOtrCatalog(token)
+    }
+
+    private fun loadOtrCatalog(token: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            SupabaseApi.getOtrCatalog(token).onSuccess { rows ->
+                if (_b == null) return@onSuccess
+                otrCatalog = rows
+            }
+        }
+    }
+
+    private fun onLeasingChanged() {
+        b.llCmdOtr.isVisible = isCMD
+        b.tilUnitYearDropdown.isVisible = false
+        b.tilUnitYearText.isVisible = true
+        resetPinjamanToText()
+        // Reset OTR state
+        selectedOtrBrand = ""; selectedOtrTipe = ""; selectedOtrRow = null; selectedOtrTahun = 0; maxPinjaman = null
+        b.ddOtrBrand.setText("", false); b.ddOtrTipe.setText("", false); b.ddOtrTahun.setText("", false)
+        b.tilOtrTipe.isVisible = false; b.tilOtrTahun.isVisible = false; b.llOtrMaks.isVisible = false
+        if (isCMD) {
+            val unitType = b.ddUnitType.text.toString().trim()
+            val unitTypeForOtr = if (unitType.lowercase() == "motor") "r2" else "r4"
+            val brands = otrCatalog.filter { it.unitType == null || it.unitType == unitTypeForOtr }.map { it.brand }.distinct().sorted()
+            b.ddOtrBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
+        }
+    }
+
+    private fun resetPinjamanToText() {
+        b.tilPinjamanDropdown.isVisible = false
+        b.tilPinjamanText.isVisible = true
+        selectedPinjaman = b.etPinjaman.text.toString().toLongOrNull() ?: 0
+    }
+
+    private fun pinjamanOptions(): List<Long> {
+        val mp = maxPinjaman ?: return emptyList()
+        // Langkah Rp 1 juta mulai dari 5 juta hingga maks
+        val steps = mutableListOf<Long>()
+        var v = 5_000_000L
+        while (v <= mp) { steps.add(v); v += 1_000_000L }
+        if (steps.isEmpty() || steps.last() != mp) {
+            // Juga coba dari rate table jika tersedia — tidak ada di sini, pakai langkah 1 juta saja
+        }
+        return steps
+    }
+
+    private fun updatePinjamanDropdown() {
+        val opts = pinjamanOptions()
+        if (opts.isEmpty()) { resetPinjamanToText(); return }
+        val labels = opts.map { formatRupiah(it) }
+        b.ddPinjaman.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, labels))
+        b.ddPinjaman.setText("", false)
+        selectedPinjaman = 0L
+        b.tilPinjamanDropdown.isVisible = true
+        b.tilPinjamanText.isVisible = false
+        updateEstimasi()
     }
 
     private fun updateEstimasi() {
-        val pinjaman = b.etPinjaman.text.toString().toLongOrNull() ?: 0
+        val pinjaman = if (isCMD && b.tilPinjamanDropdown.isVisible) selectedPinjaman
+                       else b.etPinjaman.text.toString().toLongOrNull() ?: 0L
         val leasing = selectedLeasing
         if (pinjaman > 0 && selectedTenor > 0 && leasing != null) {
             val rate = leasing.rate ?: 1.5
@@ -132,9 +269,13 @@ class ApplicationFormFragment : Fragment() {
         val nik      = b.etNik.text.toString().trim()
         val phone    = b.etPhone.text.toString().trim()
         val city     = b.etCity.text.toString().trim()
-        val pinjaman = b.etPinjaman.text.toString().toLongOrNull() ?: 0
         val unitType = b.ddUnitType.text.toString().trim()
         val leasing  = selectedLeasing
+        val pinjaman = if (isCMD && b.tilPinjamanDropdown.isVisible) selectedPinjaman
+                       else b.etPinjaman.text.toString().toLongOrNull() ?: 0L
+        val unitYear = if (isCMD && b.tilUnitYearDropdown.isVisible) b.ddUnitYear.text.toString().trim()
+                       else b.etUnitYear.text.toString().trim()
+        val unitBrand = b.etUnitBrand.text.toString().trim()
 
         val error = when {
             name.isBlank()        -> "Nama nasabah wajib diisi"
@@ -161,8 +302,8 @@ class ApplicationFormFragment : Fragment() {
             city = city,
             address = b.etAddress.text.toString().trim(),
             unitType = unitType,
-            unitBrand = b.etUnitBrand.text.toString().trim(),
-            unitYear = b.etUnitYear.text.toString().trim(),
+            unitBrand = unitBrand,
+            unitYear = unitYear,
             pinjaman = pinjaman,
             tenor = selectedTenor,
             leasingPartner = leasing!!,

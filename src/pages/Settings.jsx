@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../data/dummyData';
-import { Settings as SettingsIcon, Sun, Moon, Save, Database, Percent, CheckCircle, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Save, Database, Percent, CheckCircle, Info, Bell, Send } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const BACKUP_KEYS = ['applications', 'commissions', 'agents', 'leasing', 'users', 'notifications', 'auditLogs', 'statusLogs'];
 
@@ -74,6 +75,67 @@ export function Settings() {
   const { darkMode, setDarkMode, settings, saveSettings, showToast } = app;
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
+
+  // Notification push state
+  const [users, setUsers] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [targetUserId, setTargetUserId] = useState('');
+  const [customMsg, setCustomMsg] = useState('');
+
+  useEffect(() => {
+    supabase.from('dsd_profiles').select('id,name,email,role').order('name')
+      .then(({ data }) => { if (data) setUsers(data); });
+  }, []);
+
+  const sendBroadcastNotif = async () => {
+    setNotifLoading(true);
+    try {
+      const { data: apps, error: appsErr } = await supabase
+        .from('dsd_applications')
+        .select('id,status')
+        .not('status', 'in', '(approve,cancel,reject)');
+
+      if (appsErr) throw new Error(appsErr.message);
+      if (!apps || apps.length === 0) {
+        showToast('Tidak ada berkas pending untuk dinotifikasi');
+        return;
+      }
+
+      const { error } = await supabase.from('dsd_push_messages').insert({
+        target_user_id: null,
+        title: '📋 Pengingat Berkas Pending',
+        body: `Ada ${apps.length} berkas yang masih dalam proses dan belum selesai. Segera tindak lanjuti.`,
+      });
+      if (error) throw new Error(error.message);
+      showToast(`Notifikasi broadcast dikirim (${apps.length} berkas pending)`);
+    } catch (e) {
+      showToast('Gagal kirim notifikasi: ' + e.message);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const sendTargetedNotif = async () => {
+    if (!targetUserId) { showToast('Pilih akun tujuan'); return; }
+    if (!customMsg.trim()) { showToast('Tulis pesan notifikasi'); return; }
+    setNotifLoading(true);
+    try {
+      const target = users.find(u => u.id === targetUserId);
+      const { error } = await supabase.from('dsd_push_messages').insert({
+        target_user_id: targetUserId,
+        title: '📬 Pesan dari Admin',
+        body: customMsg.trim(),
+      });
+      if (error) throw new Error(error.message);
+      showToast(`Notifikasi terkirim ke ${target?.name || targetUserId}`);
+      setCustomMsg('');
+      setTargetUserId('');
+    } catch (e) {
+      showToast('Gagal kirim: ' + e.message);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
 
   // Ikuti settings dari server saat baru dimuat (sinkron antar user)
   useEffect(() => { setLocalSettings(settings); }, [settings]);
@@ -196,6 +258,69 @@ export function Settings() {
           <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExportBackup}>
             <Database size={15} /> Export Backup (JSON)
           </button>
+        </Section>
+      </div>
+
+      {/* Notification Push */}
+      <div style={{ marginTop: 20 }}>
+        <Section icon={Bell} title="Notifikasi Push ke APK" desc="Kirim pesan yang muncul sebagai notifikasi HP di aplikasi agen" color="#ef4444" bg="#fef2f2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {/* Broadcast */}
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 6 }}>Pengingat Berkas Pending (Broadcast)</p>
+              <p style={{ fontSize: 12, color: 'var(--c-64748b)', marginBottom: 10, lineHeight: 1.5 }}>
+                Klik tombol untuk mengirim notifikasi ke semua akun yang memiliki berkas berstatus selain approve, cancel, atau reject.
+              </p>
+              <button
+                className="btn btn-primary"
+                style={{ justifyContent: 'center', width: '100%' }}
+                onClick={sendBroadcastNotif}
+                disabled={notifLoading}
+              >
+                <Bell size={15} />
+                {notifLoading ? 'Mengirim...' : 'Kirim Notif Berkas Pending ke Semua'}
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 6 }}>Pesan Khusus ke Akun Tertentu</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <label className="label">Pilih Akun</label>
+                  <select
+                    className="input"
+                    value={targetUserId}
+                    onChange={e => setTargetUserId(e.target.value)}
+                  >
+                    <option value="">-- Pilih akun --</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Isi Pesan</label>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    placeholder="Tulis pesan yang akan diterima sebagai notifikasi HP..."
+                    value={customMsg}
+                    onChange={e => setCustomMsg(e.target.value)}
+                    style={{ resize: 'vertical', minHeight: 72 }}
+                  />
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ justifyContent: 'center' }}
+                  onClick={sendTargetedNotif}
+                  disabled={notifLoading}
+                >
+                  <Send size={15} />
+                  {notifLoading ? 'Mengirim...' : 'Kirim Pesan'}
+                </button>
+              </div>
+            </div>
+          </div>
         </Section>
       </div>
 

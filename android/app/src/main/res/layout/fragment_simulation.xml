@@ -169,28 +169,13 @@
                                 android:letterSpacing="0.05"
                                 android:layout_marginBottom="10dp" />
 
-                            <!-- Tahun Kendaraan -->
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:id="@+id/tilTahun"
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:hint="Tahun Kendaraan *"
-                                android:layout_marginBottom="10dp">
-                                <AutoCompleteTextView
-                                    android:id="@+id/ddTahun"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:inputType="none" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
                             <!-- Brand -->
                             <com.google.android.material.textfield.TextInputLayout
                                 android:id="@+id/tilBrand"
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Brand (opsional)"
+                                android:hint="Brand"
                                 android:layout_marginBottom="10dp">
                                 <AutoCompleteTextView
                                     android:id="@+id/ddBrand"
@@ -199,16 +184,33 @@
                                     android:inputType="none" />
                             </com.google.android.material.textfield.TextInputLayout>
 
-                            <!-- Tipe -->
+                            <!-- Tipe (muncul setelah brand dipilih) -->
                             <com.google.android.material.textfield.TextInputLayout
                                 android:id="@+id/tilTipe"
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Tipe (opsional)"
-                                android:layout_marginBottom="10dp">
+                                android:hint="Tipe"
+                                android:layout_marginBottom="10dp"
+                                android:visibility="gone">
                                 <AutoCompleteTextView
                                     android:id="@+id/ddTipe"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:inputType="none" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <!-- Tahun Kendaraan (muncul setelah tipe dipilih) -->
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/tilTahun"
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Tahun Kendaraan"
+                                android:layout_marginBottom="10dp"
+                                android:visibility="gone">
+                                <AutoCompleteTextView
+                                    android:id="@+id/ddTahun"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:inputType="none" />

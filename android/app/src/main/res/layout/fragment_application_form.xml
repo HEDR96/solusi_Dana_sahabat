@@ -124,6 +124,96 @@
                     android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- OTR Lookup CMD Finance (muncul saat leasing = CMD Finance) -->
+            <LinearLayout
+                android:id="@+id/llCmdOtr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#F1F5F9"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="OTR KENDARAAN (CMD Finance)"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#64748B"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="10dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOtrBrand"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Brand Kendaraan"
+                    android:layout_marginBottom="10dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/ddOtrBrand"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOtrTipe"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Tipe Kendaraan"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone">
+                    <AutoCompleteTextView
+                        android:id="@+id/ddOtrTipe"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOtrTahun"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Tahun Kendaraan"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone">
+                    <AutoCompleteTextView
+                        android:id="@+id/ddOtrTahun"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/llOtrMaks"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#EFF6FF"
+                    android:padding="10dp"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Maks Pinjaman"
+                        android:textSize="11sp"
+                        android:textColor="#64748B" />
+                    <TextView
+                        android:id="@+id/tvOtrMaks"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#1D4ED8" />
+                </LinearLayout>
+
+            </LinearLayout>
+
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -133,7 +223,21 @@
                     android:layout_width="match_parent" android:layout_height="wrap_content" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Tahun Unit: dropdown untuk CMD Finance, text untuk leasing lain -->
             <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilUnitYearDropdown"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="Tahun Unit" android:layout_marginBottom="12dp"
+                android:visibility="gone">
+                <AutoCompleteTextView
+                    android:id="@+id/ddUnitYear"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilUnitYearText"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Tahun Unit" android:layout_marginBottom="12dp">
@@ -143,7 +247,21 @@
                     android:inputType="number" android:maxLength="4" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Pinjaman: dropdown untuk CMD Finance (dibatasi maks), text untuk leasing lain -->
             <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilPinjamanDropdown"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="Jumlah Pinjaman *" android:layout_marginBottom="12dp"
+                android:visibility="gone">
+                <AutoCompleteTextView
+                    android:id="@+id/ddPinjaman"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilPinjamanText"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Pinjaman Diajukan (Rp) *" android:layout_marginBottom="12dp">
