@@ -4,6 +4,21 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { RATE_TABLE_DEFS, RATE_TABLE_GROUPS, PRODUCTS, findDef } from '../data/rateTables';
 import { OTR_YEARS, getLtv, getMaxPinjaman, formatKategori } from '../data/otrCatalog';
+
+function getJenis(brand, tipe) {
+  const b = (brand || '').toUpperCase().trim();
+  const t = (tipe || '').toUpperCase().trim();
+  if (b === 'YAMAHA' || b === 'HONDA') return 'Motor';
+  if (b === 'TRAGA' || b === 'CARRY') return 'Pick Up';
+  if (b === 'GRAND MAX') return t.includes('MB') ? 'Mobil' : 'Pick Up';
+  return 'Mobil';
+}
+
+const JENIS_STYLE = {
+  'Motor':   { color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
+  'Pick Up': { color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  'Mobil':   { color: '#065f46', bg: '#ecfdf5', border: '#a7f3d0' },
+};
 import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, X } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
@@ -202,11 +217,12 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
 // ─── OTR Catalog Editor ───────────────────────────────────────────────────────
 
 function OtrCatalogEditor({ showToast }) {
-  const [rows,    setRows]    = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [editing, setEditing] = useState(null); // row id being edited
-  const [editBuf, setEditBuf] = useState({});
+  const [rows,       setRows]       = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState('');
+  const [jenisFilter,setJenisFilter]= useState('');
+  const [editing,    setEditing]    = useState(null);
+  const [editBuf,    setEditBuf]    = useState({});
 
   const [loadErr, setLoadErr] = useState('');
 
@@ -224,8 +240,12 @@ function OtrCatalogEditor({ showToast }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return q ? rows.filter(r => r.brand.toLowerCase().includes(q) || r.tipe.toLowerCase().includes(q)) : rows;
-  }, [rows, search]);
+    return rows.filter(r => {
+      if (jenisFilter && getJenis(r.brand, r.tipe) !== jenisFilter) return false;
+      if (q) return r.brand.toLowerCase().includes(q) || r.tipe.toLowerCase().includes(q);
+      return true;
+    });
+  }, [rows, search, jenisFilter]);
 
   const saveRow = async (row) => {
     const payload = { ...row, updated_at: new Date().toISOString() };
@@ -276,10 +296,23 @@ function OtrCatalogEditor({ showToast }) {
     <div>
       <div style={{ display:'flex', gap:8, marginBottom:14, alignItems:'center', flexWrap:'wrap' }}>
         <p style={{ fontSize:12, color:'var(--c-64748b)', flex:1 }}>
-          {rows.length} unit · Harga OTR dalam rupiah · LTV dipakai untuk hitung maks pinjaman di Simulasi
+          {filtered.length} unit ditampilkan · Harga OTR dalam rupiah · LTV dipakai untuk hitung maks pinjaman di Simulasi
         </p>
+        <div style={{ display:'flex', gap:6 }}>
+          {['','Motor','Mobil','Pick Up'].map(j => (
+            <button key={j} onClick={() => setJenisFilter(j)}
+              style={{
+                padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer',
+                border: `1px solid ${jenisFilter===j ? '#3b82f6' : 'var(--border)'}`,
+                background: jenisFilter===j ? '#3b82f6' : 'var(--surface)',
+                color: jenisFilter===j ? '#fff' : 'var(--c-64748b)',
+              }}>
+              {j || 'Semua'}
+            </button>
+          ))}
+        </div>
         <input className="input" placeholder="Cari brand / tipe..." value={search}
-          onChange={e => setSearch(e.target.value)} style={{ width:200, fontSize:13 }} />
+          onChange={e => setSearch(e.target.value)} style={{ width:180, fontSize:13 }} />
         <button className="btn btn-sm btn-primary" onClick={addRow}><Plus size={13}/> Tambah Unit</button>
       </div>
 
@@ -338,7 +371,7 @@ function OtrCatalogEditor({ showToast }) {
         <table style={{ borderCollapse:'collapse', fontSize:12, width:'100%' }}>
           <thead>
             <tr style={{ background:'var(--surface-alt)' }}>
-              {['Brand','Tipe','LTV','Kategori','OTR Terbaru','Maks Pinjaman',''].map(h => (
+              {['Jenis','Brand','Tipe','LTV','Kategori','OTR Terbaru','Maks Pinjaman',''].map(h => (
                 <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:700, color:'var(--c-64748b)', whiteSpace:'nowrap', borderBottom:'1px solid var(--border-light)' }}>{h}</th>
               ))}
             </tr>
@@ -349,8 +382,13 @@ function OtrCatalogEditor({ showToast }) {
               const latestOtr  = latestYear ? r[`otr_${latestYear}`] : null;
               const ltv        = latestYear ? getLtv(r, latestYear) : null;
               const maxP       = latestYear ? getMaxPinjaman(r, latestYear) : null;
+              const jenis = getJenis(r.brand, r.tipe);
+              const js = JENIS_STYLE[jenis];
               return (
                 <tr key={r.id} style={{ borderTop:'1px solid var(--border-light)', background: i%2 ? 'var(--surface-alt)':'var(--surface)' }}>
+                  <td style={{ padding:'6px 10px' }}>
+                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, fontWeight:700, color:js.color, background:js.bg, border:`1px solid ${js.border}`, whiteSpace:'nowrap' }}>{jenis}</span>
+                  </td>
                   <td style={{ padding:'6px 10px', fontWeight:600 }}>{r.brand}</td>
                   <td style={{ padding:'6px 10px' }}>{r.tipe}</td>
                   <td style={{ padding:'6px 10px', color:'#1d4ed8' }}>

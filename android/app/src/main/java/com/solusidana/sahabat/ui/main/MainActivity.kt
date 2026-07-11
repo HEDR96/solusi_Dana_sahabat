@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private var pendingOpenAppId: String? = null
 
     private val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -58,6 +60,32 @@ class MainActivity : AppCompatActivity() {
 
         requestNotificationPermission()
         requestAndReportLocation()
+
+        // Simpan appId dari klik notifikasi — navigate saat onResume
+        pendingOpenAppId = intent?.getStringExtra(EXTRA_OPEN_APP_ID)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val appId = intent.getStringExtra(EXTRA_OPEN_APP_ID) ?: return
+        navigateToAppDetail(appId)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        pendingOpenAppId?.let { appId ->
+            pendingOpenAppId = null
+            navigateToAppDetail(appId)
+        }
+    }
+
+    private fun navigateToAppDetail(appId: String) {
+        val navHost = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment ?: return
+        navHost.navController.navigate(
+            R.id.applicationDetailFragment,
+            bundleOf("appId" to appId)
+        )
     }
 
     override fun onStart() {
@@ -107,6 +135,10 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, bgPerm) != PackageManager.PERMISSION_GRANTED) {
             bgLocationPermission.launch(bgPerm)
         }
+    }
+
+    companion object {
+        const val EXTRA_OPEN_APP_ID = "open_app_id"
     }
 
     @SuppressLint("MissingPermission")

@@ -80,36 +80,82 @@ export function Settings() {
   const [users, setUsers] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [targetUserId, setTargetUserId] = useState('');
+  const [targetRole, setTargetRole] = useState('');
   const [customMsg, setCustomMsg] = useState('');
+  const [roleMsg, setRoleMsg] = useState('');
 
   useEffect(() => {
-    supabase.from('dsd_profiles').select('id,name,email,role').order('name')
+    supabase.from('dsd_profiles').select('id,name,email,role,agent_id').order('name')
       .then(({ data }) => { if (data) setUsers(data); });
   }, []);
 
-  const sendBroadcastNotif = async () => {
+  // Fitur 2: Kirim notif per-agen berdasarkan berkas aktif mereka
+  const sendBerkasNotifPerAgen = async () => {
     setNotifLoading(true);
     try {
       const { data: apps, error: appsErr } = await supabase
         .from('dsd_applications')
-        .select('id,status')
+        .select('id,customer_name,status,agent_id,agent_name,input_date')
         .not('status', 'in', '(approve,cancel,reject)');
-
       if (appsErr) throw new Error(appsErr.message);
-      if (!apps || apps.length === 0) {
-        showToast('Tidak ada berkas pending untuk dinotifikasi');
-        return;
-      }
+      if (!apps || apps.length === 0) { showToast('Tidak ada berkas aktif'); return; }
 
-      const { error } = await supabase.from('dsd_push_messages').insert({
-        target_user_id: null,
-        title: '📋 Pengingat Berkas Pending',
-        body: `Ada ${apps.length} berkas yang masih dalam proses dan belum selesai. Segera tindak lanjuti.`,
+      // Kelompokkan per agent_id
+      const byAgent = {};
+      apps.forEach(a => {
+        if (!a.agent_id) return;
+        if (!byAgent[a.agent_id]) byAgent[a.agent_id] = { name: a.agent_name, berkas: [] };
+        byAgent[a.agent_id].berkas.push(a);
       });
-      if (error) throw new Error(error.message);
-      showToast(`Notifikasi broadcast dikirim (${apps.length} berkas pending)`);
+
+      // Cari user account tiap agen, kirim push message
+      let sent = 0;
+      for (const [agentId, data] of Object.entries(byAgent)) {
+        const user = users.find(u => u.agent_id === agentId);
+        if (!user) continue;
+        const list = data.berkas.map(b => {
+          const sla = b.input_date
+            ? Math.floor((Date.now() - new Date(b.input_date).getTime()) / 86400000)
+            : 0;
+          return `• ${b.customer_name} (${b.status}, SLA ${sla} hari)`;
+        }).join('\n');
+        const { error } = await supabase.from('dsd_push_messages').insert({
+          target_user_id: user.id,
+          title: `📋 ${data.berkas.length} Berkas Aktif Menunggu`,
+          body: list,
+        });
+        if (!error) sent++;
+      }
+      showToast(`Notifikasi dikirim ke ${sent} agen`);
     } catch (e) {
       showToast('Gagal kirim notifikasi: ' + e.message);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  // Fitur 3: Kirim pesan ke semua user dengan role tertentu
+  const sendRoleNotif = async () => {
+    if (!targetRole) { showToast('Pilih role tujuan'); return; }
+    if (!roleMsg.trim()) { showToast('Tulis isi pesan'); return; }
+    setNotifLoading(true);
+    try {
+      const roleUsers = users.filter(u => u.role === targetRole);
+      if (roleUsers.length === 0) { showToast(`Tidak ada user dengan role ${targetRole}`); return; }
+      let sent = 0;
+      for (const u of roleUsers) {
+        const { error } = await supabase.from('dsd_push_messages').insert({
+          target_user_id: u.id,
+          title: '📬 Pesan dari Owner',
+          body: roleMsg.trim(),
+        });
+        if (!error) sent++;
+      }
+      showToast(`Pesan terkirim ke ${sent} akun (${targetRole})`);
+      setRoleMsg('');
+      setTargetRole('');
+    } catch (e) {
+      showToast('Gagal kirim: ' + e.message);
     } finally {
       setNotifLoading(false);
     }
@@ -123,11 +169,11 @@ export function Settings() {
       const target = users.find(u => u.id === targetUserId);
       const { error } = await supabase.from('dsd_push_messages').insert({
         target_user_id: targetUserId,
-        title: '📬 Pesan dari Admin',
+        title: '📬 Pesan dari Owner',
         body: customMsg.trim(),
       });
       if (error) throw new Error(error.message);
-      showToast(`Notifikasi terkirim ke ${target?.name || targetUserId}`);
+      showToast(`Pesan terkirim ke ${target?.name || targetUserId}`);
       setCustomMsg('');
       setTargetUserId('');
     } catch (e) {
@@ -264,34 +310,67 @@ export function Settings() {
       {/* Notification Push */}
       <div style={{ marginTop: 20 }}>
         <Section icon={Bell} title="Notifikasi Push ke APK" desc="Kirim pesan yang muncul sebagai notifikasi HP di aplikasi agen" color="#ef4444" bg="#fef2f2">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {/* Broadcast */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* Fitur 2: Berikan Notif per agen (berkas aktif) */}
             <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 6 }}>Pengingat Berkas Pending (Broadcast)</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 4 }}>Pengingat Berkas Aktif per Agen</p>
               <p style={{ fontSize: 12, color: 'var(--c-64748b)', marginBottom: 10, lineHeight: 1.5 }}>
-                Klik tombol untuk mengirim notifikasi ke semua akun yang memiliki berkas berstatus selain approve, cancel, atau reject.
+                Kirim notifikasi ke masing-masing agen berisi daftar berkas aktif mereka (nama debitur, status, SLA hari).
               </p>
               <button
                 className="btn btn-primary"
                 style={{ justifyContent: 'center', width: '100%' }}
-                onClick={sendBroadcastNotif}
+                onClick={sendBerkasNotifPerAgen}
                 disabled={notifLoading}
               >
                 <Bell size={15} />
-                {notifLoading ? 'Mengirim...' : 'Kirim Notif Berkas Pending ke Semua'}
+                {notifLoading ? 'Mengirim...' : 'Berikan Notif Berkas ke Semua Agen'}
               </button>
             </div>
 
+            {/* Fitur 3: Pesan ke role */}
             <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', marginBottom: 6 }}>Pesan Khusus ke Akun Tertentu</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 4 }}>Kirim Pesan ke Role</p>
+              <p style={{ fontSize: 12, color: 'var(--c-64748b)', marginBottom: 10, lineHeight: 1.5 }}>
+                Pesan dikirim ke semua akun dengan role yang dipilih.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <label className="label">Pilih Role Tujuan</label>
+                  <select className="input" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
+                    <option value="">-- Pilih role --</option>
+                    {['agen', 'admin', 'spv', 'owner'].map(r => (
+                      <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Isi Pesan</label>
+                  <textarea
+                    className="input" rows={3}
+                    placeholder="Tulis pesan untuk semua user dengan role tersebut..."
+                    value={roleMsg} onChange={e => setRoleMsg(e.target.value)}
+                    style={{ resize: 'vertical', minHeight: 72 }}
+                  />
+                </div>
+                <button
+                  className="btn btn-secondary" style={{ justifyContent: 'center' }}
+                  onClick={sendRoleNotif} disabled={notifLoading}
+                >
+                  <Send size={15} />
+                  {notifLoading ? 'Mengirim...' : `Kirim ke Semua ${targetRole ? targetRole.charAt(0).toUpperCase() + targetRole.slice(1) : 'Role'}`}
+                </button>
+              </div>
+            </div>
+
+            {/* Pesan ke akun tertentu */}
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 4 }}>Pesan ke Akun Tertentu</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
                   <label className="label">Pilih Akun</label>
-                  <select
-                    className="input"
-                    value={targetUserId}
-                    onChange={e => setTargetUserId(e.target.value)}
-                  >
+                  <select className="input" value={targetUserId} onChange={e => setTargetUserId(e.target.value)}>
                     <option value="">-- Pilih akun --</option>
                     {users.map(u => (
                       <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
@@ -301,25 +380,22 @@ export function Settings() {
                 <div>
                   <label className="label">Isi Pesan</label>
                   <textarea
-                    className="input"
-                    rows={3}
+                    className="input" rows={3}
                     placeholder="Tulis pesan yang akan diterima sebagai notifikasi HP..."
-                    value={customMsg}
-                    onChange={e => setCustomMsg(e.target.value)}
+                    value={customMsg} onChange={e => setCustomMsg(e.target.value)}
                     style={{ resize: 'vertical', minHeight: 72 }}
                   />
                 </div>
                 <button
-                  className="btn btn-secondary"
-                  style={{ justifyContent: 'center' }}
-                  onClick={sendTargetedNotif}
-                  disabled={notifLoading}
+                  className="btn btn-secondary" style={{ justifyContent: 'center' }}
+                  onClick={sendTargetedNotif} disabled={notifLoading}
                 >
                   <Send size={15} />
                   {notifLoading ? 'Mengirim...' : 'Kirim Pesan'}
                 </button>
               </div>
             </div>
+
           </div>
         </Section>
       </div>

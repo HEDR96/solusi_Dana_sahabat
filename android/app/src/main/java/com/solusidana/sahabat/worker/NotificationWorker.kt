@@ -37,22 +37,36 @@ class NotificationWorker(
 
         checkStatusChanges(token, agentId)
         checkNewPaidCommissions(token, agentId)
-        checkPendingReminder(token, agentId)
+        checkActiveApps(token, agentId)
         checkPushMessages(token, session.userId ?: "")
 
         return Result.success()
     }
 
-    // ── 1. Reminder berkas pending ────────────────────────────────────────────
-    private suspend fun checkPendingReminder(token: String, agentId: String?) {
-        SupabaseApi.getPendingApplicationsCount(token, agentId)
-            .onSuccess { count ->
-                if (count > 0) notify(
-                    NOTIF_PENDING,
-                    "Berkas Belum Selesai",
-                    "Ada $count berkas yang belum approve/reject/cancel. Segera tindak lanjuti."
+    // ── 1. Reminder per-customer (notif per nama debitur, tiap 3 jam) ────────
+    private suspend fun checkActiveApps(token: String, agentId: String?) {
+        SupabaseApi.getApplications(token, agentId).onSuccess { apps ->
+            val active = apps.filter { it.status !in DONE_STATUSES }
+            active.forEach { app ->
+                val sla  = slaHari(app.inputDate)
+                val body = "Agen: ${app.agentName ?: "-"} | SLA: $sla hari | ${statusLabel(app.status)}"
+                notifyForApp(
+                    NOTIF_ACTIVE_BASE + (app.id.hashCode().and(0x7FFFFFFF) % 900),
+                    "📋 ${app.customerName}",
+                    body,
+                    app.id
                 )
             }
+        }
+    }
+
+    private fun slaHari(inputDate: String?): Int {
+        if (inputDate == null) return 0
+        return try {
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            val d   = fmt.parse(inputDate.take(10)) ?: return 0
+            ((System.currentTimeMillis() - d.time) / 86_400_000L).toInt()
+        } catch (_: Exception) { 0 }
     }
 
     // ── 2. Komisi baru dibayar ────────────────────────────────────────────────
@@ -126,34 +140,49 @@ class NotificationWorker(
         }
     }
 
+    private fun notifyForApp(id: Int, title: String, text: String, appId: String) {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_OPEN_APP_ID, appId)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        val pending = PendingIntent.getActivity(
+            applicationContext, id, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        buildNotification(id, title, text, pending)
+    }
+
     private fun notify(id: Int, title: String, text: String) {
         val intent = PendingIntent.getActivity(
-            applicationContext, 0,
+            applicationContext, id,
             Intent(applicationContext, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        buildNotification(id, title, text, intent)
+    }
 
+    private fun buildNotification(id: Int, title: String, text: String, pending: PendingIntent) {
         val notification = NotificationCompat.Builder(applicationContext, App.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(intent)
+            .setContentIntent(pending)
             .setAutoCancel(true)
             .build()
-
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(id, notification)
     }
 
     companion object {
-        private const val NOTIF_PENDING         = 1001
         private const val NOTIF_COMMISSION_BASE = 2000
         private const val NOTIF_STATUS_BASE     = 3000
         private const val NOTIF_PUSH_BASE       = 4000
+        private const val NOTIF_ACTIVE_BASE     = 5000
         private const val KEY_PAID_IDS          = "paid_commission_ids"
         private const val KEY_APP_STATUSES      = "app_statuses"
         private const val KEY_LAST_PUSH_ID      = "last_push_msg_id"
+        private val DONE_STATUSES               = setOf("approve", "reject", "cancel")
     }
 }
