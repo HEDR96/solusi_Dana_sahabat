@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { RATE_TABLE_DEFS } from '../data/rateTables';
-import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2 } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [

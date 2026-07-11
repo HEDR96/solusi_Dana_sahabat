@@ -4,6 +4,7 @@ import com.solusidana.sahabat.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -35,6 +36,19 @@ object SupabaseApi {
         .build()
 
     private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+
+    /** Ekstrak pesan error Supabase/PostgREST dari body JSON, atau fallback ke kode HTTP. */
+    private fun supabaseError(code: Int, body: String): String {
+        return try {
+            val obj = json.parseToJsonElement(body).jsonObject
+            val msg = obj["message"]?.toString()?.trim('"')
+                ?: obj["error_description"]?.toString()?.trim('"')
+                ?: obj["error"]?.toString()?.trim('"')
+            if (!msg.isNullOrBlank()) "HTTP $code: $msg" else "HTTP $code"
+        } catch (_: Exception) {
+            "HTTP $code"
+        }
+    }
 
     suspend fun login(email: String, password: String): Result<AuthResponse> =
         io {
@@ -88,6 +102,7 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             val list = json.decodeFromString<List<Profile>>(text)
             list.firstOrNull() ?: error("Profil tidak ditemukan")
         }
@@ -110,6 +125,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<Application>>(text)
     }
 
@@ -123,6 +139,7 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             val list = json.decodeFromString<List<Application>>(text)
             list.firstOrNull() ?: error("Berkas tidak ditemukan")
         }
@@ -179,6 +196,7 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             json.decodeFromString<List<StatusLog>>(text)
         }
 
@@ -191,6 +209,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<Agent>>(text)
     }
 
@@ -203,6 +222,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<LeasingPartner>>(text)
     }
 
@@ -219,6 +239,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<AgentActivity>>(text)
     }
 
@@ -231,6 +252,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<Agent>>(text).firstOrNull() ?: error("Agen tidak ditemukan")
     }
 
@@ -339,6 +361,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<MasterOption>>(text)
     }
 
@@ -489,6 +512,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<com.solusidana.sahabat.ui.map.AgentLocation>>(text)
     }
 
@@ -530,6 +554,7 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             json.decodeFromString<List<Commission>>(text)
         }
 
@@ -548,6 +573,7 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: "[]"
+            if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             json.decodeFromString<List<Application>>(text)
         }
 
@@ -631,6 +657,7 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
         json.decodeFromString<List<RateTable>>(text)
     }
 
