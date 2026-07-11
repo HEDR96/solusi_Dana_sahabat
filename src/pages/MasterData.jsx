@@ -3,6 +3,7 @@ import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { RATE_TABLE_DEFS, RATE_TABLE_GROUPS, PRODUCTS, findDef } from '../data/rateTables';
+import { OTR_YEARS, getLtv, getMaxPinjaman, formatKategori } from '../data/otrCatalog';
 import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, X } from 'lucide-react';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
@@ -198,11 +199,192 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
   );
 }
 
+// ─── OTR Catalog Editor ───────────────────────────────────────────────────────
+
+function OtrCatalogEditor({ showToast }) {
+  const [rows,    setRows]    = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search,  setSearch]  = useState('');
+  const [editing, setEditing] = useState(null); // row id being edited
+  const [editBuf, setEditBuf] = useState({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('dsd_otr_catalog')
+      .select('*').eq('leasing_key','CMD').order('brand').order('tipe');
+    setRows(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? rows.filter(r => r.brand.toLowerCase().includes(q) || r.tipe.toLowerCase().includes(q)) : rows;
+  }, [rows, search]);
+
+  const saveRow = async (row) => {
+    const payload = { ...row, updated_at: new Date().toISOString() };
+    delete payload.id; delete payload.created_at;
+    const { error } = await supabase.from('dsd_otr_catalog')
+      .update(payload).eq('id', row.id);
+    if (error) { showToast('Gagal simpan: ' + error.message, 'error'); return; }
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...payload } : r));
+    setEditing(null);
+    showToast('Tersimpan');
+  };
+
+  const deleteRow = async (id) => {
+    if (!confirm('Hapus baris ini?')) return;
+    const { error } = await supabase.from('dsd_otr_catalog').delete().eq('id', id);
+    if (error) { showToast('Gagal hapus: ' + error.message, 'error'); return; }
+    setRows(prev => prev.filter(r => r.id !== id));
+    showToast('Dihapus');
+  };
+
+  const addRow = async () => {
+    const brand = prompt('Brand (contoh: HONDA):');
+    if (!brand) return;
+    const tipe = prompt('Tipe (contoh: Beat CBS):');
+    if (!tipe) return;
+    const { data, error } = await supabase.from('dsd_otr_catalog')
+      .insert({ brand: brand.toUpperCase(), tipe, ltv: 0.7, kategori: 'slow_moving', leasing_key: 'CMD' })
+      .select().single();
+    if (error) { showToast('Gagal tambah: ' + error.message, 'error'); return; }
+    setRows(prev => [...prev, data].sort((a,b) => a.brand.localeCompare(b.brand) || a.tipe.localeCompare(b.tipe)));
+    showToast('Ditambahkan — edit nilai OTR per tahun');
+  };
+
+  if (loading) return <p style={{ fontSize:13, color:'var(--c-94a3b8)', padding:20 }}>Memuat katalog OTR...</p>;
+
+  const curRow = editing ? rows.find(r => r.id === editing) : null;
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14, alignItems:'center', flexWrap:'wrap' }}>
+        <p style={{ fontSize:12, color:'var(--c-64748b)', flex:1 }}>
+          {rows.length} unit · Harga OTR dalam rupiah · LTV dipakai untuk hitung maks pinjaman di Simulasi
+        </p>
+        <input className="input" placeholder="Cari brand / tipe..." value={search}
+          onChange={e => setSearch(e.target.value)} style={{ width:200, fontSize:13 }} />
+        <button className="btn btn-sm btn-primary" onClick={addRow}><Plus size={13}/> Tambah Unit</button>
+      </div>
+
+      {/* Modal edit baris */}
+      {curRow && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ background:'var(--surface)', borderRadius:16, padding:24, width:560, maxHeight:'90vh', overflowY:'auto' }}>
+            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>{curRow.brand} — {curRow.tipe}</h3>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div>
+                <label className="label">LTV (contoh: 0.70)</label>
+                <input className="input" type="number" step="0.01" min="0" max="1"
+                  value={editBuf.ltv ?? curRow.ltv ?? ''}
+                  onChange={e => setEditBuf(b => ({...b, ltv: Number(e.target.value)}))} />
+              </div>
+              <div>
+                <label className="label">LTV Rule</label>
+                <select className="input" value={editBuf.ltv_rule ?? curRow.ltv_rule ?? ''}
+                  onChange={e => setEditBuf(b => ({...b, ltv_rule: e.target.value || null}))}>
+                  <option value="">Fixed (pakai nilai LTV)</option>
+                  <option value="year_based">Year-based (80% ≥2021, 75% lainnya)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Kategori</label>
+                <select className="input" value={editBuf.kategori ?? curRow.kategori ?? ''}
+                  onChange={e => setEditBuf(b => ({...b, kategori: e.target.value}))}>
+                  <option value="fast_moving">Fast Moving</option>
+                  <option value="slow_moving">Slow Moving</option>
+                </select>
+              </div>
+            </div>
+            <p style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', marginBottom:8, textTransform:'uppercase', letterSpacing:'.04em' }}>Harga OTR per Tahun</p>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:20 }}>
+              {OTR_YEARS.map(y => (
+                <div key={y}>
+                  <label className="label" style={{ fontSize:11 }}>{y}</label>
+                  <input className="input" type="number" style={{ fontSize:13 }}
+                    value={editBuf[`otr_${y}`] ?? curRow[`otr_${y}`] ?? ''}
+                    onChange={e => setEditBuf(b => ({...b, [`otr_${y}`]: e.target.value ? Number(e.target.value) : null}))}
+                    placeholder="—" />
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => { setEditing(null); setEditBuf({}); }}>Batal</button>
+              <button className="btn btn-sm btn-primary" onClick={() => saveRow({ ...curRow, ...editBuf })}>
+                <Save size={13}/> Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border-light)' }}>
+        <table style={{ borderCollapse:'collapse', fontSize:12, width:'100%' }}>
+          <thead>
+            <tr style={{ background:'var(--surface-alt)' }}>
+              {['Brand','Tipe','LTV','Kategori','OTR Terbaru','Maks Pinjaman',''].map(h => (
+                <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:700, color:'var(--c-64748b)', whiteSpace:'nowrap', borderBottom:'1px solid var(--border-light)' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r, i) => {
+              const latestYear = OTR_YEARS.find(y => r[`otr_${y}`]);
+              const latestOtr  = latestYear ? r[`otr_${latestYear}`] : null;
+              const ltv        = latestYear ? getLtv(r, latestYear) : null;
+              const maxP       = latestYear ? getMaxPinjaman(r, latestYear) : null;
+              return (
+                <tr key={r.id} style={{ borderTop:'1px solid var(--border-light)', background: i%2 ? 'var(--surface-alt)':'var(--surface)' }}>
+                  <td style={{ padding:'6px 10px', fontWeight:600 }}>{r.brand}</td>
+                  <td style={{ padding:'6px 10px' }}>{r.tipe}</td>
+                  <td style={{ padding:'6px 10px', color:'#1d4ed8' }}>
+                    {r.ltv_rule === 'year_based' ? '75–80%*' : `${((r.ltv||0)*100).toFixed(0)}%`}
+                  </td>
+                  <td style={{ padding:'6px 10px' }}>
+                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, fontWeight:600,
+                      background: r.kategori==='fast_moving' ? '#dcfce7' : '#fef9c3',
+                      color:      r.kategori==='fast_moving' ? '#15803d' : '#a16207' }}>
+                      {formatKategori(r.kategori)}
+                    </span>
+                  </td>
+                  <td style={{ padding:'6px 10px', color:'var(--c-64748b)' }}>
+                    {latestOtr ? `${latestYear} — Rp ${latestOtr.toLocaleString('id')}` : '—'}
+                  </td>
+                  <td style={{ padding:'6px 10px', fontWeight:700, color:'#1d4ed8' }}>
+                    {maxP ? `Rp ${maxP.toLocaleString('id')}` : '—'}
+                  </td>
+                  <td style={{ padding:'6px 10px' }}>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button className="btn btn-sm btn-secondary" onClick={() => { setEditing(r.id); setEditBuf({}); }}>
+                        <Edit2 size={12}/>
+                      </button>
+                      <button className="btn btn-sm" style={{ color:'#ef4444', background:'#fef2f2', border:'1px solid #fecaca' }}
+                        onClick={() => deleteRow(r.id)}>
+                        <Trash2 size={12}/>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize:11, color:'var(--c-94a3b8)', marginTop:8 }}>
+        * LTV year_based: 80% untuk tahun kendaraan 2021–2026, 75% untuk sebelumnya
+      </p>
+    </div>
+  );
+}
+
 // ─── Halaman utama MasterData ─────────────────────────────────────────────────
 export function MasterData() {
   const { showToast, leasing, setLeasing } = useApp();
 
-  // Mode: 'options' | 'rates'
+  // Mode: 'options' | 'rates' | 'otr'
   const [mode,     setMode]     = useState('options');
 
   // --- Dropdown options state ---
@@ -310,6 +492,7 @@ export function MasterData() {
         {[
           { key:'options', label:'Dropdown Opsi' },
           { key:'rates',   label:'Tabel Rate Leasing' },
+          { key:'otr',     label:'Katalog OTR' },
         ].map(m => (
           <button key={m.key} onClick={() => setMode(m.key)} style={{
             padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
@@ -499,6 +682,17 @@ export function MasterData() {
         </>
       )}
 
+      {/* ── MODE: Katalog OTR ── */}
+      {mode === 'otr' && (
+        <>
+          <p style={{ fontSize:12, color:'var(--c-64748b)', marginBottom:14, maxWidth:700 }}>
+            Kelola katalog harga OTR dan LTV kendaraan untuk CMD Finance. Data ini dipakai di <strong>Simulasi</strong> untuk menghitung maks pinjaman otomatis.
+          </p>
+          <div className="card" style={{ padding:20 }}>
+            <OtrCatalogEditor showToast={showToast} />
+          </div>
+        </>
+      )}
 
     </Layout>
   );

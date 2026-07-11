@@ -9,7 +9,8 @@ import {
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
   lookupVal, getPinjamanOptions,
 } from '../data/rateTables';
-import { Calculator, TrendingUp, Building2 } from 'lucide-react';
+import { Calculator, TrendingUp, Building2, Car } from 'lucide-react';
+import { OTR_YEARS, getLtv, getOtr, getMaxPinjaman, formatKategori } from '../data/otrCatalog';
 
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 function Toggle({ value, onChange, options }) {
@@ -39,6 +40,13 @@ export function Simulation() {
   const [pencairan, setPencairan] = useState('');
   const [tenor,     setTenor]     = useState(12);
   const [dbTables,  setDbTables]  = useState(null);
+
+  // OTR catalog state
+  const [otrList,   setOtrList]   = useState([]);
+  const [otrBrand,  setOtrBrand]  = useState('');
+  const [otrTipe,   setOtrTipe]   = useState('');
+  const [otrTahun,  setOtrTahun]  = useState('');
+  const [otrRow,    setOtrRow]    = useState(null);
 
   const selectedLeasing = activeLeasings.find(l => String(l.id) === selectedLeasingId);
   // Baris "CMD Finance" di leasing partners memakai kunci rate khusus 'CMD'
@@ -70,7 +78,34 @@ export function Simulation() {
     const tList = v === 'motor' ? MOTOR_TENORS : CAR_TENORS;
     if (!tList.includes(tenor)) setTenor(tList[0]);
     setPencairan('');
+    setOtrBrand(''); setOtrTipe(''); setOtrTahun(''); setOtrRow(null);
   };
+
+  // Load OTR catalog CMD Finance
+  useEffect(() => {
+    supabase.from('dsd_otr_catalog')
+      .select('brand,tipe,ltv,ltv_rule,kategori,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
+      .eq('leasing_key', 'CMD')
+      .order('brand').order('tipe')
+      .then(({ data }) => { if (data) setOtrList(data); });
+  }, []);
+
+  // Derived OTR values
+  const otrBrands  = useMemo(() => [...new Set(otrList.map(r => r.brand))], [otrList]);
+  const otrTipes   = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
+  const otrTahuns  = useMemo(() => {
+    if (!otrRow) return [];
+    return OTR_YEARS.filter(y => otrRow[`otr_${y}`]);
+  }, [otrRow]);
+
+  const otrInfo = useMemo(() => {
+    if (!otrRow || !otrTahun) return null;
+    const tahun = Number(otrTahun);
+    const otr   = getOtr(otrRow, tahun);
+    const ltv   = getLtv(otrRow, tahun);
+    const max   = getMaxPinjaman(otrRow, tahun);
+    return { otr, ltv, max, tahun, kategori: otrRow.kategori };
+  }, [otrRow, otrTahun]);
 
   // Pinjaman options: keys dari tabel angsuran (ribuan × 1000)
   const pinjamanOptions = useMemo(() => {
@@ -155,6 +190,66 @@ export function Simulation() {
                     { value:'ro',  label:'RO (Repeat Order)' },
                   ]}
                 />
+              </div>
+
+              {/* ── OTR Catalog ── */}
+              <div style={{ background:'var(--surface-alt)', borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+                  <Car size={13} color="var(--c-64748b)" />
+                  <span style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', textTransform:'uppercase', letterSpacing:'.04em' }}>
+                    Lookup OTR Kendaraan (opsional)
+                  </span>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                  <div>
+                    <label className="label" style={{ fontSize:11 }}>Brand</label>
+                    <select className="input" style={{ fontSize:13 }} value={otrBrand} onChange={e => {
+                      setOtrBrand(e.target.value); setOtrTipe(''); setOtrTahun(''); setOtrRow(null);
+                    }}>
+                      <option value="">— Brand —</option>
+                      {otrBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize:11 }}>Tipe</label>
+                    <select className="input" style={{ fontSize:13 }} value={otrTipe} onChange={e => {
+                      const t = e.target.value;
+                      setOtrTipe(t); setOtrTahun('');
+                      const row = otrList.find(r => r.brand === otrBrand && r.tipe === t);
+                      setOtrRow(row || null);
+                    }} disabled={!otrBrand}>
+                      <option value="">— Tipe —</option>
+                      {otrTipes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {otrRow && (
+                  <div>
+                    <label className="label" style={{ fontSize:11 }}>Tahun Kendaraan</label>
+                    <select className="input" style={{ fontSize:13 }} value={otrTahun} onChange={e => setOtrTahun(e.target.value)}>
+                      <option value="">— Tahun —</option>
+                      {otrTahuns.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {otrInfo && (
+                  <div style={{ background:'#eff6ff', borderRadius:8, padding:'10px 12px', fontSize:12 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                      <div><span style={{ color:'var(--c-64748b)' }}>OTR {otrInfo.tahun}</span><br/><strong style={{ fontSize:13 }}>{formatRupiah(otrInfo.otr)}</strong></div>
+                      <div><span style={{ color:'var(--c-64748b)' }}>LTV</span><br/><strong style={{ fontSize:13 }}>{(otrInfo.ltv*100).toFixed(0)}%{otrRow.ltv_rule==='year_based'?' *':''}</strong></div>
+                      <div><span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman</span><br/><strong style={{ fontSize:13, color:'#1d4ed8' }}>{formatRupiah(otrInfo.max)}</strong></div>
+                      <div><span style={{ color:'var(--c-64748b)' }}>Kategori</span><br/><strong style={{ fontSize:13 }}>{formatKategori(otrInfo.kategori)}</strong></div>
+                    </div>
+                    {otrRow.ltv_rule==='year_based' && <p style={{ fontSize:10, color:'var(--c-94a3b8)', marginTop:6 }}>* LTV 80% untuk tahun 2021–2026, 75% untuk tahun sebelumnya</p>}
+                    <button className="btn btn-sm btn-primary" style={{ marginTop:8, width:'100%', fontSize:12 }}
+                      onClick={() => setPencairan(String(otrInfo.max))}>
+                      Pakai sebagai Jumlah Pinjaman
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
