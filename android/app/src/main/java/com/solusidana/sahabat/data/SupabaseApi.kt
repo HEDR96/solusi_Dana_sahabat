@@ -618,6 +618,22 @@ object SupabaseApi {
             .toList()
     }
 
+    /**
+     * Ambil tabel rate untuk leasing tertentu.
+     * leasingKey = "CMD" untuk CMD Finance, String(leasing.id) untuk leasing lain.
+     */
+    suspend fun getRateTables(token: String, leasingKey: String): Result<List<RateTable>> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_rate_tables?leasing_key=eq.$leasingKey&select=product,tipe,data")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        json.decodeFromString<List<RateTable>>(text)
+    }
+
     suspend fun getPendingApplicationsCount(token: String, agentId: String? = null): Result<Int> =
         io {
             val filter = buildString {

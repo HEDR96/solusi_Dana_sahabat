@@ -160,6 +160,13 @@ data class LeasingPartner(
 )
 
 @Serializable
+data class RateTable(
+    val product: String,
+    val tipe: String,
+    val data: kotlinx.serialization.json.JsonObject
+)
+
+@Serializable
 data class StatusLog(
     val id: Long,   // bigint identity di DB — String menyebabkan error parsing (riwayat kosong)
     @SerialName("app_id") val appId: String,
