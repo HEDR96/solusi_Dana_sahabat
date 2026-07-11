@@ -12,6 +12,12 @@ import {
 import { Calculator, TrendingUp, Building2, Car } from 'lucide-react';
 import { OTR_YEARS, getLtv, getOtr, getMaxPinjaman } from '../data/otrCatalog';
 
+// Tentukan jenis kendaraan dari brand (sama dengan MasterData)
+function isMotorBrand(brand) {
+  const b = (brand || '').toUpperCase().trim();
+  return b === 'YAMAHA' || b === 'HONDA';
+}
+
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 function Toggle({ value, onChange, options }) {
   return (
@@ -81,19 +87,21 @@ export function Simulation() {
     setOtrBrand(''); setOtrTipe(''); setOtrRow(null); setTahunKendaraan('');
   };
 
-  // Load OTR catalog CMD Finance (include unit_type)
+  // Load OTR catalog CMD Finance
   useEffect(() => {
     supabase.from('dsd_otr_catalog')
-      .select('brand,tipe,ltv,ltv_rule,kategori,unit_type,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
+      .select('brand,tipe,ltv,ltv_rule,kategori,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
       .eq('leasing_key', 'CMD')
       .order('brand').order('tipe')
       .then(({ data }) => { if (data) setOtrList(data); });
   }, []);
 
-  // Derived OTR values — brand difilter by R2/R4 sesuai jenis produk
+  // Derived OTR values — brand difilter by Motor/Mobil sesuai jenis produk
   const otrBrands = useMemo(() => {
-    const unitType = jenis === 'motor' ? 'r2' : 'r4';
-    return [...new Set(otrList.filter(r => !r.unit_type || r.unit_type === unitType).map(r => r.brand))];
+    return [...new Set(otrList.filter(r => {
+      const isM = isMotorBrand(r.brand);
+      return jenis === 'motor' ? isM : !isM;
+    }).map(r => r.brand))];
   }, [otrList, jenis]);
   const otrTipes = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
   const otrInfo = useMemo(() => {
