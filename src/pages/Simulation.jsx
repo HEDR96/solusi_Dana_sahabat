@@ -10,7 +10,7 @@ import {
   lookupVal, getPinjamanOptions,
 } from '../data/rateTables';
 import { Calculator, TrendingUp, Building2, Car } from 'lucide-react';
-import { OTR_YEARS, getLtv, getOtr, getMaxPinjaman, formatKategori } from '../data/otrCatalog';
+import { OTR_YEARS, getLtv, getOtr, getMaxPinjaman } from '../data/otrCatalog';
 
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 function Toggle({ value, onChange, options }) {
@@ -102,15 +102,16 @@ export function Simulation() {
     return { otr, ltv, max, tahun, kategori: otrRow.kategori };
   }, [otrRow, tahunKendaraan]);
 
-  // Pinjaman options: keys dari tabel angsuran (ribuan × 1000)
+  // Pinjaman options: keys dari tabel angsuran (ribuan × 1000), dibatasi maks pinjaman jika ada
   const pinjamanOptions = useMemo(() => {
     const typeKey = isRO ? 'ro' : (jenis === 'motor' ? 'new' : 'reg');
     const dbKey   = jenis === 'motor'
       ? (isRO ? 'motor_ro_ang'  : 'motor_new_ang')
       : (isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang');
     const dbTable = dbTables?.[dbKey];
-    return getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
-  }, [jenis, isRO, dbTables]);
+    const all = getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
+    return otrInfo?.max ? all.filter(v => v <= otrInfo.max) : all;
+  }, [jenis, isRO, dbTables, otrInfo]);
 
   const result = useMemo(() => {
     if (!selectedLeasingId) return null;
@@ -233,14 +234,12 @@ export function Simulation() {
 
                 {otrInfo && (
                   <div style={{ background:'#eff6ff', borderRadius:8, padding:'10px 12px', fontSize:12 }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-                      <div><span style={{ color:'var(--c-64748b)' }}>OTR {otrInfo.tahun}</span><br/><strong style={{ fontSize:13 }}>{formatRupiah(otrInfo.otr)}</strong></div>
-                      <div><span style={{ color:'var(--c-64748b)' }}>LTV</span><br/><strong style={{ fontSize:13 }}>{(otrInfo.ltv*100).toFixed(0)}%{otrRow.ltv_rule==='year_based'?' *':''}</strong></div>
-                      <div><span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman</span><br/><strong style={{ fontSize:13, color:'#1d4ed8' }}>{formatRupiah(otrInfo.max)}</strong></div>
-                      <div><span style={{ color:'var(--c-64748b)' }}>Kategori</span><br/><strong style={{ fontSize:13 }}>{formatKategori(otrInfo.kategori)}</strong></div>
+                    <div style={{ marginBottom:6 }}>
+                      <span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman ({otrInfo.tahun})</span>
+                      <br/>
+                      <strong style={{ fontSize:16, color:'#1d4ed8' }}>{formatRupiah(otrInfo.max)}</strong>
                     </div>
-                    {otrRow.ltv_rule==='year_based' && <p style={{ fontSize:10, color:'var(--c-94a3b8)', marginTop:6 }}>* LTV 80% untuk tahun 2021–2026, 75% untuk tahun sebelumnya</p>}
-                    <button className="btn btn-sm btn-primary" style={{ marginTop:8, width:'100%', fontSize:12 }}
+                    <button className="btn btn-sm btn-primary" style={{ width:'100%', fontSize:12 }}
                       onClick={() => setPencairan(String(otrInfo.max))}>
                       Pakai sebagai Jumlah Pinjaman
                     </button>
