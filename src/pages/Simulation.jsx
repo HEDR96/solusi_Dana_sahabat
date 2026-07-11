@@ -188,7 +188,8 @@ export function Simulation() {
                 />
               </div>
 
-              {/* ── Tahun Kendaraan ── */}
+              {/* ── Tahun Kendaraan + OTR Catalog (CMD Finance only) ── */}
+              {rateKey === 'CMD' && <>
               <div>
                 <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <Car size={13} color="var(--c-64748b)" /> Tahun Kendaraan
@@ -249,6 +250,7 @@ export function Simulation() {
                   <p style={{ fontSize:11, color:'#f59e0b', margin:0 }}>⚠ Pilih tahun kendaraan di atas untuk melihat OTR & maks pinjaman</p>
                 )}
               </div>
+              </>}
 
               <div>
                 <label className="label">Jumlah Pencairan</label>

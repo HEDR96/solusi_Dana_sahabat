@@ -17,6 +17,7 @@ import {
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
   lookupVal, getPinjamanOptions,
 } from '../../data/rateTables';
+import { OTR_YEARS, getMaxPinjaman } from '../../data/otrCatalog';
 import { Plus, Search, Eye, Download, FileText, SlidersHorizontal, X, CheckSquare, TrendingUp } from 'lucide-react';
 
 const DEFAULT_DOC_TYPES = ['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'];
@@ -71,6 +72,10 @@ export function ApplicationList() {
   const [docChecked, setDocChecked] = useState({});
   const [docFiles, setDocFiles] = useState({});
   const [dbTables, setDbTables] = useState(null);
+  const [otrList,  setOtrList]  = useState([]);
+  const [otrBrand, setOtrBrand] = useState('');
+  const [otrTipe,  setOtrTipe]  = useState('');
+  const [otrRow,   setOtrRow]   = useState(null);
   const PER = 10;
 
   useEffect(() => {
@@ -86,6 +91,13 @@ export function ApplicationList() {
         });
         setDbTables(map);
       });
+  }, []);
+
+  useEffect(() => {
+    supabase.from('dsd_otr_catalog')
+      .select('brand,tipe,ltv,ltv_rule,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015')
+      .eq('leasing_key', 'CMD').order('brand').order('tipe')
+      .then(({ data }) => { if (data) setOtrList(data); });
   }, []);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -114,10 +126,7 @@ export function ApplicationList() {
     const tenor = Number(form.tenor);
     if (!tenors.includes(tenor)) return null;
 
-    // Pilih tabel: leasing terpilih → CMD Finance DB → hardcoded fallback.
-    // Baris "CMD Finance" di leasing partners memakai kunci rate khusus 'CMD'.
-    const selName = leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase();
-    const lk = form.leasingId ? (selName === 'cmd finance' ? 'CMD' : String(form.leasingId)) : 'CMD';
+    const lk = form.leasingId ? (isCMD ? 'CMD' : String(form.leasingId)) : 'CMD';
     const leasingTables = (dbTables?.[lk] && Object.keys(dbTables[lk]).length) ? dbTables[lk]
       : (dbTables?.['CMD'] || {});
     const isOwnTables = !!(dbTables?.[lk] && Object.keys(dbTables[lk]).length);
@@ -133,9 +142,22 @@ export function ApplicationList() {
     const fee = lookupVal(feeTable, tenors, pRibu, tenor);
     if (!angsuran || !fee) return null;
     return { angsuran, fee, isOwnTables };
-  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables, leasing]);
+  }, [form.pinjaman, form.tenor, form.unitType, form.isRO, form.leasingId, dbTables, isCMD]);
 
-  // Pinjaman dropdown options dari tabel angsuran
+  const selLeasingName = useMemo(() =>
+    leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase() ?? ''
+  , [leasing, form.leasingId]);
+  const isCMD = selLeasingName === 'cmd finance';
+
+  // OTR derived
+  const otrBrands = useMemo(() => [...new Set(otrList.map(r => r.brand))], [otrList]);
+  const otrTipes  = useMemo(() => otrList.filter(r => r.brand === otrBrand).map(r => r.tipe), [otrList, otrBrand]);
+  const maxPinjaman = useMemo(() => {
+    if (!isCMD || !otrRow || !form.unitYear) return null;
+    return getMaxPinjaman(otrRow, Number(form.unitYear));
+  }, [isCMD, otrRow, form.unitYear]);
+
+  // Pinjaman dropdown options dari tabel angsuran, dibatasi maks pinjaman jika CMD + OTR dipilih
   const pinjamanOptions = useMemo(() => {
     if (!form.unitType) return [];
     const jenis = form.unitType === 'Motor' ? 'motor' : 'mobil';
@@ -143,11 +165,11 @@ export function ApplicationList() {
     const dbKey = jenis === 'motor'
       ? (form.isRO ? 'motor_ro_ang' : 'motor_new_ang')
       : (form.isRO ? 'mobil_ro_ang' : 'mobil_reg_ang');
-    const selName = leasing.find(l => l.id === Number(form.leasingId))?.name?.trim().toLowerCase();
-    const lk = form.leasingId ? (selName === 'cmd finance' ? 'CMD' : String(form.leasingId)) : 'CMD';
+    const lk = form.leasingId ? (isCMD ? 'CMD' : String(form.leasingId)) : 'CMD';
     const dbTable = dbTables?.[lk]?.[dbKey];
-    return getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
-  }, [form.unitType, form.isRO, form.leasingId, dbTables, leasing]);
+    const all = getPinjamanOptions(dbTable, jenis, typeKey).map(v => v * 1000);
+    return maxPinjaman ? all.filter(v => v <= maxPinjaman) : all;
+  }, [form.unitType, form.isRO, form.leasingId, dbTables, isCMD, maxPinjaman]);
 
   const allOnPageSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.id));
   const toggleRow = useCallback(id => setSelectedIds(prev => {
@@ -437,7 +459,46 @@ export function ApplicationList() {
             </F>
           )}
           <F label="Merk & Model Unit" error={errors.unitBrand}><input className="input" value={form.unitBrand} onChange={e => set('unitBrand')(e.target.value)} placeholder="Toyota Avanza 1.3 G" style={errors.unitBrand ? { borderColor: '#ef4444' } : undefined} /></F>
-          <F label="Tahun Unit"><input className="input" type="number" value={form.unitYear} onChange={e => set('unitYear')(Number(e.target.value))} /></F>
+          <F label="Tahun Kendaraan">
+            <select className="input" value={form.unitYear} onChange={e => set('unitYear')(Number(e.target.value))}>
+              <option value="">— Pilih Tahun —</option>
+              {OTR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </F>
+          {isCMD && (
+            <div className="span-2" style={{ background:'var(--surface-alt)', borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
+              <p style={{ fontSize:11, fontWeight:700, color:'var(--c-64748b)', textTransform:'uppercase', letterSpacing:'.04em', margin:0 }}>Lookup OTR — CMD Finance</p>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                <div>
+                  <label className="label" style={{ fontSize:11 }}>Brand</label>
+                  <select className="input" style={{ fontSize:13 }} value={otrBrand} onChange={e => { setOtrBrand(e.target.value); setOtrTipe(''); setOtrRow(null); }}>
+                    <option value="">— Brand —</option>
+                    {otrBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" style={{ fontSize:11 }}>Tipe</label>
+                  <select className="input" style={{ fontSize:13 }} value={otrTipe} disabled={!otrBrand} onChange={e => {
+                    const t = e.target.value; setOtrTipe(t);
+                    setOtrRow(otrList.find(r => r.brand === otrBrand && r.tipe === t) || null);
+                  }}>
+                    <option value="">— Tipe —</option>
+                    {otrTipes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              {maxPinjaman && (
+                <div style={{ background:'#eff6ff', borderRadius:8, padding:'8px 10px', fontSize:12 }}>
+                  <span style={{ color:'var(--c-64748b)' }}>Maks Pinjaman ({form.unitYear})</span>
+                  <br/>
+                  <strong style={{ fontSize:15, color:'#1d4ed8' }}>{formatRupiah(maxPinjaman)}</strong>
+                </div>
+              )}
+              {otrRow && !form.unitYear && (
+                <p style={{ fontSize:11, color:'#f59e0b', margin:0 }}>⚠ Pilih tahun kendaraan untuk melihat maks pinjaman</p>
+              )}
+            </div>
+          )}
           <F label="Pinjaman yang Diajukan" error={errors.pinjaman}>
             {pinjamanOptions.length > 0 ? (
               <select
