@@ -76,7 +76,11 @@ const mapNotif = r => ({
 });
 const mapAuditLog = r => ({
   id: r.id, user: r.user, role: r.role, action: r.action,
-  detail: r.detail, time: r.time, ip: r.ip,
+  detail: r.detail,
+  time: r.time,
+  timeDisplay: r.time
+    ? new Date(r.time).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '-',
 });
 
 async function fetchProfile(userId) {
@@ -282,6 +286,26 @@ export function AppProvider({ children }) {
     }).catch(() => setDataLoading(false));
   }, [authLoading, currentUser?.id]);
 
+  // Supabase Realtime: notif otomatis saat berkas baru INSERT dari sesi lain
+  useEffect(() => {
+    if (!currentUser) return;
+    const channel = supabase
+      .channel('realtime_applications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dsd_applications' }, payload => {
+        const newApp = mapApp(payload.new);
+        const isOwn   = newApp.agentId === currentUser.agentId;
+        const canAll  = ['owner', 'super-admin', 'admin', 'spv-agen'].includes(currentUser.role);
+        if (!canAll && !isOwn) return;  // agen hanya melihat berkas sendiri
+        setApplications(prev => prev.some(a => a.id === newApp.id) ? prev : [newApp, ...prev]);
+        // Toast untuk non-agen (agen sendiri yang input tidak perlu notif)
+        if (currentUser.role !== 'agen') {
+          showToast(`📋 Berkas baru dari ${newApp.agentName}: ${newApp.customerName} (${newApp.id})`);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
+
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
@@ -314,21 +338,24 @@ export function AppProvider({ children }) {
       user: currentUser?.name || 'System',
       role: currentUser?.role || 'system',
       action, detail,
-      time: new Date().toLocaleString('id-ID'),
-      ip: '192.168.1.1',
+      time: new Date().toISOString(),
     };
     const { data } = await supabase.from('dsd_audit_logs').insert(newLog).select().single();
     if (data) setAuditLogs(prev => [mapAuditLog(data), ...prev]);
   };
 
-  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime) => {
+  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime, approvePinjaman) => {
     const app = applications.find(a => a.id === appId);
     const updates = { status: newStatus };
     if (surveyDate) updates.survey_date = surveyDate;
     if (surveyTime) updates.survey_time = surveyTime;
     if (newStatus === 'approve') {
       updates.approve_date = new Date().toISOString().split('T')[0];
-      updates.approve_pinjaman = app.pinjaman;
+      updates.approve_pinjaman = approvePinjaman || app.pinjaman;
+    } else if (['reject', 'cancel'].includes(newStatus)) {
+      // Bersihkan approve_date agar kalender tidak tampilkan event palsu
+      updates.approve_date = null;
+      updates.approve_pinjaman = null;
     }
     await supabase.from('dsd_applications').update(updates).eq('id', appId);
     setApplications(prev => prev.map(a => {
@@ -336,7 +363,8 @@ export function AppProvider({ children }) {
       const u = { ...a, status: newStatus };
       if (surveyDate) u.surveyDate = surveyDate;
       if (surveyTime) u.surveyTime = surveyTime;
-      if (newStatus === 'approve') { u.approveDate = updates.approve_date; u.approvePinjaman = app.pinjaman; }
+      if (newStatus === 'approve') { u.approveDate = updates.approve_date; u.approvePinjaman = updates.approve_pinjaman; }
+      if (['reject', 'cancel'].includes(newStatus)) { u.approveDate = null; u.approvePinjaman = null; }
       return u;
     }));
 
@@ -369,7 +397,30 @@ export function AppProvider({ children }) {
     showToast(`Status berkas ${appId} diubah ke ${newStatus}`);
   };
 
-  const addApplication = async (data) => {
+  const updateApplicationData = async (appId, fields) => {
+    // fields: { customerName, nik, phone, city, address, unitType, unitBrand, unitYear, pinjaman, tenor, leasingName, notes }
+    const dbRow = {
+      customer_name: fields.customerName,
+      nik: fields.nik,
+      phone: fields.phone,
+      city: fields.city,
+      address: fields.address,
+      unit_type: fields.unitType,
+      unit_brand: fields.unitBrand,
+      unit_year: fields.unitYear,
+      pinjaman: Number(fields.pinjaman) || 0,
+      tenor: Number(fields.tenor) || 0,
+      leasing_name: fields.leasingName,
+      notes: fields.notes,
+    };
+    const { error } = await supabase.from('dsd_applications').update(dbRow).eq('id', appId);
+    if (error) { showToast('Gagal menyimpan perubahan: ' + error.message, 'error'); return; }
+    setApplications(prev => prev.map(a => a.id !== appId ? a : { ...a, ...fields, pinjaman: dbRow.pinjaman, tenor: dbRow.tenor }));
+    await addAuditLog('Edit Data Berkas', `${appId}: data nasabah/unit diperbarui`);
+    showToast(`Data berkas ${appId} berhasil diperbarui`);
+  };
+
+  const addApplication = async (data, docFiles = {}) => {
     // ID dari sequence DB (anti-tabrakan); fallback ke hitung lokal jika RPC belum ada
     const { data: rpcId } = await supabase.rpc('dsd_next_brk_id');
     const newId = rpcId || `BRK${String(2026000 + applications.length + 1).padStart(7, '0')}`;
@@ -393,7 +444,36 @@ export function AppProvider({ children }) {
     const notifRow = { type: 'berkas-baru', message: `Berkas baru dari ${data.agentName} - ${data.customerName}`, time_ago: 'Baru saja', read: false, link: '/applications' };
     const { data: notifData } = await supabase.from('dsd_notifications').insert(notifRow).select().single();
     if (notifData) setNotifications(prev => [mapNotif(notifData), ...prev]);
-    showToast(`Berkas ${newId} berhasil ditambahkan`);
+    // Upload dokumen ke GDrive jika ada
+    const fileEntries = Object.entries(docFiles).filter(([, f]) => f);
+    if (fileEntries.length > 0) {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      const toBase64 = (file) => new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      await Promise.allSettled(fileEntries.map(async ([docName, file]) => {
+        const safeType = docName.toLowerCase().replace(/\s+/g, '-');
+        const dataBase64 = await toBase64(file);
+        await fetch('/api/gdrive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            appId: newId,
+            filename: `${newId}_${safeType}_${file.name.split('.').pop()}`,
+            contentType: file.type || 'application/octet-stream',
+            dataBase64,
+          }),
+        });
+      }));
+      showToast(`Berkas ${newId} + ${fileEntries.length} dokumen berhasil ditambahkan`);
+    } else {
+      showToast(`Berkas ${newId} berhasil ditambahkan`);
+    }
+    return newId;
   };
 
   const markNotifRead = async (id) => {
@@ -407,6 +487,16 @@ export function AppProvider({ children }) {
     setCommissions(prev => prev.map(c => c.id === id ? { ...c, status: 'paid', paymentDate: updates.payment_date, paymentMethod: method } : c));
     await addAuditLog('Bayar Komisi', `Komisi #${id} dibayarkan via ${method}`);
     showToast('Komisi berhasil dibayarkan');
+  };
+
+  const payCommissionsBulk = async (ids, method) => {
+    if (!ids.length) return;
+    const today = new Date().toISOString().split('T')[0];
+    const updates = { status: 'paid', payment_date: today, payment_method: method };
+    await supabase.from('dsd_commissions').update(updates).in('id', ids);
+    setCommissions(prev => prev.map(c => ids.includes(c.id) ? { ...c, status: 'paid', paymentDate: today, paymentMethod: method } : c));
+    await addAuditLog('Bayar Komisi (Bulk)', `${ids.length} komisi dibayarkan via ${method}`);
+    showToast(`${ids.length} komisi berhasil dibayarkan`);
   };
 
   const addActivity = async (data) => {
@@ -439,7 +529,10 @@ export function AppProvider({ children }) {
   // Return: id agen baru (string) jika sukses, false jika gagal.
   // createAccount=false dipakai alur Manajemen User (akun dibuat via createUser dengan password pilihan admin).
   const addAgent = async (data, { createAccount = true } = {}) => {
-    const newId = `AGT${String(agents.length + 1).padStart(3, '0')}`;
+    // Ambil max ID dari DB untuk hindari collision (length+1 rusak jika ada penghapusan)
+    const { data: maxRow } = await supabase.from('dsd_agents').select('id').order('id', { ascending: false }).limit(1).single();
+    const lastNum = maxRow?.id ? (parseInt(maxRow.id.replace(/\D/g, ''), 10) || 0) : 0;
+    const newId = `AGT${String(lastNum + 1).padStart(3, '0')}`;
     const row = {
       id: newId, name: data.name, phone: data.phone, email: data.email,
       city: data.city, address: data.address, nik: data.nik, status: data.status,
@@ -463,7 +556,7 @@ export function AppProvider({ children }) {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             name: data.name, email: data.email.trim(),
-            password: 'password', role: 'agen',
+            password: `SDS${newId}${new Date().getFullYear()}`, role: 'agen',
             status: data.status, agentId: newId,
           }),
         });
@@ -621,10 +714,10 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       currentUser, authLoading, dataLoading, login, logout, updateProfile,
-      applications, setApplications, addApplication, updateApplicationStatus,
+      applications, setApplications, addApplication, updateApplicationStatus, updateApplicationData,
       visibleApplications, visibleCommissions, visibleActivities,
       visibleAgents, managedAgentIds,
-      commissions, setCommissions, payCommission,
+      commissions, setCommissions, payCommission, payCommissionsBulk,
       agentActivities, setAgentActivities, addActivity,
       agents, setAgents, addAgent, updateAgent,
       leasing, setLeasing, addLeasing, updateLeasing,

@@ -142,9 +142,21 @@ export function ApplicationReport() {
             <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Halaman {page} dari {totalPages}</p>
             <div className="pagination">
               <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
-              ))}
+              {(() => {
+                const delta = 2;
+                const pages = [];
+                const left = Math.max(2, page - delta);
+                const right = Math.min(totalPages - 1, page + delta);
+                pages.push(1);
+                if (left > 2) pages.push('…');
+                for (let i = left; i <= right; i++) pages.push(i);
+                if (right < totalPages - 1) pages.push('…');
+                if (totalPages > 1) pages.push(totalPages);
+                return pages.map((p, i) => p === '…'
+                  ? <span key={`e${i}`} className="page-btn" style={{ pointerEvents: 'none' }}>…</span>
+                  : <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                );
+              })()}
               <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
             </div>
           </div>

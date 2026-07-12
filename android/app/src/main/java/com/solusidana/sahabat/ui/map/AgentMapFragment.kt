@@ -84,18 +84,21 @@ class AgentMapFragment : Fragment() {
         }
     }
 
+    private fun String.escJs() = replace("\\", "\\\\").replace("'", "\\'").replace("<", "&lt;").replace(">", "&gt;")
+
     private fun buildMapHtml(locations: List<AgentLocation>): String {
         val valid = locations.filter { it.lat != null && it.lng != null }
         val markers = valid.joinToString("\n") { loc ->
             val color = if (loc.role == "spv-agen") "#EF4444" else "#22C55E"
             val roleLabel = if (loc.role == "spv-agen") "Supervisor Agen" else "Agen"
             val timeAgo = loc.updated_at?.let { timeAgo(it) } ?: "-"
+            val safeName = (loc.name ?: "-").escJs()
             """
             L.circleMarker([${loc.lat}, ${loc.lng}], {
                 radius: 10, color: '#fff', weight: 2,
                 fillColor: '$color', fillOpacity: 0.9
             }).addTo(map)
-            .bindPopup('<b>${loc.name ?: "-"}</b><br>$roleLabel<br><small>Update: $timeAgo</small>');
+            .bindPopup('<b>$safeName</b><br>$roleLabel<br><small>Update: $timeAgo</small>');
             """.trimIndent()
         }
 

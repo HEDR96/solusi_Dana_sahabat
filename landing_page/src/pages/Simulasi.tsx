@@ -1,13 +1,67 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 export default function Simulasi() {
   const [form, setForm] = useState({ jenis: 'motor', tahun: '', nilaiKendaraan: '', estimasiDana: '', kota: '', whatsapp: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
-  const submit = (e: React.FormEvent) => { e.preventDefault(); setSubmitted(true) }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg('')
+
+    // Fetch agent_id owner (Hendrik)
+    const { data: ownerProfile } = await supabase
+      .from('dsd_profiles')
+      .select('agent_id, name')
+      .eq('email', 'hendrik@afss.tech')
+      .single()
+    const ownerAgentId = ownerProfile?.agent_id ?? null
+    const ownerName = ownerProfile?.name ?? 'Hendrik'
+
+    // Generate ID berkas
+    const { data: maxRow } = await supabase
+      .from('dsd_applications')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single()
+    const lastNum = maxRow?.id ? (parseInt(maxRow.id.replace(/\D/g, ''), 10) || 0) : 0
+    const newId = `BRK${String(lastNum + 1).padStart(7, '0')}`
+
+    const dana: Record<string, number> = {
+      'lt5': 3000000, '5-10': 7500000, '10-25': 17500000, '25-50': 37500000, 'gt50': 60000000,
+    }
+
+    const { error } = await supabase.from('dsd_applications').insert({
+      id: newId,
+      status: 'pending',
+      agent_id: ownerAgentId,
+      agent_name: ownerName,
+      customer_name: form.whatsapp,
+      phone: form.whatsapp,
+      city: form.kota,
+      unit_type: form.jenis === 'motor' ? 'Motor (BPKB)' : 'Mobil (BPKB)',
+      unit_year: form.tahun || null,
+      pinjaman: dana[form.estimasiDana] || 0,
+      tenor: 12,
+      estimasi_angsuran: 0,
+      input_date: new Date().toISOString().split('T')[0],
+      notes: `Inquiry website. Nilai kendaraan: ${form.nilaiKendaraan || '-'}. Estimasi dana: ${form.estimasiDana || '-'}.`,
+    })
+
+    setLoading(false)
+    if (error) {
+      setErrorMsg('Gagal mengirim data. Silakan coba lagi.')
+      return
+    }
+    setSubmitted(true)
+  }
 
   const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(
     `Halo Solusi Dana Sahabat, saya ingin konsultasi pengajuan fasilitas dana BPKB ${form.jenis}. Kota: ${form.kota || '-'}. Estimasi dana: ${form.estimasiDana || '-'}.`
@@ -88,8 +142,9 @@ export default function Simulasi() {
                     </div>
                   ))}
 
-                  <button type="submit" className="w-full py-3.5 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02]" style={{ background: 'var(--gold)' }}>
-                    Hitung & Konsultasikan 💬
+                  {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
+                  <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] disabled:opacity-60" style={{ background: 'var(--gold)' }}>
+                    {loading ? 'Mengirim...' : 'Hitung & Konsultasikan 💬'}
                   </button>
                 </form>
               ) : (

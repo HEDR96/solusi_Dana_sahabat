@@ -38,17 +38,22 @@ function ChartTip({ active, payload, label }) {
 }
 
 export function CommissionReport() {
-  const { visibleCommissions: allCommissions, visibleAgents: agents } = useApp();
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo]     = useState('');
+  const { visibleCommissions: allCommissions, visibleAgents: agents, settings } = useApp();
+  const [dateFrom, setDateFrom]   = useState('');
+  const [dateTo, setDateTo]       = useState('');
+  const [filterAgent, setAgent]   = useState('all');
+
+  const agentRate = settings?.commissionAgentRate ?? 80;
+  const agentAmt  = c => Math.round(c.commissionAmount * agentRate / 100);
 
   const commissions = allCommissions.filter(c =>
-    (!dateFrom || c.approveDate >= dateFrom) && (!dateTo || c.approveDate <= dateTo)
+    (!dateFrom || c.approveDate >= dateFrom) && (!dateTo || c.approveDate <= dateTo) &&
+    (filterAgent === 'all' || c.agentId === filterAgent)
   );
 
-  const totalAll   = commissions.reduce((s, c) => s + c.commissionAmount, 0);
-  const totalPaid  = commissions.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
-  const totalUnpaid= commissions.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0);
+  const totalAll   = commissions.reduce((s, c) => s + agentAmt(c), 0);
+  const totalPaid  = commissions.filter(c => c.status === 'paid').reduce((s, c) => s + agentAmt(c), 0);
+  const totalUnpaid= commissions.filter(c => c.status === 'unpaid').reduce((s, c) => s + agentAmt(c), 0);
 
   const prevRange = previousPeriod(dateFrom, dateTo);
   const prevTotal = prevRange
@@ -59,9 +64,9 @@ export function CommissionReport() {
     const agComm = commissions.filter(c => c.agentId === ag.id);
     return {
       name:   ag.name.split(' ')[0],
-      total:  agComm.reduce((s, c) => s + c.commissionAmount, 0),
-      paid:   agComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0),
-      unpaid: agComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0),
+      total:  agComm.reduce((s, c) => s + agentAmt(c), 0),
+      paid:   agComm.filter(c => c.status === 'paid').reduce((s, c) => s + agentAmt(c), 0),
+      unpaid: agComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + agentAmt(c), 0),
     };
   }).filter(a => a.total > 0);
 
@@ -82,10 +87,15 @@ export function CommissionReport() {
         <input className="input" type="date" style={{ width: 'auto' }} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
         <span style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>s/d</span>
         <input className="input" type="date" style={{ width: 'auto' }} value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        {(dateFrom || dateTo) && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo(''); }}>Reset tanggal</button>
+        <select className="input" style={{ width: 'auto' }} value={filterAgent} onChange={e => setAgent(e.target.value)}>
+          <option value="all">Semua Agen</option>
+          {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        {(dateFrom || dateTo || filterAgent !== 'all') && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo(''); setAgent('all'); }}>Reset filter</button>
         )}
       </div>
+      <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginBottom: 12 }}>Nilai komisi ditampilkan sebagai take-home agen ({agentRate}% dari komisi leasing)</p>
       {prevRange && (
         <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginBottom: 16 }}>
           Dibandingkan dengan periode sebelumnya: {prevRange.from} s/d {prevRange.to}
@@ -95,7 +105,7 @@ export function CommissionReport() {
       {/* Summary */}
       <div className="rgrid rgrid-3" style={{ gap: 14, marginBottom: 20 }}>
         {[
-          { label: 'Total Komisi', value: formatRupiah(totalAll), color: 'var(--c-0f172a)', bg: 'var(--surface)', border: 'var(--border)', trend: true },
+          { label: 'Total Take-Home Agen', value: formatRupiah(totalAll), color: 'var(--c-0f172a)', bg: 'var(--surface)', border: 'var(--border)', trend: true },
           { label: 'Sudah Dibayar', value: formatRupiah(totalPaid), color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
           { label: 'Belum Dibayar', value: formatRupiah(totalUnpaid), color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
         ].map(({ label, value, color, bg, border, trend }) => (
@@ -162,7 +172,7 @@ export function CommissionReport() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead className="table-head">
             <tr>
-              {['No. Berkas', 'Nasabah', 'Agen', 'Leasing', 'Pinjaman', 'Komisi', 'Status', 'Tgl Bayar'].map(h => (
+              {['No. Berkas', 'Nasabah', 'Agen', 'Leasing', 'Pinjaman', 'Komisi Agen', 'Status', 'Tgl Bayar'].map(h => (
                 <th key={h} className="table-th">{h}</th>
               ))}
             </tr>
@@ -175,7 +185,7 @@ export function CommissionReport() {
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{c.agentName}</td>
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{c.leasingName}</td>
                 <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(c.approvePinjaman)}</td>
-                <td className="table-td" style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-0f172a)' }}>{formatRupiah(c.commissionAmount)}</td>
+                <td className="table-td" style={{ fontSize: 14, fontWeight: 800, color: '#059669' }}>{formatRupiah(agentAmt(c))}</td>
                 <td className="table-td"><Badge status={c.status} /></td>
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{c.paymentDate || '-'}</td>
               </tr>

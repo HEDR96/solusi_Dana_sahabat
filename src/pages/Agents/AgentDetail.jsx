@@ -21,7 +21,7 @@ function Row({ label, value, icon: Icon }) {
 export function AgentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { visibleAgents, applications, commissions, agentActivities, managedAgentIds, currentUser } = useApp();
+  const { visibleAgents, visibleApplications, visibleCommissions, agentActivities, managedAgentIds, currentUser } = useApp();
   const activityTypes    = useMasterPairs('activity_type',    ACTIVITY_TYPES.map(t => ({ value: t.key, label: t.label })));
   const activityOutcomes = useMasterPairs('activity_outcome', ACTIVITY_OUTCOMES.map(o => ({ value: o.key, label: o.label })));
   const outcomeHex       = Object.fromEntries(ACTIVITY_OUTCOMES.map(o => [o.key, o.hex]));
@@ -38,8 +38,8 @@ export function AgentDetail() {
     </Layout>
   );
 
-  const agentApps  = applications.filter(a => a.agentId === id);
-  const agentComm  = commissions.filter(c => c.agentId === id);
+  const agentApps  = visibleApplications.filter(a => a.agentId === id);
+  const agentComm  = visibleCommissions.filter(c => c.agentId === id);
   const agentActs  = agentActivities.filter(a => a.agentId === id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const totalKomisi  = agentComm.reduce((s, c) => s + c.commissionAmount, 0);
   const paidKomisi   = agentComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);

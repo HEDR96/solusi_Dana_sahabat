@@ -10,6 +10,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 object SupabaseApi {
@@ -52,8 +53,10 @@ object SupabaseApi {
 
     suspend fun login(email: String, password: String): Result<AuthResponse> =
         io {
-            val body = """{"email":"$email","password":"$password"}"""
-                .toRequestBody(JSON_TYPE)
+            val body = JSONObject().apply {
+                put("email", email)
+                put("password", password)
+            }.toString().toRequestBody(JSON_TYPE)
             val req = Request.Builder()
                 .url("$BASE_URL/auth/v1/token?grant_type=password")
                 .addHeader("apikey", ANON_KEY)
@@ -153,15 +156,16 @@ object SupabaseApi {
         surveyTime: String?,
         userName: String
     ): Result<Unit> = io {
-        val approveDate = if (newStatus == "approve") java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) else null
-        val patchBody = buildString {
-            append("{\"status\":\"$newStatus\"")
-            if (!notes.isNullOrBlank()) append(",\"notes\":\"$notes\"")
-            if (!surveyDate.isNullOrBlank()) append(",\"survey_date\":\"$surveyDate\"")
-            if (!surveyTime.isNullOrBlank()) append(",\"survey_time\":\"$surveyTime\"")
-            if (approveDate != null) append(",\"approve_date\":\"$approveDate\"")
-            append("}")
-        }.toRequestBody(JSON_TYPE)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val approveDate = if (newStatus == "approve") today else null
+        val patchJson = JSONObject().apply {
+            put("status", newStatus)
+            if (!notes.isNullOrBlank()) put("notes", notes)
+            if (!surveyDate.isNullOrBlank()) put("survey_date", surveyDate)
+            if (!surveyTime.isNullOrBlank()) put("survey_time", surveyTime)
+            if (approveDate != null) put("approve_date", approveDate)
+        }
+        val patchBody = patchJson.toString().toRequestBody(JSON_TYPE)
 
         val patchReq = Request.Builder()
             .url("$BASE_URL/rest/v1/dsd_applications?id=eq.$id")
@@ -170,12 +174,21 @@ object SupabaseApi {
             .addHeader("Prefer", "return=minimal")
             .patch(patchBody)
             .build()
-        client.newCall(patchReq).execute()
+        val patchResp = client.newCall(patchReq).execute()
+        if (!patchResp.isSuccessful) {
+            val errBody = patchResp.body?.string() ?: ""
+            error(supabaseError(patchResp.code, errBody))
+        }
 
         // Insert status log
-        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-        val logBody = """[{"app_id":"$id","to_status":"$newStatus","user":"$userName","date":"$today","notes":${if (notes.isNullOrBlank()) "null" else "\"$notes\""}}]"""
-            .toRequestBody(JSON_TYPE)
+        val logJson = JSONObject().apply {
+            put("app_id", id)
+            put("to_status", newStatus)
+            put("user", userName)
+            put("date", today)
+            if (!notes.isNullOrBlank()) put("notes", notes)
+        }
+        val logBody = "[${logJson}]".toRequestBody(JSON_TYPE)
         val logReq = Request.Builder()
             .url("$BASE_URL/rest/v1/dsd_status_logs")
             .addHeader("apikey", ANON_KEY)
@@ -307,49 +320,61 @@ object SupabaseApi {
         }
     }
 
-    /** Tambah agen baru (owner/admin/spv-agen). spvId diisi otomatis jika penambah adalah spv. */
+    /** Tambah agen baru (owner/admin/spv-agen). spvId diisi otomatis jika penambah adalah spv.
+     *  Retry sekali jika terjadi tabrakan ID (race condition concurrent insert). */
     suspend fun insertAgent(
         token: String,
         name: String, phone: String, email: String, city: String,
         address: String, nik: String, bank: String, accountNumber: String,
         accountName: String, target: Int, spvId: String?
     ): Result<String> = io {
-        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-
-        // ID format sama dengan web: AGT + urutan 3 digit
-        val countReq = Request.Builder()
-            .url("$BASE_URL/rest/v1/dsd_agents?select=id")
-            .addHeader("apikey", ANON_KEY)
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Prefer", "count=exact")
-            .addHeader("Range", "0-0")
-            .get()
-            .build()
-        val countResp = client.newCall(countReq).execute()
-        val count = (countResp.header("Content-Range") ?: "0/0")
-            .substringAfter("/").toIntOrNull() ?: 0
-        val newId = "AGT" + (count + 1).toString().padStart(3, '0')
-
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-        val body = """{
-            "id":"$newId","name":"${esc(name)}","phone":"${esc(phone)}","email":"${esc(email)}",
-            "city":"${esc(city)}","address":"${esc(address)}","nik":"${esc(nik)}","status":"aktif",
-            "join_date":"$today","bank":"${esc(bank)}","account_number":"${esc(accountNumber)}",
-            "account_name":"${esc(accountName)}","target":$target,
-            "total_approve":0,"total_reject":0,"total_berkas":0,
-            "spv_id":${if (spvId == null) "null" else "\"${esc(spvId)}\""}
-        }""".trimIndent().toRequestBody(JSON_TYPE)
 
-        val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/dsd_agents")
-            .addHeader("apikey", ANON_KEY)
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Prefer", "return=minimal")
-            .post(body)
-            .build()
-        val resp = client.newCall(req).execute()
-        if (!resp.isSuccessful) error("Gagal tambah agen: ${resp.code} ${resp.body?.string()?.take(200)}")
-        newId
+        fun countAgents(): Int {
+            val resp = client.newCall(
+                Request.Builder()
+                    .url("$BASE_URL/rest/v1/dsd_agents?select=id")
+                    .addHeader("apikey", ANON_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .addHeader("Prefer", "count=exact")
+                    .addHeader("Range", "0-0")
+                    .get().build()
+            ).execute()
+            return (resp.header("Content-Range") ?: "0/0").substringAfter("/").toIntOrNull() ?: 0
+        }
+
+        fun buildBody(id: String) = JSONObject().apply {
+            put("id", id); put("name", name); put("phone", phone); put("email", email)
+            put("city", city); put("address", address); put("nik", nik); put("status", "aktif")
+            put("join_date", today); put("bank", bank)
+            put("account_number", accountNumber); put("account_name", accountName)
+            put("target", target); put("total_approve", 0); put("total_reject", 0); put("total_berkas", 0)
+            if (spvId != null) put("spv_id", spvId) else put("spv_id", JSONObject.NULL)
+        }.toString().toRequestBody(JSON_TYPE)
+
+        fun tryInsert(id: String): okhttp3.Response = client.newCall(
+            Request.Builder()
+                .url("$BASE_URL/rest/v1/dsd_agents")
+                .addHeader("apikey", ANON_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "return=minimal")
+                .post(buildBody(id)).build()
+        ).execute()
+
+        // First attempt
+        val firstId = "AGT" + (countAgents() + 1).toString().padStart(3, '0')
+        val firstResp = tryInsert(firstId)
+        if (firstResp.isSuccessful) return@io firstId
+
+        // Retry once on conflict (409) — re-count for a fresh ID
+        if (firstResp.code == 409) {
+            val retryId = "AGT" + (countAgents() + 1).toString().padStart(3, '0')
+            val retryResp = tryInsert(retryId)
+            if (retryResp.isSuccessful) return@io retryId
+            error("Gagal tambah agen setelah retry: ${retryResp.code} ${retryResp.body?.string()?.take(200)}")
+        }
+
+        error("Gagal tambah agen: ${firstResp.code} ${firstResp.body?.string()?.take(200)}")
     }
 
     suspend fun getMasterOptions(token: String): Result<List<MasterOption>> = io {

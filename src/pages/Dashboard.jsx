@@ -102,7 +102,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 const PIE_COLORS = ['var(--c-94a3b8)','#3b82f6','#7c3aed','#f59e0b','#f97316','#22c55e','#ec4899','#ef4444'];
 
 export function Dashboard() {
-  const { visibleApplications: applications, visibleCommissions: commissions, agents, currentUser } = useApp();
+  const { visibleApplications: applications, visibleCommissions: commissions, agents, visibleAgents, currentUser } = useApp();
   const navigate = useNavigate();
   const role = currentUser?.role;
   const canSee = section => canAccessSection(role, section);
@@ -154,7 +154,7 @@ export function Dashboard() {
     { name: 'Reject', value: s.reject },
   ].filter(d => d.value > 0);
 
-  const topAgents = [...agents].sort((a, b) => b.totalApprove - a.totalApprove).slice(0, 5);
+  const topAgents = [...visibleAgents].sort((a, b) => b.totalApprove - a.totalApprove).slice(0, 5);
 
   /* recent apps */
   const recentApps = [...applications].sort((a, b) => b.inputDate.localeCompare(a.inputDate)).slice(0, 5);

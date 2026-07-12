@@ -17,7 +17,7 @@ const SORT_GETTERS = {
 };
 
 export function Commission() {
-  const { visibleCommissions: commissions, agents, payCommission, currentUser, settings } = useApp();
+  const { visibleCommissions: commissions, agents, payCommission, payCommissionsBulk, currentUser, settings } = useApp();
   const canManagePayments = ['owner', 'super-admin', 'admin', 'finance'].includes(currentUser?.role);
   const isOwner      = currentUser?.role === 'owner';
   const isOwnScoped  = currentUser?.role === 'agen';
@@ -30,6 +30,11 @@ export function Commission() {
   const [selectedComm, setSel]      = useState(null);
   const [payMethod, setPayMethod]   = useState('Transfer Bank');
   const payMethods = useMasterOptions('payment_method', ['Transfer Bank', 'Cash', 'QRIS', 'Cek']);
+
+  // Bulk payment
+  const [checkedIds, setCheckedIds] = useState(new Set());
+  const [showBulk, setShowBulk]     = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const getBreakdown = (c) => {
     const leasing = c.commissionAmount;
@@ -53,9 +58,34 @@ export function Commission() {
   const totalUnpaid  = filtered.filter(c => c.status === 'unpaid').reduce((s, c) => s + getBreakdown(c).agent, 0);
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
+  const PER = 20;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.ceil(sorted.length / PER);
+  const rows = sorted.slice((page - 1) * PER, page * PER);
 
   const openPay  = comm => { setSel(comm); setShowPay(true); };
   const handlePay = () => { payCommission(selectedComm.id, payMethod); setShowPay(false); };
+
+  const unpaidRows = sorted.filter(c => c.status === 'unpaid');
+  const allChecked = unpaidRows.length > 0 && unpaidRows.every(c => checkedIds.has(c.id));
+  const toggleAll = () => {
+    if (allChecked) setCheckedIds(new Set());
+    else setCheckedIds(new Set(unpaidRows.map(c => c.id)));
+  };
+  const toggleOne = (id) => setCheckedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const bulkSelected = commissions.filter(c => checkedIds.has(c.id));
+  const bulkTotalAgent = bulkSelected.reduce((s, c) => s + getBreakdown(c).agent, 0);
+  const handleBulkPay = async () => {
+    setBulkSaving(true);
+    await payCommissionsBulk([...checkedIds], payMethod);
+    setCheckedIds(new Set());
+    setBulkSaving(false);
+    setShowBulk(false);
+  };
 
   const agentSummary = agents.map(ag => {
     const agComm = filtered.filter(c => c.agentId === ag.id);
@@ -81,7 +111,7 @@ export function Commission() {
     ...(isOwner ? [{ label: 'Keuntungan Owner', value: formatRupiah(totalOwner), icon: TrendingUp, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', val_color: '#1e40af' }] : []),
   ];
 
-  const colSpan = isOwner ? 11 : 10;
+  const colSpan = (isOwner ? 11 : 10) + (canManagePayments ? 1 : 0);
 
   return (
     <Layout
@@ -123,6 +153,11 @@ export function Commission() {
             {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
+        {canManagePayments && checkedIds.size > 0 && (
+          <button className="btn btn-success" onClick={() => setShowBulk(true)}>
+            <CheckCircle size={14} /> Bayar {checkedIds.size} Komisi Terpilih
+          </button>
+        )}
       </div>
 
       {/* Commission table */}
@@ -134,6 +169,11 @@ export function Commission() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead className="table-head">
             <tr>
+              {canManagePayments && (
+                <th className="table-th" style={{ width: 36 }}>
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} title="Pilih semua unpaid" />
+                </th>
+              )}
               <SortableTh label="No. Berkas" sortKey="appId" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <SortableTh label="Nasabah" sortKey="customerName" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <SortableTh label="Agen" sortKey="agentName" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
@@ -150,10 +190,17 @@ export function Commission() {
           <tbody>
             {sorted.length === 0 ? (
               <tr><td colSpan={colSpan}><div className="empty-state"><div className="empty-icon">💰</div><p>Tidak ada data komisi</p></div></td></tr>
-            ) : sorted.map(comm => {
+            ) : rows.map(comm => {
               const { leasing, agent, owner } = getBreakdown(comm);
               return (
-                <tr key={comm.id} className="table-row">
+                <tr key={comm.id} className="table-row" style={{ background: checkedIds.has(comm.id) ? 'var(--selected-bg)' : undefined }}>
+                  {canManagePayments && (
+                    <td className="table-td">
+                      {comm.status === 'unpaid' && (
+                        <input type="checkbox" checked={checkedIds.has(comm.id)} onChange={() => toggleOne(comm.id)} />
+                      )}
+                    </td>
+                  )}
                   <td className="table-td" style={{ fontFamily: 'monospace', fontSize: 12, color: '#3b82f6' }}>{comm.appId}</td>
                   <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{comm.customerName}</td>
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.agentName}</td>
@@ -178,6 +225,27 @@ export function Commission() {
             })}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid var(--border-light)' }}>
+            <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Halaman {page} dari {totalPages} ({sorted.length} entri)</p>
+            <div className="pagination">
+              <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+              {(() => {
+                const delta = 2, pages = [], left = Math.max(2, page - delta), right = Math.min(totalPages - 1, page + delta);
+                pages.push(1);
+                if (left > 2) pages.push('…');
+                for (let i = left; i <= right; i++) pages.push(i);
+                if (right < totalPages - 1) pages.push('…');
+                if (totalPages > 1) pages.push(totalPages);
+                return pages.map((p, i) => p === '…'
+                  ? <span key={`e${i}`} className="page-btn" style={{ pointerEvents: 'none' }}>…</span>
+                  : <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                );
+              })()}
+              <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Agent summary */}
@@ -225,6 +293,46 @@ export function Commission() {
           </tbody>
         </table>
       </div>
+
+      {/* Bulk Pay Modal */}
+      <Modal
+        isOpen={showBulk}
+        onClose={() => setShowBulk(false)}
+        title={`Bayar ${checkedIds.size} Komisi Sekaligus`}
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowBulk(false)}>Batal</button>
+            <button className="btn btn-success" disabled={bulkSaving} onClick={handleBulkPay}>
+              {bulkSaving ? 'Memproses...' : `Konfirmasi Bayar ${checkedIds.size} Komisi`}
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="alert alert-success">
+            <CheckCircle size={15} style={{ flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700 }}>Total Take-Home Agen: {formatRupiah(bulkTotalAgent)}</p>
+              <p style={{ fontSize: 12, marginTop: 2 }}>{checkedIds.size} komisi akan ditandai lunas</p>
+            </div>
+          </div>
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {bulkSelected.map(c => (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
+                <span style={{ color: 'var(--c-64748b)' }}>{c.customerName} ({c.agentName})</span>
+                <span style={{ fontWeight: 700, color: '#16a34a' }}>{formatRupiah(getBreakdown(c).agent)}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="label">Metode Pembayaran</label>
+            <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+              {payMethods.map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </Modal>
 
       {/* Pay Modal */}
       <Modal

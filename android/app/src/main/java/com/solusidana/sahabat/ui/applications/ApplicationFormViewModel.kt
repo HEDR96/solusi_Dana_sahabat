@@ -78,7 +78,10 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
     ) {
         viewModelScope.launch {
             _state.value = FormState.Saving
-            val token = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                _state.value = FormState.Error("Sesi berakhir. Silakan login ulang.")
+                return@launch
+            }
 
             val agentId: String
             val agentName: String

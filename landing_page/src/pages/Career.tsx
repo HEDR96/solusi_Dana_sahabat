@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const benefits = [
   { icon: '🏠', text: 'Bisa bekerja dari mana saja, fleksibel waktu' },
@@ -12,11 +13,48 @@ const benefits = [
 export default function Career() {
   const [form, setForm] = useState({ nama: '', hp: '', kota: '', pengalaman: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
-  const submit = (e: React.FormEvent) => { e.preventDefault(); setSubmitted(true) }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg('')
+
+    // Ambil max ID agen untuk generate ID baru
+    const { data: maxRow } = await supabase
+      .from('dsd_agents')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single()
+    const lastNum = maxRow?.id ? (parseInt(maxRow.id.replace(/\D/g, ''), 10) || 0) : 0
+    const newId = `AGT${String(lastNum + 1).padStart(3, '0')}`
+
+    const { error } = await supabase.from('dsd_agents').insert({
+      id: newId,
+      name: form.nama,
+      phone: form.hp,
+      city: form.kota,
+      status: 'nonaktif',
+      notes: form.pengalaman ? `Lead website. Pengalaman sales: ${form.pengalaman}` : 'Lead dari website',
+      join_date: new Date().toISOString().split('T')[0],
+      total_approve: 0,
+      total_reject: 0,
+      total_berkas: 0,
+      target: 0,
+    })
+
+    setLoading(false)
+    if (error) {
+      setErrorMsg('Gagal mengirim data. Silakan coba lagi.')
+      return
+    }
+    setSubmitted(true)
+  }
 
   return (
     <>
@@ -113,8 +151,9 @@ export default function Career() {
                         <option value="gt3">Lebih dari 3 tahun</option>
                       </select>
                     </div>
-                    <button type="submit" className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #0c2461, #1e3a8a)' }}>
-                      Daftar Jadi Agen Sekarang →
+                    {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
+                    <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #0c2461, #1e3a8a)' }}>
+                      {loading ? 'Mengirim...' : 'Daftar Jadi Agen Sekarang →'}
                     </button>
                     <p className="text-center text-xs text-gray-400">Data Anda aman dan hanya digunakan untuk proses rekrutmen agen.</p>
                   </form>

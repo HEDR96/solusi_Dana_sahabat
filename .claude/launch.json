@@ -4,8 +4,15 @@
     {
       "name": "FinanceERP",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5173"],
-      "port": 5173
+      "runtimeArgs": ["run", "dev", "--", "--port", "5175"],
+      "port": 5175
+    },
+    {
+      "name": "LandingPage",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5174"],
+      "port": 5174,
+      "cwd": "landing_page"
     }
   ]
 }

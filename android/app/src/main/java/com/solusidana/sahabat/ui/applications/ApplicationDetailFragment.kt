@@ -228,20 +228,35 @@ class ApplicationDetailFragment : Fragment() {
 
     private fun compressImage(uri: Uri): ByteArray? {
         return try {
-            val input = requireContext().contentResolver.openInputStream(uri) ?: return null
-            val original = BitmapFactory.decodeStream(input)
-            input.close()
-            if (original == null) return null
+            val cr = requireContext().contentResolver
 
-            // Resize maks 1600px sisi terpanjang, JPEG 80%
+            // Pass 1: baca dimensi saja (tanpa decode piksel → tidak ada OOM)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+
+            // Hitung inSampleSize: decode langsung ≤ 1600px sisi terpanjang
             val maxSide = 1600
-            val scale = minOf(1f, maxSide.toFloat() / maxOf(original.width, original.height))
+            var sample = 1
+            val longest = maxOf(bounds.outWidth, bounds.outHeight)
+            while (longest / (sample * 2) > maxSide) sample *= 2
+
+            // Pass 2: decode dengan inSampleSize + RGB_565 (setengah memori ARGB_8888)
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            val bitmap = cr.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, opts)
+            } ?: return null
+
+            // Fine-scale jika masih > 1600px setelah subsample
+            val scale = minOf(1f, maxSide.toFloat() / maxOf(bitmap.width, bitmap.height))
             val resized = if (scale < 1f) Bitmap.createScaledBitmap(
-                original,
-                (original.width * scale).toInt(),
-                (original.height * scale).toInt(),
+                bitmap,
+                (bitmap.width * scale).toInt(),
+                (bitmap.height * scale).toInt(),
                 true
-            ) else original
+            ) else bitmap
 
             val out = ByteArrayOutputStream()
             resized.compress(Bitmap.CompressFormat.JPEG, 80, out)
@@ -357,16 +372,53 @@ class ApplicationDetailFragment : Fragment() {
     }
 
     private fun showConfirmUpdate(id: String, from: String, to: String) {
+        if (to == "janji-survey") {
+            pickDateThenTime { date, time -> doConfirmUpdate(id, from, to, date, time) }
+        } else {
+            doConfirmUpdate(id, from, to, "", "")
+        }
+    }
+
+    private fun pickDateThenTime(onPicked: (date: String, time: String) -> Unit) {
+        val cal = java.util.Calendar.getInstance()
+        android.app.DatePickerDialog(
+            requireContext(),
+            { _, y, m, d ->
+                val date = "%04d-%02d-%02d".format(y, m + 1, d)
+                android.app.TimePickerDialog(
+                    requireContext(),
+                    { _, h, min ->
+                        onPicked(date, "%02d:%02d".format(h, min))
+                    },
+                    cal.get(java.util.Calendar.HOUR_OF_DAY),
+                    cal.get(java.util.Calendar.MINUTE),
+                    true
+                ).show()
+            },
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH),
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    private fun doConfirmUpdate(id: String, from: String, to: String, surveyDate: String, surveyTime: String) {
         val notesInput = android.widget.EditText(requireContext()).apply {
             hint = "Catatan (opsional)"
             setPadding(48, 24, 48, 8)
         }
+        val isTerminal = to in setOf("approve", "reject", "cancel")
+        val title = if (isTerminal) "⚠️ Konfirmasi — Tidak Dapat Diubah" else "Konfirmasi"
+        val message = buildString {
+            append("${statusLabel(from)}  →  ${statusLabel(to)}")
+            if (surveyDate.isNotBlank()) append("\nJadwal survey: $surveyDate $surveyTime")
+            if (isTerminal) append("\n\nStatus ini bersifat FINAL dan tidak dapat diubah kembali setelah disimpan.")
+        }
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Konfirmasi")
-            .setMessage("${statusLabel(from)}  →  ${statusLabel(to)}")
+            .setTitle(title)
+            .setMessage(message)
             .setView(notesInput)
-            .setPositiveButton("Simpan") { _, _ ->
-                vm.updateStatus(id, to, notesInput.text.toString(), "", "")
+            .setPositiveButton(if (isTerminal) "Ya, Konfirmasi" else "Simpan") { _, _ ->
+                vm.updateStatus(id, to, notesInput.text.toString(), surveyDate, surveyTime)
             }
             .setNegativeButton("Batal", null)
             .show()

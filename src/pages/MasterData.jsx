@@ -37,10 +37,12 @@ const CATEGORIES = [
 
 // ─── Editor satu tabel rate ───────────────────────────────────────────────────
 function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CMD Finance' }) {
-  const [rows,    setRows]    = useState(null);   // [{pinjaman, vals:[]}]
-  const [editing, setEditing] = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [fromDB,  setFromDB]  = useState(false);
+  const [rows,       setRows]       = useState(null);   // [{pinjaman, vals:[]}]
+  const [editing,    setEditing]    = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [fromDB,     setFromDB]     = useState(false);
+  const [addRowVal,  setAddRowVal]  = useState('');
+  const [showAddRow, setShowAddRow] = useState(false);
 
   const toRows = (obj) =>
     Object.keys(obj).map(Number).sort((a, b) => a - b).map(k => ({ pinjaman: k, vals: [...obj[k]] }));
@@ -84,10 +86,6 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
   };
 
   const reset = async () => {
-    const msg = leasingKey === 'CMD'
-      ? 'Reset tabel ini ke nilai default dari brosur CMD Finance?'
-      : `Reset tabel ini ke nilai referensi CMD Finance? Data ${leasingName} yang tersimpan akan ditimpa.`;
-    if (!confirm(msg)) return;
     setRows(toRows(def.fallback));
     const data = {};
     toRows(def.fallback).forEach(r => { data[r.pinjaman] = r.vals; });
@@ -107,13 +105,12 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
   };
 
   const addRow = () => {
-    const raw = window.prompt('Nilai pinjaman baru (ribuan rupiah, contoh: 21000 = Rp 21.000.000):');
-    if (!raw) return;
-    const val = Number(raw.replace(/\D/g, ''));
-    if (!val || val <= 0) return;
-    if (rows.find(r => r.pinjaman === val)) { alert('Nilai sudah ada'); return; }
+    const val = Number(addRowVal.replace(/\D/g, ''));
+    if (!val || val <= 0) { showToast('Masukkan nilai pinjaman yang valid', 'error'); return; }
+    if (rows.find(r => r.pinjaman === val)) { showToast('Nilai pinjaman sudah ada', 'error'); return; }
     setRows(prev => [...prev, { pinjaman: val, vals: Array(def.tenors.length).fill(0) }]
       .sort((a, b) => a.pinjaman - b.pinjaman));
+    setAddRowVal(''); setShowAddRow(false);
   };
 
   const removeRow = (ri) => {
@@ -138,10 +135,26 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
         <div style={{ flex:1 }} />
         {editing ? (
           <>
-            <button className="btn btn-sm btn-secondary" onClick={addRow} title="Tambah baris pinjaman baru">
-              <Plus size={13} /> Tambah Baris
-            </button>
-            <button className="btn btn-sm btn-secondary" onClick={() => { load(); }}>Batal</button>
+            {showAddRow ? (
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input
+                  className="input input-sm"
+                  style={{ width:160 }}
+                  placeholder="Pinjaman (ribuan, cth: 21000)"
+                  value={addRowVal}
+                  onChange={e => setAddRowVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addRow(); if (e.key === 'Escape') { setShowAddRow(false); setAddRowVal(''); } }}
+                  autoFocus
+                />
+                <button className="btn btn-sm btn-primary" onClick={addRow}><Plus size={13} /></button>
+                <button className="btn btn-sm btn-ghost" onClick={() => { setShowAddRow(false); setAddRowVal(''); }}><X size={13} /></button>
+              </div>
+            ) : (
+              <button className="btn btn-sm btn-secondary" onClick={() => setShowAddRow(true)}>
+                <Plus size={13} /> Tambah Baris
+              </button>
+            )}
+            <button className="btn btn-sm btn-secondary" onClick={() => { load(); setShowAddRow(false); setAddRowVal(''); }}>Batal</button>
             <button className="btn btn-sm btn-primary" onClick={save} disabled={saving}>
               <Save size={13} /> {saving ? 'Menyimpan...' : 'Simpan'}
             </button>
@@ -217,12 +230,16 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
 // ─── OTR Catalog Editor ───────────────────────────────────────────────────────
 
 function OtrCatalogEditor({ showToast }) {
-  const [rows,       setRows]       = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [search,     setSearch]     = useState('');
-  const [jenisFilter,setJenisFilter]= useState('');
-  const [editing,    setEditing]    = useState(null);
-  const [editBuf,    setEditBuf]    = useState({});
+  const [rows,         setRows]         = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [jenisFilter,  setJenisFilter]  = useState('');
+  const [editing,      setEditing]      = useState(null);
+  const [editBuf,      setEditBuf]      = useState({});
+  const [pendingDel,   setPendingDel]   = useState(null);
+  const [showAddForm,  setShowAddForm]  = useState(false);
+  const [addBrand,     setAddBrand]     = useState('');
+  const [addTipe,      setAddTipe]      = useState('');
 
   const [loadErr, setLoadErr] = useState('');
 
@@ -259,23 +276,21 @@ function OtrCatalogEditor({ showToast }) {
   };
 
   const deleteRow = async (id) => {
-    if (!confirm('Hapus baris ini?')) return;
     const { error } = await supabase.from('dsd_otr_catalog').delete().eq('id', id);
     if (error) { showToast('Gagal hapus: ' + error.message, 'error'); return; }
     setRows(prev => prev.filter(r => r.id !== id));
+    setPendingDel(null);
     showToast('Dihapus');
   };
 
   const addRow = async () => {
-    const brand = prompt('Brand (contoh: HONDA):');
-    if (!brand) return;
-    const tipe = prompt('Tipe (contoh: Beat CBS):');
-    if (!tipe) return;
+    if (!addBrand.trim() || !addTipe.trim()) { showToast('Brand dan tipe wajib diisi', 'error'); return; }
     const { data, error } = await supabase.from('dsd_otr_catalog')
-      .insert({ brand: brand.toUpperCase(), tipe, ltv: 0.7, kategori: 'slow_moving', leasing_key: 'CMD' })
+      .insert({ brand: addBrand.trim().toUpperCase(), tipe: addTipe.trim(), ltv: 0.7, kategori: 'slow_moving', leasing_key: 'CMD' })
       .select().single();
     if (error) { showToast('Gagal tambah: ' + error.message, 'error'); return; }
     setRows(prev => [...prev, data].sort((a,b) => a.brand.localeCompare(b.brand) || a.tipe.localeCompare(b.tipe)));
+    setAddBrand(''); setAddTipe(''); setShowAddForm(false);
     showToast('Ditambahkan — edit nilai OTR per tahun');
   };
 
@@ -313,7 +328,19 @@ function OtrCatalogEditor({ showToast }) {
         </div>
         <input className="input" placeholder="Cari brand / tipe..." value={search}
           onChange={e => setSearch(e.target.value)} style={{ width:180, fontSize:13 }} />
-        <button className="btn btn-sm btn-primary" onClick={addRow}><Plus size={13}/> Tambah Unit</button>
+        {showAddForm ? (
+          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+            <input className="input input-sm" style={{ width:110 }} placeholder="Brand (HONDA)" value={addBrand}
+              onChange={e => setAddBrand(e.target.value)} autoFocus />
+            <input className="input input-sm" style={{ width:130 }} placeholder="Tipe (Beat CBS)" value={addTipe}
+              onChange={e => setAddTipe(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addRow(); }} />
+            <button className="btn btn-sm btn-primary" onClick={addRow}><Plus size={13}/></button>
+            <button className="btn btn-sm btn-ghost" onClick={() => { setShowAddForm(false); setAddBrand(''); setAddTipe(''); }}><X size={13}/></button>
+          </div>
+        ) : (
+          <button className="btn btn-sm btn-primary" onClick={() => setShowAddForm(true)}><Plus size={13}/> Tambah Unit</button>
+        )}
       </div>
 
       {/* Modal edit baris */}
@@ -412,10 +439,18 @@ function OtrCatalogEditor({ showToast }) {
                       <button className="btn btn-sm btn-secondary" onClick={() => { setEditing(r.id); setEditBuf({}); }}>
                         <Edit2 size={12}/>
                       </button>
-                      <button className="btn btn-sm" style={{ color:'#ef4444', background:'#fef2f2', border:'1px solid #fecaca' }}
-                        onClick={() => deleteRow(r.id)}>
-                        <Trash2 size={12}/>
-                      </button>
+                      {pendingDel === r.id ? (
+                        <>
+                          <button className="btn btn-sm" style={{ color:'#ef4444', background:'#fef2f2', border:'1px solid #fecaca', fontSize:11 }}
+                            onClick={() => deleteRow(r.id)}>Ya, hapus</button>
+                          <button className="btn btn-sm btn-ghost" onClick={() => setPendingDel(null)}>Batal</button>
+                        </>
+                      ) : (
+                        <button className="btn btn-sm" style={{ color:'#ef4444', background:'#fef2f2', border:'1px solid #fecaca' }}
+                          onClick={() => setPendingDel(r.id)}>
+                          <Trash2 size={12}/>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -439,11 +474,69 @@ export function MasterData() {
   const [mode,     setMode]     = useState('options');
 
   // --- Dropdown options state ---
-  const [category, setCategory] = useState('unit_type');
-  const [options,  setOptions]  = useState([]);
-  const [newValue, setNewValue] = useState('');
-  const [newLabel, setNewLabel] = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [category,    setCategory]    = useState('unit_type');
+  const [options,     setOptions]     = useState([]);
+  const [newValue,    setNewValue]    = useState('');
+  const [newLabel,    setNewLabel]    = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [pendingDelOpt, setPendingDelOpt] = useState(null);
+
+  // --- Leasing modal state ---
+  const LEASING_EMPTY = { name:'', branch:'', pic:'', contact:'', email:'', products:'', rate:'', tenors:'', min_pinjaman:'', max_pinjaman:'', status:'aktif', syarat:'', notes:'' };
+  const [leasingModal, setLeasingModal] = useState({ open: false, row: null });
+  const [leasingForm,  setLeasingForm]  = useState(LEASING_EMPTY);
+  const [leasingSaving, setLeasingSaving] = useState(false);
+
+  const openLeasingModal = (row = null) => {
+    if (row) {
+      // Fetch full row from DB to get all fields
+      supabase.from('dsd_leasing_partners').select('*').eq('id', row.id).single().then(({ data }) => {
+        if (data) setLeasingForm({
+          name: data.name || '', branch: data.branch || '', pic: data.pic || '',
+          contact: data.contact || '', email: data.email || '',
+          products: Array.isArray(data.products) ? data.products.join(', ') : (data.products || ''),
+          rate: data.rate ?? '', tenors: Array.isArray(data.tenors) ? data.tenors.join(', ') : (data.tenors || ''),
+          min_pinjaman: data.min_pinjaman ?? '', max_pinjaman: data.max_pinjaman ?? '',
+          status: data.status || 'aktif', syarat: data.syarat || '', notes: data.notes || '',
+        });
+        setLeasingModal({ open: true, row: data });
+      });
+    } else {
+      setLeasingForm(LEASING_EMPTY);
+      setLeasingModal({ open: true, row: null });
+    }
+  };
+
+  const saveLeasingModal = async () => {
+    if (!leasingForm.name.trim()) { showToast('Nama leasing wajib diisi', 'error'); return; }
+    setLeasingSaving(true);
+    const payload = {
+      name: leasingForm.name.trim(),
+      branch: leasingForm.branch.trim() || null,
+      pic: leasingForm.pic.trim() || null,
+      contact: leasingForm.contact.trim() || null,
+      email: leasingForm.email.trim() || null,
+      products: leasingForm.products ? leasingForm.products.split(',').map(s => s.trim()).filter(Boolean) : null,
+      rate: leasingForm.rate !== '' ? Number(leasingForm.rate) : null,
+      tenors: leasingForm.tenors ? leasingForm.tenors.split(',').map(s => Number(s.trim())).filter(Boolean) : null,
+      min_pinjaman: leasingForm.min_pinjaman !== '' ? Number(leasingForm.min_pinjaman) : null,
+      max_pinjaman: leasingForm.max_pinjaman !== '' ? Number(leasingForm.max_pinjaman) : null,
+      status: leasingForm.status,
+      syarat: leasingForm.syarat.trim() || null,
+      notes: leasingForm.notes.trim() || null,
+    };
+    let error;
+    if (leasingModal.row) {
+      ({ error } = await supabase.from('dsd_leasing_partners').update(payload).eq('id', leasingModal.row.id));
+    } else {
+      ({ error } = await supabase.from('dsd_leasing_partners').insert(payload));
+    }
+    setLeasingSaving(false);
+    if (error) { showToast(error.message, 'error'); return; }
+    showToast(leasingModal.row ? `"${payload.name}" diperbarui` : `Leasing "${payload.name}" ditambahkan`);
+    setLeasingModal({ open: false, row: null });
+    load();
+  };
 
   // --- Rate tables state ---
   const [ratesLeasing,  setRatesLeasing]  = useState('CMD');
@@ -472,7 +565,7 @@ export function MasterData() {
     setLoading(true);
     if (isLeasingCat) {
       const { data } = await supabase.from('dsd_leasing_partners').select('*').order('id');
-      setOptions((data || []).map(r => ({ id: r.id, value: r.name, active: r.status === 'aktif' })));
+      setOptions((data || []).map(r => ({ id: r.id, value: r.name, active: r.status === 'aktif', branch: r.branch, pic: r.pic, contact: r.contact })));
       if (data) syncLeasingContext(data);
     } else {
       const { data } = await supabase
@@ -517,7 +610,6 @@ export function MasterData() {
 
   const remove = async (opt) => {
     if (isLeasingCat) {
-      if (!confirm(`Hapus leasing "${opt.value}"? Tidak akan muncul lagi di form berkas & simulasi.`)) return;
       const { error } = await supabase.from('dsd_leasing_partners').delete().eq('id', opt.id);
       if (error) {
         // Masih direferensikan berkas lama (FK leasing_id) — nonaktifkan saja
@@ -526,12 +618,11 @@ export function MasterData() {
       } else {
         showToast(`"${opt.value}" dihapus`);
       }
-      load();
-      return;
+    } else {
+      await supabase.from('dsd_master_options').delete().eq('id', opt.id);
+      showToast(`"${opt.value}" dihapus`);
     }
-    if (!confirm(`Hapus "${opt.value}"? Dropdown di web & aplikasi tidak akan menampilkannya lagi.`)) return;
-    await supabase.from('dsd_master_options').delete().eq('id', opt.id);
-    showToast(`"${opt.value}" dihapus`);
+    setPendingDelOpt(null);
     load();
   };
 
@@ -570,27 +661,35 @@ export function MasterData() {
             ))}
           </div>
 
-          <div className="card" style={{ padding:20, maxWidth:560 }}>
+          <div className="card" style={{ padding:20, maxWidth:isLeasingCat ? 720 : 560 }}>
             <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
-              <input
-                className="input"
-                style={{ flex:1, minWidth:140 }}
-                value={newValue}
-                onChange={e => setNewValue(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && add()}
-                placeholder={currentCat?.hasLabel ? 'Kunci (mis. tipe-baru)' : `Tambah ${currentCat?.label.toLowerCase()}...`}
-              />
-              {currentCat?.hasLabel && (
-                <input
-                  className="input"
-                  style={{ flex:1, minWidth:140 }}
-                  value={newLabel}
-                  onChange={e => setNewLabel(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && add()}
-                  placeholder="Label tampilan"
-                />
+              {isLeasingCat ? (
+                <button className="btn btn-primary" onClick={() => openLeasingModal()}>
+                  <Plus size={15} /> Tambah Leasing
+                </button>
+              ) : (
+                <>
+                  <input
+                    className="input"
+                    style={{ flex:1, minWidth:140 }}
+                    value={newValue}
+                    onChange={e => setNewValue(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && add()}
+                    placeholder={currentCat?.hasLabel ? 'Kunci (mis. tipe-baru)' : `Tambah ${currentCat?.label.toLowerCase()}...`}
+                  />
+                  {currentCat?.hasLabel && (
+                    <input
+                      className="input"
+                      style={{ flex:1, minWidth:140 }}
+                      value={newLabel}
+                      onChange={e => setNewLabel(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && add()}
+                      placeholder="Label tampilan"
+                    />
+                  )}
+                  <button className="btn btn-primary" onClick={add}><Plus size={15} /> Tambah</button>
+                </>
               )}
-              <button className="btn btn-primary" onClick={add}><Plus size={15} /> Tambah</button>
             </div>
 
             {loading ? (
@@ -601,17 +700,35 @@ export function MasterData() {
               <div style={{ display:'flex', flexDirection:'column' }}>
                 {options.map(opt => (
                   <div key={opt.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border-light)' }}>
-                    <span style={{ flex:1, fontSize:14, fontWeight:500, color: opt.active ? 'var(--c-0f172a)' : 'var(--c-94a3b8)', textDecoration: opt.active ? 'none' : 'line-through' }}>
-                      {opt.label || opt.value}
-                      {opt.label && <span style={{ fontSize:11, color:'var(--c-94a3b8)', marginLeft:8, fontFamily:'monospace' }}>{opt.value}</span>}
-                    </span>
+                    <div style={{ flex:1 }}>
+                      <span style={{ fontSize:14, fontWeight:500, color: opt.active ? 'var(--c-0f172a)' : 'var(--c-94a3b8)', textDecoration: opt.active ? 'none' : 'line-through' }}>
+                        {opt.label || opt.value}
+                        {opt.label && <span style={{ fontSize:11, color:'var(--c-94a3b8)', marginLeft:8, fontFamily:'monospace' }}>{opt.value}</span>}
+                      </span>
+                      {isLeasingCat && opt.branch && (
+                        <p style={{ fontSize:11, color:'var(--c-94a3b8)', marginTop:2 }}>{opt.branch}{opt.pic ? ` · PIC: ${opt.pic}` : ''}{opt.contact ? ` · ${opt.contact}` : ''}</p>
+                      )}
+                    </div>
                     {!opt.active && <span style={{ fontSize:11, color:'#f59e0b', fontWeight:600 }}>Nonaktif</span>}
+                    {isLeasingCat && (
+                      <button className="btn btn-ghost btn-sm" title="Edit detail leasing" onClick={() => openLeasingModal(opt)}>
+                        <Edit2 size={14} />
+                      </button>
+                    )}
                     <button className="btn btn-ghost btn-sm" title={opt.active ? 'Sembunyikan' : 'Aktifkan'} onClick={() => toggle(opt)}>
                       {opt.active ? <Eye size={14} /> : <EyeOff size={14} />}
                     </button>
-                    <button className="btn btn-ghost btn-sm" title="Hapus" onClick={() => remove(opt)}>
-                      <Trash2 size={14} color="#ef4444" />
-                    </button>
+                    {pendingDelOpt === opt.id ? (
+                      <>
+                        <button className="btn btn-sm" style={{ color:'#ef4444', background:'#fef2f2', border:'1px solid #fecaca', fontSize:11 }}
+                          onClick={() => remove(opt)}>Hapus</button>
+                        <button className="btn btn-sm btn-ghost" style={{ fontSize:11 }} onClick={() => setPendingDelOpt(null)}>Batal</button>
+                      </>
+                    ) : (
+                      <button className="btn btn-ghost btn-sm" title="Hapus" onClick={() => setPendingDelOpt(opt.id)}>
+                        <Trash2 size={14} color="#ef4444" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -743,6 +860,83 @@ export function MasterData() {
             <OtrCatalogEditor showToast={showToast} />
           </div>
         </>
+      )}
+
+      {/* ── Leasing Form Modal ── */}
+      {leasingModal.open && (
+        <div className="modal-overlay" onClick={() => setLeasingModal({ open:false, row:null })}>
+          <div className="modal" style={{ maxWidth:560, width:'100%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ fontSize:15, fontWeight:700, color:'var(--c-0f172a)' }}>
+                {leasingModal.row ? 'Edit Leasing' : 'Tambah Leasing Baru'}
+              </h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setLeasingModal({ open:false, row:null })}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label className="label">Nama Leasing *</label>
+                <input className="input" value={leasingForm.name} onChange={e => setLeasingForm(f => ({...f, name: e.target.value}))} placeholder="contoh: Adira Finance" />
+              </div>
+              <div>
+                <label className="label">Cabang / Kota</label>
+                <input className="input" value={leasingForm.branch} onChange={e => setLeasingForm(f => ({...f, branch: e.target.value}))} placeholder="contoh: Makassar" />
+              </div>
+              <div>
+                <label className="label">PIC</label>
+                <input className="input" value={leasingForm.pic} onChange={e => setLeasingForm(f => ({...f, pic: e.target.value}))} placeholder="Nama PIC" />
+              </div>
+              <div>
+                <label className="label">Kontak / WA</label>
+                <input className="input" value={leasingForm.contact} onChange={e => setLeasingForm(f => ({...f, contact: e.target.value}))} placeholder="08xx-xxxx-xxxx" />
+              </div>
+              <div>
+                <label className="label">Email</label>
+                <input className="input" type="email" value={leasingForm.email} onChange={e => setLeasingForm(f => ({...f, email: e.target.value}))} placeholder="pic@leasing.co.id" />
+              </div>
+              <div>
+                <label className="label">Produk (pisah koma)</label>
+                <input className="input" value={leasingForm.products} onChange={e => setLeasingForm(f => ({...f, products: e.target.value}))} placeholder="Motor Baru, Mobil" />
+              </div>
+              <div>
+                <label className="label">Rate (%)</label>
+                <input className="input" type="number" step="0.01" value={leasingForm.rate} onChange={e => setLeasingForm(f => ({...f, rate: e.target.value}))} placeholder="contoh: 2.5" />
+              </div>
+              <div>
+                <label className="label">Tenor (pisah koma)</label>
+                <input className="input" value={leasingForm.tenors} onChange={e => setLeasingForm(f => ({...f, tenors: e.target.value}))} placeholder="12, 24, 36" />
+              </div>
+              <div>
+                <label className="label">Min Pinjaman (Rp)</label>
+                <input className="input" type="number" value={leasingForm.min_pinjaman} onChange={e => setLeasingForm(f => ({...f, min_pinjaman: e.target.value}))} placeholder="contoh: 5000000" />
+              </div>
+              <div>
+                <label className="label">Max Pinjaman (Rp)</label>
+                <input className="input" type="number" value={leasingForm.max_pinjaman} onChange={e => setLeasingForm(f => ({...f, max_pinjaman: e.target.value}))} placeholder="contoh: 500000000" />
+              </div>
+              <div>
+                <label className="label">Status</label>
+                <select className="input" value={leasingForm.status} onChange={e => setLeasingForm(f => ({...f, status: e.target.value}))}>
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label className="label">Syarat Dokumen</label>
+                <textarea className="input" rows={2} value={leasingForm.syarat} onChange={e => setLeasingForm(f => ({...f, syarat: e.target.value}))} placeholder="KTP, STNK, BPKB, Slip Gaji..." style={{ resize:'vertical' }} />
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label className="label">Catatan Internal</label>
+                <textarea className="input" rows={2} value={leasingForm.notes} onChange={e => setLeasingForm(f => ({...f, notes: e.target.value}))} placeholder="Informasi tambahan untuk tim internal..." style={{ resize:'vertical' }} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setLeasingModal({ open:false, row:null })}>Batal</button>
+              <button className="btn btn-primary" disabled={leasingSaving} onClick={saveLeasingModal}>
+                {leasingSaving ? 'Menyimpan…' : (leasingModal.row ? 'Perbarui' : 'Simpan Leasing')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </Layout>

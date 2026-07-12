@@ -2,11 +2,24 @@ package com.solusidana.sahabat.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 class SessionManager(context: Context) {
 
-    private val prefs: SharedPreferences =
+    private val prefs: SharedPreferences = try {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        EncryptedSharedPreferences.create(
+            "session_secure",
+            masterKeyAlias,
+            context,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (_: Exception) {
+        // Fallback ke plain prefs jika perangkat tidak support keystore (sangat jarang)
         context.getSharedPreferences("session", Context.MODE_PRIVATE)
+    }
 
     var accessToken: String?
         get() = prefs.getString(KEY_TOKEN, null)

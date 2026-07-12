@@ -8,6 +8,7 @@ import android.widget.ArrayAdapter
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -27,6 +28,7 @@ class ApplicationFormFragment : Fragment() {
     private var _b: FragmentApplicationFormBinding? = null
     private val b get() = _b!!
     private val vm: ApplicationFormViewModel by viewModels()
+    private val listVm: ApplicationListViewModel by activityViewModels()
 
     private var selectedAgent: Agent? = null
     private var selectedLeasing: LeasingPartner? = null
@@ -174,6 +176,7 @@ class ApplicationFormFragment : Fragment() {
             when (state) {
                 is FormState.Saving -> { b.btnSave.isEnabled = false; b.progress.isVisible = true }
                 is FormState.Saved -> {
+                    listVm.needsRefresh = true
                     Snackbar.make(b.root, "Berkas ${state.appId} berhasil disimpan", Snackbar.LENGTH_LONG).show()
                     findNavController().navigateUp()
                 }

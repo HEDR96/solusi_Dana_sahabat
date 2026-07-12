@@ -146,6 +146,25 @@ export const C_RO_FEE = {
   200000:[4500,6900,7500,8100],
 };
 
+// ─── Pick Up Angsuran NEW  [t12, t24, t36, t48] ──────────────────────────────
+export const PU_NEW_ANG = {
+  30000:[3180,1703,1266,1058],  35000:[3676,1969,1463,1223],
+  40000:[4172,2235,1661,1388],  45000:[4589,2500,1858,1553],
+  50000:[5077,2766,2055,1718],  55000:[5396,3032,2253,1883],
+  60000:[5869,3297,2450,2048],  65000:[6342,3563,2648,2213],
+  70000:[6815,3829,2845,2378],  75000:[7288,4094,3042,2543],
+  80000:[7761,4360,3240,2708],  85000:[8234,4626,3437,2873],
+  90000:[8707,4891,3635,3038],  95000:[9180,5157,3832,3203],
+  100000:[9653,5423,4029,3368], 105000:[10126,5688,4227,3533],
+  110000:[10598,5954,4424,3698],115000:[11071,6220,4622,3863],
+  120000:[11544,6485,4819,4028],125000:[12017,6751,5016,4193],
+  130000:[12490,7017,5214,4358],135000:[12963,7282,5411,4523],
+  140000:[13436,7548,5609,4688],145000:[13909,7814,5806,4853],
+  150000:[14382,8079,6003,5018],155000:[14855,8345,6201,5183],
+  160000:[15328,8611,6398,5348],165000:[15800,8876,6596,5513],
+  170000:[16273,9142,6793,5678],175000:[16746,9408,6990,5843],
+};
+
 // ─── Struktur produk yang extensible (tambah pickup dll di sini) ─────────────
 export const PRODUCTS = [
   {
@@ -158,7 +177,11 @@ export const PRODUCTS = [
     types: [{ key: 'reg', label: 'REGULER' }, { key: 'ro', label: 'RO' }],
     tenors: CAR_TENORS,
   },
-  // { key: 'pickup', label: 'Pick Up', types: [...], tenors: [...] },
+  {
+    key: 'pickup', label: 'Pick Up',
+    types: [{ key: 'new', label: 'NEW' }],
+    tenors: CAR_TENORS,
+  },
 ];
 
 export const RATE_TABLE_GROUPS = [
@@ -175,6 +198,8 @@ const FALLBACKS = {
   mobil_reg_ang: C_REG_ANG, mobil_ro_ang: C_RO_ANG,
   mobil_reg_fee: C_REG_FEE, mobil_ro_fee: C_RO_FEE,
   mobil_reg_fee_agen: C_REG_FEE, mobil_ro_fee_agen: C_RO_FEE,
+  pickup_new_ang: PU_NEW_ANG,
+  pickup_new_fee: C_REG_FEE, pickup_new_fee_agen: C_REG_FEE,
 };
 
 // ─── Daftar 12 tabel (angsuran + komisi leasing + komisi agen) ───────────────
@@ -194,6 +219,10 @@ export const RATE_TABLE_DEFS = [
   { id:'motor_ro_fee_agen',  product:'motor', tipe:'ro_fee_agen',  label:'Motor RO – Komisi Agen',        tenors: MOTOR_TENORS, fallback: M_RO_FEE,  group:'komisi_agen' },
   { id:'mobil_reg_fee_agen', product:'mobil', tipe:'reg_fee_agen', label:'Mobil REGULER – Komisi Agen',   tenors: CAR_TENORS,   fallback: C_REG_FEE, group:'komisi_agen' },
   { id:'mobil_ro_fee_agen',  product:'mobil', tipe:'ro_fee_agen',  label:'Mobil RO – Komisi Agen',        tenors: CAR_TENORS,   fallback: C_RO_FEE,  group:'komisi_agen' },
+  // Pick Up
+  { id:'pickup_new_ang',     product:'pickup', tipe:'new_ang',     label:'Pick Up NEW – Angsuran',        tenors: CAR_TENORS,   fallback: PU_NEW_ANG, group:'ang' },
+  { id:'pickup_new_fee',     product:'pickup', tipe:'new_fee',     label:'Pick Up NEW – Komisi Leasing',  tenors: CAR_TENORS,   fallback: C_REG_FEE,  group:'komisi_leasing' },
+  { id:'pickup_new_fee_agen',product:'pickup', tipe:'new_fee_agen',label:'Pick Up NEW – Komisi Agen',     tenors: CAR_TENORS,   fallback: C_REG_FEE,  group:'komisi_agen' },
 ];
 
 // ─── Helper: cari def berdasarkan product + typeKey + group ──────────────────

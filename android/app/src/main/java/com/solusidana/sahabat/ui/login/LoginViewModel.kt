@@ -43,15 +43,11 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                             session.agentId     = profile.agentId
                             _state.value = LoginState.Success
                         }
-                        .onFailure {
-                            // masih simpan token meski profil belum ada
-                            session.accessToken  = auth.accessToken
-                            session.refreshToken = auth.refreshToken
-                            session.userId      = auth.user.id
-                            session.userEmail   = auth.user.email
-                            session.userName    = auth.user.email
-                            session.userRole    = "agen"
-                            _state.value = LoginState.Success
+                        .onFailure { profileErr ->
+                            // Profil tidak ditemukan — tolak login, jangan assume role agen
+                            _state.value = LoginState.Error(
+                                "Akun ditemukan tapi profil belum dikonfigurasi. Hubungi administrator."
+                            )
                         }
                 }
                 .onFailure { e ->

@@ -57,6 +57,11 @@ class NotificationsFragment : Fragment() {
                 } else {
                     b.tvEmpty.isVisible = false
                     b.recycler.adapter = NotifAdapter(sorted)
+                    // Tandai semua sudah dibaca
+                    val maxId = sorted.maxOf { it.id }
+                    requireContext().getSharedPreferences("notif_state", android.content.Context.MODE_PRIVATE)
+                        .edit().putLong("last_seen_id", maxId).apply()
+                    (activity as? com.solusidana.sahabat.ui.main.MainActivity)?.updateNotifBadge()
                 }
             }.onFailure { e ->
                 if (_b == null) return@onFailure

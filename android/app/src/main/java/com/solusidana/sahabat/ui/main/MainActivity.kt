@@ -77,6 +77,16 @@ class MainActivity : AppCompatActivity() {
             pendingOpenAppId = null
             navigateToAppDetail(appId)
         }
+        updateNotifBadge()
+    }
+
+    fun updateNotifBadge() {
+        val lastPushed = getSharedPreferences("sync_state", MODE_PRIVATE)
+            .getLong("last_push_msg_id", 0L)
+        val lastSeen = getSharedPreferences("notif_state", MODE_PRIVATE)
+            .getLong("last_seen_id", 0L)
+        val badge = binding.bottomNav.getOrCreateBadge(R.id.notificationsFragment)
+        badge.isVisible = lastPushed > lastSeen
     }
 
     private fun navigateToAppDetail(appId: String) {

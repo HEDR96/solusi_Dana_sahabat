@@ -72,9 +72,16 @@ function Section({ icon: Icon, title, desc, color = '#3b82f6', bg = '#eff6ff', c
 
 export function Settings() {
   const app = useApp();
-  const { darkMode, setDarkMode, settings, saveSettings, showToast } = app;
+  const { darkMode, setDarkMode, settings, saveSettings, showToast, currentUser } = app;
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
+
+  const canAccess = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  if (!canAccess) return (
+    <Layout title="Pengaturan">
+      <div className="empty-state"><p>Anda tidak memiliki akses ke halaman ini.</p></div>
+    </Layout>
+  );
 
   // Notification push state
   const [users, setUsers] = useState([]);
@@ -340,8 +347,15 @@ export function Settings() {
                   <label className="label">Pilih Role Tujuan</label>
                   <select className="input" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
                     <option value="">-- Pilih role --</option>
-                    {['agen', 'admin', 'spv', 'owner'].map(r => (
-                      <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                    {[
+                      { value: 'agen',       label: 'Agen' },
+                      { value: 'admin',      label: 'Admin' },
+                      { value: 'spv-agen',   label: 'Supervisor Agen' },
+                      { value: 'surveyor',   label: 'Surveyor' },
+                      { value: 'finance',    label: 'Finance' },
+                      { value: 'owner',      label: 'Owner' },
+                    ].map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
                 </div>

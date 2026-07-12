@@ -51,7 +51,7 @@ const EMPTY = {
 };
 
 export function ApplicationList() {
-  const { visibleApplications: applications, agents, leasing, addApplication, updateApplicationStatus, currentUser } = useApp();
+  const { visibleApplications: applications, agents, visibleAgents, leasing, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const unitTypes    = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
@@ -186,9 +186,15 @@ export function ApplicationList() {
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
   const selectedApps = useMemo(() => applications.filter(a => selectedIds.has(a.id)), [applications, selectedIds]);
 
-  const handleBulkStatus = () => {
-    if (!bulkStatus) return;
-    selectedApps.forEach(app => updateApplicationStatus(app.id, bulkStatus, 'Diubah melalui aksi massal'));
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const handleBulkStatus = async () => {
+    if (!bulkStatus || bulkLoading) return;
+    setBulkLoading(true);
+    // Sequential untuk hindari race condition duplikat komisi saat bulk approve
+    for (const app of selectedApps) {
+      await updateApplicationStatus(app.id, bulkStatus, 'Diubah melalui aksi massal');
+    }
+    setBulkLoading(false);
     setShowBulkStatus(false);
     setBulkStatus('');
     clearSelection();
@@ -210,13 +216,13 @@ export function ApplicationList() {
     return Object.keys(e).length === 0;
   }, [form, currentUser, agents]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!validate()) return;
     const ls = leasing.find(l => l.id === Number(form.leasingId));
     const ag = currentUser?.role === 'agen'
       ? agents.find(a => a.id === currentUser.agentId)
       : agents.find(a => a.id === form.agentId);
-    addApplication({
+    await addApplication({
       ...form,
       leasingId: Number(form.leasingId),
       leasingName: ls?.name || '',
@@ -224,11 +230,13 @@ export function ApplicationList() {
       agentName: ag?.name || form.agentName,
       pinjaman: Number(form.pinjaman),
       estimasiAngsuran: Number(form.estimasiAngsuran),
-    });
+    }, docFiles);
     setShowModal(false);
     setForm(EMPTY);
+    setDocFiles({});
+    setDocChecked({});
     setErrors({});
-  }, [validate, form, currentUser, agents, addApplication]);
+  }, [validate, form, docFiles, currentUser, agents, addApplication]);
 
   const activeFilters = (filterStatus !== 'all' ? 1 : 0) + (filterAgent !== 'all' ? 1 : 0);
 
@@ -282,7 +290,7 @@ export function ApplicationList() {
             <label className="label">Agen</label>
             <select className="input input-sm" value={filterAgent} onChange={e => { setAgent(e.target.value); setPage(1); }}>
               <option value="all">Semua Agen</option>
-              {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {visibleAgents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => { setStatus('all'); setAgent('all'); setPage(1); }}>
@@ -636,7 +644,7 @@ export function ApplicationList() {
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShowBulkStatus(false)}>Batal</button>
-            <button className="btn btn-primary" disabled={!bulkStatus} onClick={handleBulkStatus}>Terapkan ke {selectedIds.size} Berkas</button>
+            <button className="btn btn-primary" disabled={!bulkStatus || bulkLoading} onClick={handleBulkStatus}>{bulkLoading ? 'Memproses...' : `Terapkan ke ${selectedIds.size} Berkas`}</button>
           </>
         }
       >

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, EyeOff, LogIn, Shield, TrendingUp, Users, FileCheck } from 'lucide-react';
+import { Building2, Eye, EyeOff, LogIn, Shield, TrendingUp, Users, FileCheck, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabaseClient';
 
 const STATS = [
   { v: '1.200+', l: 'Berkas Diproses' },
@@ -18,11 +19,15 @@ const FEATURES = [
 export function Login() {
   const { login } = useApp();
   const navigate = useNavigate();
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [showPass, setShowPass]   = useState(false);
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent]   = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async e => {
     e.preventDefault();
@@ -31,6 +36,18 @@ export function Login() {
     if (result?.user) navigate('/dashboard');
     else setError(result?.error || 'Email atau password salah');
     setLoading(false);
+  };
+
+  const handleForgotPassword = async e => {
+    e.preventDefault();
+    if (!resetEmail.trim()) return;
+    setResetLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetLoading(false);
+    if (err) { setError(err.message); return; }
+    setResetSent(true);
   };
 
   return (
@@ -104,63 +121,120 @@ export function Login() {
           </div>
 
           <div className="anim-fade-up">
-            <h2 className="login-form-title">Selamat datang 👋</h2>
-            <p className="login-form-sub">Masuk ke akun Anda untuk melanjutkan</p>
+            {forgotMode ? (
+              <>
+                <h2 className="login-form-title">Lupa Password</h2>
+                <p className="login-form-sub">Masukkan email Anda — kami akan kirimkan link reset</p>
 
-            {error && (
-              <div className="alert alert-danger login-error">
-                <Shield size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span style={{ fontSize: 13 }}>{error}</span>
-              </div>
-            )}
+                {error && (
+                  <div className="alert alert-danger login-error">
+                    <Shield size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 13 }}>{error}</span>
+                  </div>
+                )}
 
-            <form onSubmit={handleLogin}>
-              <div className="field login-field">
-                <label className="label">Email</label>
-                <input
-                  className="input"
-                  type="email" value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="email@perusahaan.co.id"
-                  autoComplete="email"
-                  required
-                />
-              </div>
+                {resetSent ? (
+                  <div className="alert alert-success" style={{ marginBottom: 20 }}>
+                    <Mail size={15} style={{ flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600 }}>Link reset dikirim!</p>
+                      <p style={{ fontSize: 12, marginTop: 2 }}>Cek inbox {resetEmail} dan klik link di email tersebut.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword}>
+                    <div className="field login-field">
+                      <label className="label">Email</label>
+                      <input
+                        className="input"
+                        type="email" value={resetEmail}
+                        onChange={e => { setResetEmail(e.target.value); setError(''); }}
+                        placeholder="email@perusahaan.co.id"
+                        autoComplete="email"
+                        required autoFocus
+                      />
+                    </div>
+                    <button type="submit" disabled={resetLoading} className="btn btn-primary login-submit-btn">
+                      {resetLoading ? <div className="login-spinner" /> : <Mail size={17} />}
+                      {resetLoading ? 'Mengirim...' : 'Kirim Link Reset'}
+                    </button>
+                  </form>
+                )}
 
-              <div className="field login-field">
-                <label className="label">Password</label>
-                <div className="input-wrap">
-                  <input
-                    className="input"
-                    type={showPass ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Masukkan password"
-                    style={{ paddingRight: 44 }}
-                    autoComplete="current-password"
-                    required
-                  />
-                  <button type="button" onClick={() => setShowPass(v => !v)} className="input-icon-right">
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                <p className="login-register-hint">
+                  <button type="button" className="login-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    onClick={() => { setForgotMode(false); setError(''); setResetSent(false); setResetEmail(''); }}>
+                    ← Kembali ke login
                   </button>
-                </div>
-              </div>
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="login-form-title">Selamat datang 👋</h2>
+                <p className="login-form-sub">Masuk ke akun Anda untuk melanjutkan</p>
 
-              <button
-                type="submit" disabled={loading}
-                className="btn btn-primary login-submit-btn"
-              >
-                {loading ? (
-                  <div className="login-spinner" />
-                ) : <LogIn size={17} />}
-                {loading ? 'Memproses...' : 'Masuk Sekarang'}
-              </button>
-            </form>
+                {error && (
+                  <div className="alert alert-danger login-error">
+                    <Shield size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 13 }}>{error}</span>
+                  </div>
+                )}
 
-            <p className="login-register-hint">
-              Ingin bergabung jadi agen?{' '}
-              <a href="/daftar-agen" className="login-link">Lamar di sini</a>
-            </p>
+                <form onSubmit={handleLogin}>
+                  <div className="field login-field">
+                    <label className="label">Email</label>
+                    <input
+                      className="input"
+                      type="email" value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="email@perusahaan.co.id"
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+
+                  <div className="field login-field">
+                    <label className="label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      Password
+                      <button type="button" className="login-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12 }}
+                        onClick={() => { setForgotMode(true); setError(''); setResetEmail(email); }}>
+                        Lupa password?
+                      </button>
+                    </label>
+                    <div className="input-wrap">
+                      <input
+                        className="input"
+                        type={showPass ? 'text' : 'password'}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Masukkan password"
+                        style={{ paddingRight: 44 }}
+                        autoComplete="current-password"
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPass(v => !v)} className="input-icon-right">
+                        {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit" disabled={loading}
+                    className="btn btn-primary login-submit-btn"
+                  >
+                    {loading ? (
+                      <div className="login-spinner" />
+                    ) : <LogIn size={17} />}
+                    {loading ? 'Memproses...' : 'Masuk Sekarang'}
+                  </button>
+                </form>
+
+                <p className="login-register-hint">
+                  Ingin bergabung jadi agen?{' '}
+                  <a href="/daftar-agen" className="login-link">Lamar di sini</a>
+                </p>
+              </>
+            )}
           </div>
 
           <p className="login-footer">

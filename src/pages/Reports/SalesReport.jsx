@@ -83,16 +83,19 @@ export function SalesReport() {
   const monthlyStats = useMemo(() => {
     const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
     const now = new Date();
+    // Gunakan `filtered` agar grafik konsisten dengan filter agen/leasing aktif
+    // Untuk filter tanggal: tetap tampilkan 6 bulan terakhir dari data yang sudah difilter agen/leasing
+    const baseData = filtered.length ? filtered : applications;
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
       const y = d.getFullYear(), m = d.getMonth();
-      const mo = applications.filter(a => {
+      const mo = baseData.filter(a => {
         const ad = new Date(a.inputDate);
         return ad.getFullYear() === y && ad.getMonth() === m;
       });
       return { month: MONTHS[m], berkas: mo.length, approve: mo.filter(a => a.status === 'approve').length, reject: mo.filter(a => a.status === 'reject').length };
     });
-  }, [applications]);
+  }, [filtered, applications]);
 
   const kpiItems = [
     { label: 'Total Berkas', value: stats.total, icon: FileText, color: '#3b82f6', bg: '#eff6ff', trendKey: 'total' },

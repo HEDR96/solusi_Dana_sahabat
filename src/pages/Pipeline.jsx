@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
@@ -10,7 +10,7 @@ const PIPELINE_COLS = STATUSES.filter(s => !['approve', 'cancel', 'reject'].incl
 const TERMINAL     = STATUSES.filter(s => ['approve', 'cancel', 'reject'].includes(s.key));
 
 export function Pipeline() {
-  const { visibleApplications: applications } = useApp();
+  const { visibleApplications: applications, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const [view, setView] = useState('kanban');
 
@@ -51,7 +51,7 @@ export function Pipeline() {
       </div>
 
       {view === 'kanban' ? (
-        <KanbanView byStatus={byStatus} navigate={navigate} />
+        <KanbanView byStatus={byStatus} navigate={navigate} updateApplicationStatus={updateApplicationStatus} currentUser={currentUser} />
       ) : (
         <ListView applications={applications} navigate={navigate} />
       )}
@@ -59,11 +59,33 @@ export function Pipeline() {
   );
 }
 
-function KanbanView({ byStatus, navigate }) {
+function KanbanView({ byStatus, navigate, updateApplicationStatus, currentUser }) {
+  const canDrag = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const [dragging, setDragging] = useState(null); // { appId, fromStatus }
+  const [dragOverCol, setDragOverCol] = useState(null);
+
+  const handleDragStart = (appId, fromStatus) => setDragging({ appId, fromStatus });
+  const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
+
+  const handleDragOver = (e, colKey) => {
+    e.preventDefault();
+    if (dragging && dragging.fromStatus !== colKey) setDragOverCol(colKey);
+  };
+  const handleDragLeave = () => setDragOverCol(null);
+
+  const handleDrop = (e, colKey) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    if (!dragging || dragging.fromStatus === colKey) return;
+    updateApplicationStatus(dragging.appId, colKey, '', '', '', undefined);
+    setDragging(null);
+  };
+
   return (
     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12 }}>
       {PIPELINE_COLS.map(col => {
         const cards = byStatus(col.key);
+        const isOver = dragOverCol === col.key;
         return (
           <div key={col.key} className="kanban-col" style={{ minWidth: 230, flex: '1 0 230px' }}>
             <div className="kanban-header" style={{ borderTop: `3px solid ${col.hex}` }}>
@@ -73,10 +95,26 @@ function KanbanView({ byStatus, navigate }) {
               </div>
               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.hex + '18', color: col.hex }}>{cards.length}</span>
             </div>
-            <div className="kanban-body">
+            <div
+              className="kanban-body"
+              onDragOver={canDrag ? e => handleDragOver(e, col.key) : undefined}
+              onDragLeave={canDrag ? handleDragLeave : undefined}
+              onDrop={canDrag ? e => handleDrop(e, col.key) : undefined}
+              style={isOver ? { background: col.hex + '12', outline: `2px dashed ${col.hex}60`, outlineOffset: -3, borderRadius: 8 } : undefined}
+            >
               {cards.length === 0
-                ? <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--c-cbd5e1)', fontSize: 12 }}>Tidak ada berkas</div>
-                : cards.map(app => <KanbanCard key={app.id} app={app} navigate={navigate} hex={col.hex} />)
+                ? <div style={{ textAlign: 'center', padding: '32px 16px', color: isOver ? col.hex : 'var(--c-cbd5e1)', fontSize: 12 }}>
+                    {isOver ? 'Lepas di sini' : 'Tidak ada berkas'}
+                  </div>
+                : cards.map(app => (
+                    <KanbanCard
+                      key={app.id} app={app} navigate={navigate} hex={col.hex}
+                      draggable={canDrag}
+                      onDragStart={() => handleDragStart(app.id, col.key)}
+                      onDragEnd={handleDragEnd}
+                      isDragging={dragging?.appId === app.id}
+                    />
+                  ))
               }
             </div>
           </div>
@@ -95,7 +133,7 @@ function KanbanView({ byStatus, navigate }) {
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.hex + '18', color: col.hex }}>{cards.length}</span>
               </div>
-              <div className="kanban-body" style={{ maxHeight: 200 }}>
+              <div className="kanban-body" style={{ maxHeight: 280, overflowY: 'auto' }}>
                 {cards.length === 0
                   ? <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--c-cbd5e1)', fontSize: 12 }}>Tidak ada</div>
                   : cards.map(app => <KanbanCard key={app.id} app={app} navigate={navigate} hex={col.hex} compact />)
@@ -109,10 +147,20 @@ function KanbanView({ byStatus, navigate }) {
   );
 }
 
-function KanbanCard({ app, navigate, hex, compact }) {
+function KanbanCard({ app, navigate, hex, compact, draggable, onDragStart, onDragEnd, isDragging }) {
   return (
-    <div className="kanban-card" onClick={() => navigate(`/applications/${app.id}`)}
-      style={{ cursor: 'pointer', borderLeft: `3px solid ${hex}` }}
+    <div
+      className="kanban-card"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={() => navigate(`/applications/${app.id}`)}
+      style={{
+        cursor: draggable ? 'grab' : 'pointer',
+        borderLeft: `3px solid ${hex}`,
+        opacity: isDragging ? 0.4 : 1,
+        transition: 'opacity 0.15s',
+      }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: compact ? 4 : 8 }}>
         <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--c-94a3b8)' }}>{app.id}</span>
@@ -138,6 +186,10 @@ function KanbanCard({ app, navigate, hex, compact }) {
 }
 
 function ListView({ applications, navigate }) {
+  const PER = 20;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.ceil(applications.length / PER);
+  const rows = applications.slice((page - 1) * PER, page * PER);
   return (
     <div className="table-wrap">
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -149,7 +201,7 @@ function ListView({ applications, navigate }) {
           </tr>
         </thead>
         <tbody>
-          {applications.map(app => {
+          {rows.map(app => {
             const statusInfo = STATUSES.find(s => s.key === app.status);
             return (
               <tr key={app.id} className="table-row">
@@ -181,6 +233,27 @@ function ListView({ applications, navigate }) {
           })}
         </tbody>
       </table>
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid var(--border-light)' }}>
+          <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>Halaman {page} dari {totalPages}</p>
+          <div className="pagination">
+            <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+            {(() => {
+              const delta = 2, pages = [], left = Math.max(2, page - delta), right = Math.min(totalPages - 1, page + delta);
+              pages.push(1);
+              if (left > 2) pages.push('…');
+              for (let i = left; i <= right; i++) pages.push(i);
+              if (right < totalPages - 1) pages.push('…');
+              if (totalPages > 1) pages.push(totalPages);
+              return pages.map((p, i) => p === '…'
+                ? <span key={`e${i}`} className="page-btn" style={{ pointerEvents: 'none' }}>…</span>
+                : <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+              );
+            })()}
+            <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

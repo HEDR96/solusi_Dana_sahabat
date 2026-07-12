@@ -7,6 +7,7 @@ import {
   MOTOR_TENORS, CAR_TENORS,
   M_NEW_ANG, M_RO_ANG, M_NEW_FEE, M_RO_FEE,
   C_REG_ANG, C_RO_ANG, C_REG_FEE, C_RO_FEE,
+  PU_NEW_ANG,
   lookupVal, getPinjamanOptions,
 } from '../data/rateTables';
 import { Calculator, TrendingUp, Building2, Car } from 'lucide-react';
@@ -44,7 +45,7 @@ function Toggle({ value, onChange, options }) {
 
 // ─── Komponen utama ──────────────────────────────────────────────────────────
 export function Simulation() {
-  const { leasing: leasingList } = useApp();
+  const { leasing: leasingList, settings, currentUser } = useApp();
   const activeLeasings = leasingList.filter(l => l.status === 'aktif');
 
   const [selectedLeasingId, setLeasingId] = useState('');
@@ -126,15 +127,24 @@ export function Simulation() {
 
   // Pinjaman options: keys dari tabel angsuran (ribuan × 1000), dibatasi maks pinjaman jika ada
   const pinjamanOptions = useMemo(() => {
-    const isMotorJenis = jenis === 'motor';
-    const produk  = isMotorJenis ? 'motor' : 'mobil';
-    const typeKey = isRO ? 'ro' : (isMotorJenis ? 'new' : 'reg');
-    const dbKey   = isMotorJenis
-      ? (isRO ? 'motor_ro_ang'  : 'motor_new_ang')
-      : (isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang');
+    let produk, typeKey, dbKey, fallback;
+    if (jenis === 'motor') {
+      produk = 'motor'; typeKey = isRO ? 'ro' : 'new';
+      dbKey  = isRO ? 'motor_ro_ang' : 'motor_new_ang';
+      fallback = isRO ? M_RO_ANG : M_NEW_ANG;
+    } else if (jenis === 'pickup') {
+      produk = 'pickup'; typeKey = 'new';
+      dbKey  = 'pickup_new_ang';
+      fallback = PU_NEW_ANG;
+    } else {
+      produk = 'mobil'; typeKey = isRO ? 'ro' : 'reg';
+      dbKey  = isRO ? 'mobil_ro_ang' : 'mobil_reg_ang';
+      fallback = isRO ? C_RO_ANG : C_REG_ANG;
+    }
     const dbTable = dbTables?.[dbKey];
     const all = getPinjamanOptions(dbTable, produk, typeKey).map(v => v * 1000);
-    return otrInfo?.max ? all.filter(v => v <= otrInfo.max) : all;
+    const resolved = all.length ? all : Object.keys(fallback).map(k => Number(k) * 1000);
+    return otrInfo?.max ? resolved.filter(v => v <= otrInfo.max) : resolved;
   }, [jenis, isRO, dbTables, otrInfo]);
 
   const result = useMemo(() => {
@@ -143,20 +153,25 @@ export function Simulation() {
     if (!p || p <= 0) return null;
     const pRibu    = p / 1000;
     const isMotorJenis = jenis === 'motor';
+    const isPickupJenis = jenis === 'pickup';
     const tenors   = isMotorJenis ? MOTOR_TENORS : CAR_TENORS;
     const angTable = isMotorJenis
       ? getTable(isRO ? 'motor_ro_ang'  : 'motor_new_ang', isRO ? M_RO_ANG  : M_NEW_ANG)
-      : getTable(isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang', isRO ? C_RO_ANG  : C_REG_ANG);
+      : isPickupJenis
+        ? getTable('pickup_new_ang', PU_NEW_ANG)
+        : getTable(isRO ? 'mobil_ro_ang'  : 'mobil_reg_ang', isRO ? C_RO_ANG  : C_REG_ANG);
     const feeTable = isMotorJenis
       ? getTable(isRO ? 'motor_ro_fee'  : 'motor_new_fee', isRO ? M_RO_FEE  : M_NEW_FEE)
-      : getTable(isRO ? 'mobil_ro_fee'  : 'mobil_reg_fee', isRO ? C_RO_FEE  : C_REG_FEE);
+      : isPickupJenis
+        ? getTable('pickup_new_fee', C_REG_FEE)
+        : getTable(isRO ? 'mobil_ro_fee'  : 'mobil_reg_fee', isRO ? C_RO_FEE  : C_REG_FEE);
     const angsuran = lookupVal(angTable, tenors, pRibu, validTenor);
     const fee      = lookupVal(feeTable, tenors, pRibu, validTenor);
     if (!angsuran || !fee) return null;
     return { angsuran, fee, totalBayar: angsuran * validTenor };
   }, [jenis, isRO, pencairan, validTenor, dbTables, selectedLeasingId]);
 
-  const labelJenis = jenis === 'motor' ? 'Motor' : 'Mobil';
+  const labelJenis = jenis === 'motor' ? 'Motor' : jenis === 'pickup' ? 'Pick Up' : 'Mobil';
   const labelTipe  = isRO ? 'RO' : (jenis === 'motor' ? 'NEW' : 'REGULER');
   const leasingName = selectedLeasing?.name || '';
 
@@ -204,14 +219,20 @@ export function Simulation() {
 
               <div>
                 <label className="label">Jenis Pengajuan</label>
-                <Toggle
-                  value={isRO ? 'ro' : 'new'}
-                  onChange={v => setIsRO(v === 'ro')}
-                  options={[
-                    { value:'new', label: jenis === 'motor' ? 'NEW' : 'REGULER' },
-                    { value:'ro',  label:'RO (Repeat Order)' },
-                  ]}
-                />
+                {jenis === 'pickup' ? (
+                  <div style={{ padding: '8px 14px', background: 'var(--surface-alt)', borderRadius: 8, fontSize: 13, color: 'var(--c-64748b)' }}>
+                    NEW — Pick Up hanya tersedia NEW (belum ada tabel RO)
+                  </div>
+                ) : (
+                  <Toggle
+                    value={isRO ? 'ro' : 'new'}
+                    onChange={v => setIsRO(v === 'ro')}
+                    options={[
+                      { value:'new', label: jenis === 'motor' ? 'NEW' : 'REGULER' },
+                      { value:'ro',  label:'RO (Repeat Order)' },
+                    ]}
+                  />
+                )}
               </div>
 
               {/* ── OTR Lookup CMD Finance: Brand → Tipe → Tahun ── */}
@@ -352,20 +373,42 @@ export function Simulation() {
                 </div>
               </div>
 
-              <div style={{ background:'#f0fdf4', border:'1.5px solid #bbf7d0', borderRadius:14, padding:'18px 20px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                  <TrendingUp size={16} color="#16a34a" />
-                  <p style={{ fontSize:12, fontWeight:700, color:'#15803d', textTransform:'uppercase', letterSpacing:'.04em' }}>
-                    Komisi Leasing
-                  </p>
-                </div>
-                <p style={{ fontSize:30, fontWeight:800, color:'#15803d', marginBottom:4 }}>
-                  {formatRupiah(result.fee)}
-                </p>
-                <p style={{ fontSize:12, color:'#16a34a' }}>
-                  Per berkas disetujui · {leasingName} · {labelJenis} {labelTipe}
-                </p>
-              </div>
+              {(() => {
+                const agRate  = settings?.commissionAgentRate ?? 80;
+                const agKomisi = Math.round(result.fee * agRate / 100);
+                const ownerKomisi = result.fee - agKomisi;
+                const isOwner = ['owner', 'super-admin'].includes(currentUser?.role);
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ background:'#f0fdf4', border:'1.5px solid #bbf7d0', borderRadius:14, padding:'18px 20px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                        <TrendingUp size={16} color="#16a34a" />
+                        <p style={{ fontSize:12, fontWeight:700, color:'#15803d', textTransform:'uppercase', letterSpacing:'.04em' }}>
+                          Komisi Leasing (Gross)
+                        </p>
+                      </div>
+                      <p style={{ fontSize:30, fontWeight:800, color:'#15803d', marginBottom:4 }}>
+                        {formatRupiah(result.fee)}
+                      </p>
+                      <p style={{ fontSize:12, color:'#16a34a' }}>
+                        Per berkas disetujui · {leasingName} · {labelJenis} {labelTipe}
+                      </p>
+                    </div>
+
+                    <div style={{ background:'#eff6ff', border:'1.5px solid #bfdbfe', borderRadius:14, padding:'16px 20px' }}>
+                      <p style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>
+                        Take-Home Agen ({agRate}%)
+                      </p>
+                      <p style={{ fontSize:26, fontWeight:800, color:'#1d4ed8', marginBottom:2 }}>{formatRupiah(agKomisi)}</p>
+                      {isOwner && (
+                        <p style={{ fontSize:12, color:'#3b82f6', marginTop:4 }}>
+                          Keuntungan owner: <strong>{formatRupiah(ownerKomisi)}</strong> ({100 - agRate}%)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ background:'var(--surface-alt)', borderRadius:10, padding:'12px 14px' }}>
                 <p style={{ fontSize:11, color:'var(--c-64748b)', lineHeight:1.6 }}>

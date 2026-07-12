@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { useApp } from '../context/AppContext';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -15,12 +15,31 @@ const EVENT_COLORS = {
   'reject':       { dot: '#ef4444', bg: '#fef2f2', text: '#b91c1c', label: 'Reject' },
 };
 
+const SCHEDULABLE = ['pending', 'verifikasi', 'janji-survey', 'survey'];
+
 export function CalendarPage() {
-  const { visibleApplications: applications } = useApp();
+  const { visibleApplications: applications, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
+  const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const TODAY = new Date();
   const [currentDate, setCurrentDate] = useState(TODAY);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [schedModal, setSchedModal] = useState({ open: false, date: null, app: null, time: '', saving: false });
+
+  const openSchedModal = (date, app = null) => {
+    setSchedModal({ open: true, date, app, time: app?.surveyTime || '', saving: false });
+  };
+  const closeSchedModal = () => setSchedModal(m => ({ ...m, open: false }));
+
+  const handleScheduleSave = async () => {
+    const { app, date, time } = schedModal;
+    if (!app) return;
+    setSchedModal(m => ({ ...m, saving: true }));
+    const dateStr = format(date, 'yyyy-MM-dd');
+    await updateApplicationStatus(app.id, 'janji-survey', '', dateStr, time, undefined);
+    setSchedModal(m => ({ ...m, saving: false, open: false }));
+    setSelectedDay(date);
+  };
 
   const events = [];
   applications.forEach(app => {
@@ -142,11 +161,18 @@ export function CalendarPage() {
 
           {/* Selected day detail */}
           <div className="card">
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 8 }}>
-              {selectedDay
-                ? format(selectedDay, 'd MMMM yyyy', { locale: idLocale })
-                : 'Pilih Tanggal'}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-0f172a)' }}>
+                {selectedDay
+                  ? format(selectedDay, 'd MMMM yyyy', { locale: idLocale })
+                  : 'Pilih Tanggal'}
+              </p>
+              {canEdit && selectedDay && (
+                <button className="btn btn-primary btn-sm" style={{ gap: 5, fontSize: 11 }} onClick={() => openSchedModal(selectedDay)}>
+                  <Plus size={12} /> Jadwal Survey
+                </button>
+              )}
+            </div>
             {!selectedDay ? (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <Calendar size={28} color="var(--border)" style={{ margin: '0 auto 8px' }} />
@@ -156,14 +182,25 @@ export function CalendarPage() {
               <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', textAlign: 'center', padding: '16px 0' }}>Tidak ada aktivitas</p>
             ) : selectedEvents.map((ev, i) => {
               const c = EVENT_COLORS[ev.type] || EVENT_COLORS['berkas-masuk'];
+              const isSurveyEvent = ev.type === 'janji-survey' || ev.type === 'survey';
               return (
-                <div key={i} onClick={() => navigate(`/applications/${ev.app.id}`)}
-                  style={{ padding: '10px 12px', borderRadius: 10, background: c.bg, marginBottom: 8, cursor: 'pointer', borderLeft: `3px solid ${c.dot}` }}
-                >
-                  <p style={{ fontSize: 10, fontWeight: 700, color: c.text, marginBottom: 3 }}>{c.label}</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 2 }}>{ev.app.customerName}</p>
+                <div key={i} style={{ padding: '10px 12px', borderRadius: 10, background: c.bg, marginBottom: 8, borderLeft: `3px solid ${c.dot}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: c.text }}>{c.label}</p>
+                    {canEdit && isSurveyEvent && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '2px 6px', fontSize: 10, gap: 3 }}
+                        onClick={e => { e.stopPropagation(); openSchedModal(selectedDay, ev.app); }}
+                      >
+                        <Clock size={10} /> Ubah
+                      </button>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-0f172a)', marginBottom: 2, cursor: 'pointer' }}
+                    onClick={() => navigate(`/applications/${ev.app.id}`)}>{ev.app.customerName}</p>
                   <p style={{ fontSize: 11, color: 'var(--c-94a3b8)' }}>{ev.app.id} · {ev.app.agentName}</p>
-                  {ev.app.surveyTime && ev.type !== 'berkas-masuk' && (
+                  {ev.app.surveyTime && isSurveyEvent && (
                     <p style={{ fontSize: 11, fontWeight: 700, color: c.text, marginTop: 4 }}>⏰ {ev.app.surveyTime}</p>
                   )}
                 </div>
@@ -193,6 +230,62 @@ export function CalendarPage() {
           )}
         </div>
       </div>
+
+      {/* Schedule Modal */}
+      {schedModal.open && (
+        <div className="modal-overlay" onClick={closeSchedModal}>
+          <div className="modal" style={{ maxWidth: 420, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-0f172a)' }}>
+                Jadwalkan Survey — {schedModal.date ? format(schedModal.date, 'd MMMM yyyy', { locale: idLocale }) : ''}
+              </h3>
+              <button className="btn btn-ghost btn-sm" onClick={closeSchedModal}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="label">Pilih Berkas</label>
+                <select
+                  className="input"
+                  value={schedModal.app?.id || ''}
+                  onChange={e => {
+                    const found = applications.find(a => a.id === e.target.value);
+                    setSchedModal(m => ({ ...m, app: found || null }));
+                  }}
+                >
+                  <option value="">— Pilih berkas —</option>
+                  {applications
+                    .filter(a => SCHEDULABLE.includes(a.status))
+                    .map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.id} — {a.customerName} ({a.agentName})
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              <div>
+                <label className="label">Jam Survey (opsional)</label>
+                <input
+                  type="time"
+                  className="input"
+                  value={schedModal.time}
+                  onChange={e => setSchedModal(m => ({ ...m, time: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={closeSchedModal}>Batal</button>
+              <button
+                className="btn btn-primary"
+                disabled={!schedModal.app || schedModal.saving}
+                onClick={handleScheduleSave}
+              >
+                {schedModal.saving ? 'Menyimpan…' : 'Simpan Jadwal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

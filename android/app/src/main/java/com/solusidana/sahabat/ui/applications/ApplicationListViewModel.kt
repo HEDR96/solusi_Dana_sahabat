@@ -30,6 +30,7 @@ class ApplicationListViewModel(application: Application) : AndroidViewModel(appl
     private var allApps = listOf<App>()
     var currentFilter = "all"
     var currentQuery  = ""
+    var needsRefresh  = false
 
     fun load() {
         viewModelScope.launch {

@@ -199,7 +199,8 @@ class SimulationFragment : Fragment() {
 
     private fun updateTenorDropdown() {
         val list = tenorList()
-        if (selectedTenor !in list) selectedTenor = list[1]
+        if (list.isEmpty()) return
+        if (selectedTenor !in list) selectedTenor = list.getOrElse(1) { list.first() }
         b.ddTenor.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, list.map { "$it bulan" }))
         b.ddTenor.setText("$selectedTenor bulan", false)
     }

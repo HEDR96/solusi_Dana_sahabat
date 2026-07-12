@@ -66,7 +66,10 @@ class ApplicationListFragment : Fragment() {
             override fun onQueryTextChange(q: String?) = true.also { vm.search(q ?: "") }
         })
 
-        vm.loading.observe(viewLifecycleOwner) { b.progress.isVisible = it }
+        vm.loading.observe(viewLifecycleOwner) { isLoading ->
+            b.progress.isVisible = isLoading
+            if (!isLoading) b.swipeRefresh.isRefreshing = false
+        }
         vm.apps.observe(viewLifecycleOwner) { list ->
             adapter.submitList(list)
             b.tvEmpty.isVisible = list.isEmpty() && vm.loading.value == false
@@ -79,10 +82,7 @@ class ApplicationListFragment : Fragment() {
             }
         }
 
-        b.swipeRefresh.setOnRefreshListener {
-            vm.load()
-            b.swipeRefresh.isRefreshing = false
-        }
+        b.swipeRefresh.setOnRefreshListener { vm.load() }
 
         b.fabAdd.setOnClickListener {
             findNavController().navigate(R.id.action_applications_to_form)
@@ -93,7 +93,10 @@ class ApplicationListFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        vm.load()   // refresh setelah kembali dari form input
+        if (vm.needsRefresh) {
+            vm.needsRefresh = false
+            vm.load()
+        }
     }
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }

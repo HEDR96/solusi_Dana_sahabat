@@ -14,12 +14,18 @@ const DEFAULT_DOC_TYPES = ['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'
 export function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { applications, statusLogs, updateApplicationStatus, currentUser, commissions, settings } = useApp();
-  const [showStatus, setShowStatus] = useState(false);
-  const [newStatus, setNewStatus]   = useState('');
-  const [notes, setNotes]           = useState('');
-  const [surveyDate, setSurveyDate] = useState('');
-  const [surveyTime, setSurveyTime] = useState('');
+  const { applications, statusLogs, updateApplicationStatus, updateApplicationData, currentUser, commissions, settings, managedAgentIds } = useApp();
+  const [showStatus, setShowStatus]       = useState(false);
+  const [newStatus, setNewStatus]         = useState('');
+  const [notes, setNotes]                 = useState('');
+  const [surveyDate, setSurveyDate]       = useState('');
+  const [surveyTime, setSurveyTime]       = useState('');
+  const [approvePinjaman, setApprovePinjaman] = useState('');
+
+  // Edit berkas
+  const [showEdit, setShowEdit]     = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editFields, setEditFields] = useState({});
 
   // ── Dokumen Google Drive ──
   const [gdocs, setGdocs]         = useState([]);
@@ -92,7 +98,6 @@ export function ApplicationDetail() {
   };
 
   const app = applications.find(a => a.id === id);
-  const { managedAgentIds } = useApp();
   const isSpv = currentUser?.role === 'spv-agen';
   const isForbidden = app && (
     (currentUser?.role === 'agen' && app.agentId !== currentUser.agentId) ||
@@ -113,10 +118,36 @@ export function ApplicationDetail() {
   const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
   const needsSurvey = ['janji-survey', 'survey'].includes(newStatus);
 
+  const openEdit = () => {
+    setEditFields({
+      customerName: app.customerName || '',
+      nik: app.nik || '',
+      phone: app.phone || '',
+      city: app.city || '',
+      address: app.address || '',
+      unitType: app.unitType || '',
+      unitBrand: app.unitBrand || '',
+      unitYear: app.unitYear || '',
+      pinjaman: String(app.pinjaman || ''),
+      tenor: String(app.tenor || ''),
+      leasingName: app.leasingName || '',
+      notes: app.notes || '',
+    });
+    setShowEdit(true);
+  };
+
+  const handleEditSave = async () => {
+    setEditSaving(true);
+    await updateApplicationData(id, editFields);
+    setEditSaving(false);
+    setShowEdit(false);
+  };
+
   const handleSave = () => {
-    updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime);
+    const parsedPinjaman = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
+    updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime, parsedPinjaman || undefined);
     setShowStatus(false);
-    setNotes(''); setSurveyDate(''); setSurveyTime('');
+    setNotes(''); setSurveyDate(''); setSurveyTime(''); setApprovePinjaman('');
   };
 
   const Row = ({ label, value }) => (
@@ -146,9 +177,14 @@ export function ApplicationDetail() {
         <div style={{ flex: 1 }} />
         <Badge status={app.status} />
         {canEdit && (
-          <button className="btn btn-primary btn-sm" onClick={() => setShowStatus(true)}>
-            <Edit2 size={14} /> Ubah Status
-          </button>
+          <>
+            <button className="btn btn-secondary btn-sm" onClick={openEdit}>
+              <Edit2 size={14} /> Edit Data
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowStatus(true)}>
+              <Edit2 size={14} /> Ubah Status
+            </button>
+          </>
         )}
         <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
           <Printer size={14} /> Cetak
@@ -345,6 +381,86 @@ export function ApplicationDetail() {
         </div>
       </div>
 
+      {/* ── Edit data modal ── */}
+      <Modal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit Data Berkas"
+        size="md"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowEdit(false)}>Batal</button>
+            <button className="btn btn-primary" disabled={editSaving} onClick={handleEditSave}>
+              {editSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+          </>
+        }
+      >
+        {(() => {
+          const ef = editFields;
+          const set = (k, v) => setEditFields(prev => ({ ...prev, [k]: v }));
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', background: 'var(--surface-alt)', padding: '8px 12px', borderRadius: 8 }}>
+                Perubahan akan dicatat di audit log. Status berkas tidak berubah.
+              </p>
+              <div className="form-grid" style={{ gap: 12 }}>
+                <div>
+                  <label className="label">Nama Nasabah</label>
+                  <input className="input" value={ef.customerName || ''} onChange={e => set('customerName', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">NIK</label>
+                  <input className="input" value={ef.nik || ''} onChange={e => set('nik', e.target.value)} maxLength={16} />
+                </div>
+                <div>
+                  <label className="label">Nomor Telepon</label>
+                  <input className="input" value={ef.phone || ''} onChange={e => set('phone', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Kota</label>
+                  <input className="input" value={ef.city || ''} onChange={e => set('city', e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Alamat</label>
+                <input className="input" value={ef.address || ''} onChange={e => set('address', e.target.value)} />
+              </div>
+              <div className="form-grid" style={{ gap: 12 }}>
+                <div>
+                  <label className="label">Tipe Unit</label>
+                  <input className="input" value={ef.unitType || ''} onChange={e => set('unitType', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Merk & Model</label>
+                  <input className="input" value={ef.unitBrand || ''} onChange={e => set('unitBrand', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Tahun</label>
+                  <input className="input" value={ef.unitYear || ''} onChange={e => set('unitYear', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Leasing</label>
+                  <input className="input" value={ef.leasingName || ''} onChange={e => set('leasingName', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Pinjaman (Rp)</label>
+                  <input className="input" type="number" value={ef.pinjaman || ''} onChange={e => set('pinjaman', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Tenor (bulan)</label>
+                  <input className="input" type="number" value={ef.tenor || ''} onChange={e => set('tenor', e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Catatan</label>
+                <textarea className="input textarea" rows={2} value={ef.notes || ''} onChange={e => set('notes', e.target.value)} />
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
       {/* ── Status modal ── */}
       <Modal
         isOpen={showStatus}
@@ -393,16 +509,31 @@ export function ApplicationDetail() {
           )}
 
           {newStatus === 'approve' && (() => {
+            const parsed  = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
+            const base    = parsed || app.pinjaman;
             const rate    = settings?.commissionRate ?? 1.5;
             const agRate  = settings?.commissionAgentRate ?? 80;
-            const leasing = Math.round(app.pinjaman * rate / 100);
+            const leasing = Math.round(base * rate / 100);
             const agent   = Math.round(leasing * agRate / 100);
             return (
-              <div className="alert alert-success">
-                <CheckCircle size={15} style={{ flexShrink: 0 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>Pengajuan akan disetujui</p>
-                  <p style={{ fontSize: 12, marginTop: 2 }}>Komisi leasing <strong>{formatRupiah(leasing)}</strong> · Komisi agen <strong>{formatRupiah(agent)}</strong></p>
+                  <label className="label">Nominal Disetujui (jika berbeda)</label>
+                  <input
+                    className="input"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={`Default: ${formatRupiah(app.pinjaman)}`}
+                    value={approvePinjaman}
+                    onChange={e => setApprovePinjaman(e.target.value)}
+                  />
+                </div>
+                <div className="alert alert-success">
+                  <CheckCircle size={15} style={{ flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600 }}>Pengajuan akan disetujui · {formatRupiah(base)}</p>
+                    <p style={{ fontSize: 12, marginTop: 2 }}>Komisi leasing <strong>{formatRupiah(leasing)}</strong> · Komisi agen <strong>{formatRupiah(agent)}</strong></p>
+                  </div>
                 </div>
               </div>
             );

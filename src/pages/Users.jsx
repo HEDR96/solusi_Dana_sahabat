@@ -5,7 +5,7 @@ import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { useMasterOptions, useMasterPairs } from '../utils/useMasterOptions';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, Edit2, Shield, Check, RotateCcw } from 'lucide-react';
+import { Plus, Edit2, Shield, Check, RotateCcw, UserX, UserCheck } from 'lucide-react';
 
 const F = memo(({ label, children, error }) => (
   <div>
@@ -79,7 +79,7 @@ const EMPTY_AGENT = { phone: '', city: '', nik: '', address: '', bank: '', accou
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Users() {
-  const { users, createUser, updateUserProfile, agents, addAgent, showToast, currentUser, assignAgentsToSpv } = useApp();
+  const { users, createUser, updateUserProfile, agents, addAgent, showToast, currentUser, assignAgentsToSpv, visibleAgents } = useApp();
   const [showModal, setShow]        = useState(false);
   const [editUser, setEdit]         = useState(null);
   const [selectedRole, setSelRole]  = useState('super-admin');
@@ -87,6 +87,7 @@ export function Users() {
   const [errors, setErrors]         = useState({});
   const [saving, setSaving]         = useState(false);
   const [resetting, setResetting]   = useState(null);
+  const [toggling, setToggling]     = useState(null);
   const [spvAgentIds, setSpvAgentIds] = useState([]); // agent IDs assigned to SPV being edited
   const [agentMode, setAgentMode]   = useState('new');       // 'new' = daftarkan agen baru | 'existing' = hubungkan agen lama
   const [agentForm, setAgentForm]   = useState(EMPTY_AGENT); // data agen baru (role agen)
@@ -95,8 +96,20 @@ export function Users() {
   const bankOptions = useMasterOptions('bank', ['BCA', 'BNI', 'BRI', 'Mandiri', 'BSI', 'BTPN', 'Danamon', 'Permata']);
   const supervisors = users.filter(u => u.role === 'spv-agen');
 
+  const handleToggleStatus = async (user) => {
+    setToggling(user.id);
+    const newStatus = user.status === 'aktif' ? 'nonaktif' : 'aktif';
+    await updateUserProfile(user.id, { ...user, status: newStatus });
+    showToast(`User ${user.name} ${newStatus === 'aktif' ? 'diaktifkan' : 'dinonaktifkan'}`);
+    setToggling(null);
+  };
+
   const handleResetPassword = async (user) => {
-    if (!confirm(`Reset password ${user.name} ke "password"?`)) return;
+    // Generate temp password: 3 kata acak + angka
+    const words = ['Solusi','Dana','Sahabat','Leasing','Berkas','Agen','Kredit','Motor','Mobil'];
+    const tempPass = words[Math.floor(Math.random() * words.length)]
+      + Math.floor(1000 + Math.random() * 9000);
+    if (!confirm(`Reset password ${user.name}?\nPassword sementara: ${tempPass}\n\nSalin password ini sebelum melanjutkan.`)) return;
     setResetting(user.id);
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -104,12 +117,12 @@ export function Users() {
     const resp = await fetch('/api/admin-user', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ userId: user.id }),
+      body: JSON.stringify({ userId: user.id, password: tempPass }),
     });
     const result = await resp.json();
     setResetting(null);
     if (!resp.ok) { showToast('Gagal reset: ' + (result.error || `HTTP ${resp.status}`), 'error'); return; }
-    showToast(`Password ${user.name} direset ke "password"`);
+    showToast(`Password ${user.name} direset. Password sementara: ${tempPass}`, 'success', 8000);
   };
 
   // Role & kegunaannya dari DB (menu Master Data) — fallback ke konstanta lama
@@ -219,15 +232,26 @@ export function Users() {
                     <td className="table-td" style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(user)}><Edit2 size={13} /></button>
                       {currentUser?.role === 'owner' && user.id !== currentUser.id && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          title="Reset password ke 'password'"
-                          disabled={resetting === user.id}
-                          onClick={() => handleResetPassword(user)}
-                          style={{ color: '#f59e0b' }}
-                        >
-                          <RotateCcw size={13} />
-                        </button>
+                        <>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title="Reset password sementara"
+                            disabled={resetting === user.id}
+                            onClick={() => handleResetPassword(user)}
+                            style={{ color: '#f59e0b' }}
+                          >
+                            <RotateCcw size={13} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title={user.status === 'aktif' ? 'Nonaktifkan user' : 'Aktifkan user'}
+                            disabled={toggling === user.id}
+                            onClick={() => handleToggleStatus(user)}
+                            style={{ color: user.status === 'aktif' ? '#ef4444' : '#22c55e' }}
+                          >
+                            {user.status === 'aktif' ? <UserX size={13} /> : <UserCheck size={13} />}
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>

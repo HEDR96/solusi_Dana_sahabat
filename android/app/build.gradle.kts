@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val localProps = Properties().also { props ->
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
 }
 
 android {
@@ -22,9 +29,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("../solusidana-release.jks")
-            storePassword = "SolusiDana2025!"
+            storePassword = localProps.getProperty("KEYSTORE_STORE_PASSWORD") ?: ""
             keyAlias = "solusidana"
-            keyPassword = "SolusiDana2025!"
+            keyPassword = localProps.getProperty("KEYSTORE_KEY_PASSWORD") ?: ""
         }
     }
 
@@ -83,6 +90,9 @@ dependencies {
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    // Encrypted SharedPreferences (JWT storage)
+    implementation("androidx.security:security-crypto:1.0.0")
 
     // Lokasi (check-in survey)
     implementation("com.google.android.gms:play-services-location:21.2.0")
