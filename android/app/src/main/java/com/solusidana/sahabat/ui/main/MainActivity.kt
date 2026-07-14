@@ -63,6 +63,11 @@ class MainActivity : AppCompatActivity() {
 
         // Simpan appId dari klik notifikasi — navigate saat onResume
         pendingOpenAppId = intent?.getStringExtra(EXTRA_OPEN_APP_ID)
+
+        // Jika buka dari LockActivity (fresh unlock), skip relock check di onStart pertama
+        if (intent?.getBooleanExtra(EXTRA_JUST_UNLOCKED, false) == true) {
+            justUnlocked = true
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -98,9 +103,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private var justUnlocked = false
+
     override fun onStart() {
         super.onStart()
-        // Kunci ulang jika app ditinggal di background > 60 detik
+        if (justUnlocked) {
+            justUnlocked = false
+            return
+        }
         val lock = AppLockManager(this)
         if (lock.shouldRelock()) {
             startActivity(Intent(this, LockActivity::class.java).apply {
@@ -149,6 +159,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_OPEN_APP_ID = "open_app_id"
+        const val EXTRA_JUST_UNLOCKED = "just_unlocked"
     }
 
     @SuppressLint("MissingPermission")

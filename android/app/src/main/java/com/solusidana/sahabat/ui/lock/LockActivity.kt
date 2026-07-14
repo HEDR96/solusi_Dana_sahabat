@@ -73,7 +73,9 @@ class LockActivity : AppCompatActivity() {
             // Dipanggil di atas MainActivity yang sudah ada — cukup tutup
             finish()
         } else {
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(Intent(this, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_JUST_UNLOCKED, true)
+            })
             finish()
         }
     }
