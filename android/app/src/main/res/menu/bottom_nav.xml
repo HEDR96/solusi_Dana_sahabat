@@ -17,11 +17,6 @@
         android:title="Berkas" />
 
     <item
-        android:id="@+id/commissionFragment"
-        android:icon="@drawable/ic_money"
-        android:title="Komisi" />
-
-    <item
         android:id="@+id/notificationsFragment"
         android:icon="@drawable/ic_notification"
         android:title="Notifikasi" />

@@ -24,6 +24,10 @@ class CommissionFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        b.toolbar.setNavigationOnClickListener {
+            androidx.navigation.fragment.NavHostFragment.findNavController(this).navigateUp()
+        }
+
         vm.loading.observe(viewLifecycleOwner) { b.progress.isVisible = it }
 
         vm.summary.observe(viewLifecycleOwner) { s ->

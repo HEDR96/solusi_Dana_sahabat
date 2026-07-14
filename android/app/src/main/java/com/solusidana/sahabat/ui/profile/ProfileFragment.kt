@@ -58,6 +58,11 @@ class ProfileFragment : Fragment() {
                 .show()
         }
 
+        b.btnCommission.setOnClickListener {
+            androidx.navigation.fragment.NavHostFragment.findNavController(this)
+                .navigate(com.solusidana.sahabat.R.id.action_profile_to_commission)
+        }
+
         b.btnEditProfile.setOnClickListener {
             androidx.navigation.fragment.NavHostFragment.findNavController(this)
                 .navigate(com.solusidana.sahabat.R.id.action_profile_to_edit)

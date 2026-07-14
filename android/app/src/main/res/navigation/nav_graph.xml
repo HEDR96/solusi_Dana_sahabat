@@ -83,6 +83,9 @@
         <action
             android:id="@+id/action_profile_to_edit"
             app:destination="@id/editProfileFragment" />
+        <action
+            android:id="@+id/action_profile_to_commission"
+            app:destination="@id/commissionFragment" />
     </fragment>
 
     <fragment

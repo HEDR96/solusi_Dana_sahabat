@@ -182,6 +182,16 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCommission"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="💰 Komisi"
+                android:textSize="13sp"
+                android:layout_marginBottom="12dp"
+                app:cornerRadius="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnEditProfile"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
