@@ -61,7 +61,9 @@ class ApplicationFormFragment : Fragment() {
 
         fun bindDropdowns() {
             b.ddUnitType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, unitTypes))
+            b.ddUnitType.setOnClickListener { b.ddUnitType.showDropDown() }
             b.ddTenor.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tenorOptions.map { "$it bulan" }))
+            b.ddTenor.setOnClickListener { b.ddTenor.showDropDown() }
             b.ddTenor.setOnItemClickListener { _, _, pos, _ ->
                 selectedTenor = tenorOptions[pos]
                 updateEstimasi()
@@ -84,11 +86,13 @@ class ApplicationFormFragment : Fragment() {
         b.tilAgent.isVisible = !vm.isAgen
         vm.agents.observe(viewLifecycleOwner) { list ->
             b.ddAgent.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, list.map { it.name }))
+            b.ddAgent.setOnClickListener { b.ddAgent.showDropDown() }
             b.ddAgent.setOnItemClickListener { _, _, pos, _ -> selectedAgent = list[pos] }
         }
 
         vm.leasing.observe(viewLifecycleOwner) { list ->
             b.ddLeasing.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, list.map { it.name }))
+            b.ddLeasing.setOnClickListener { b.ddLeasing.showDropDown() }
             b.ddLeasing.setOnItemClickListener { _, _, pos, _ ->
                 selectedLeasing = list[pos]
                 isCMD = list[pos].name.trim().lowercase() == "cmd finance"
