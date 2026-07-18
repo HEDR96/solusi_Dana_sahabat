@@ -135,6 +135,17 @@ data class OtrCatalogRow(
         val otr = getOtr(tahun) ?: return null
         return (otr * getLtv(tahun)).toLong()
     }
+
+    /**
+     * Motor vs Mobil ditentukan dari brand (sama persis dengan isMotorBrand() di
+     * web src/pages/Simulation.jsx) — BUKAN dari kolom unit_type. Kolom itu tidak
+     * pernah diklasifikasikan ulang secara benar di data produksi (semua baris
+     * defaultnya 'r2'), makanya web tidak pernah memakainya sama sekali.
+     */
+    fun isMotor(): Boolean {
+        val b = brand.trim().uppercase()
+        return b == "YAMAHA" || b == "HONDA"
+    }
 }
 
 val OTR_YEARS = listOf(2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015)

@@ -87,7 +87,14 @@ class AgentMapFragment : Fragment() {
     private fun String.escJs() = replace("\\", "\\\\").replace("'", "\\'").replace("<", "&lt;").replace(">", "&gt;")
 
     private fun buildMapHtml(locations: List<AgentLocation>): String {
-        val valid = locations.filter { it.lat != null && it.lng != null }
+        val withCoords = locations.filter { it.lat != null && it.lng != null }
+        // Worker lokasi background jalan tiap 15 menit — kalau baris di DB lebih
+        // tua dari itu (2x lipat untuk buffer keterlambatan Doze/OEM), berarti
+        // worker-nya sendiri gagal jalan (izin dicabut, battery-optimized, dsb),
+        // BUKAN posisi agen yang valid saat ini. Jangan tampilkan pin yang
+        // menyesatkan — lebih baik agen itu tidak muncul sama sekali di peta.
+        val valid = withCoords.filter { isRecent(it.updated_at) }
+        val staleCount = withCoords.size - valid.size
         val markers = valid.joinToString("\n") { loc ->
             val color = if (loc.role == "spv-agen") "#EF4444" else "#22C55E"
             val roleLabel = if (loc.role == "spv-agen") "Supervisor Agen" else "Agen"
@@ -119,11 +126,19 @@ class AgentMapFragment : Fragment() {
 #map { width:100vw; height:100vh; }
 .empty { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
          text-align:center; color:#64748b; font-family:sans-serif; font-size:14px; }
+.staleNotice { position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+         background:#fff; color:#92400e; border:1px solid #fcd34d; border-radius:8px;
+         padding:8px 14px; font-family:sans-serif; font-size:12px; z-index:1000; }
 </style>
 </head>
 <body>
 <div id="map"></div>
-${if (valid.isEmpty()) "<div class='empty'>📍 Belum ada data lokasi<br><small>Agen perlu buka aplikasi dan mengizinkan akses lokasi</small></div>" else ""}
+${when {
+    valid.isEmpty() && staleCount == 0 -> "<div class='empty'>📍 Belum ada data lokasi<br><small>Agen perlu buka aplikasi dan mengizinkan akses lokasi</small></div>"
+    valid.isEmpty() && staleCount > 0  -> "<div class='empty'>📍 Tidak ada agen dengan lokasi terbaru<br><small>$staleCount agen lokasinya lebih dari 30 menit lalu — disembunyikan</small></div>"
+    else -> ""
+}}
+${if (valid.isNotEmpty() && staleCount > 0) "<div class='staleNotice'>⚠️ $staleCount agen tidak ditampilkan (lokasi &gt; 30 menit lalu)</div>" else ""}
 <script>
 var map = L.map('map').setView([$centerLat, $centerLng], $zoom);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -137,18 +152,32 @@ ${if (valid.size > 1) "var bounds = [${valid.map { "[${it.lat},${it.lng}]" }.joi
         """.trimIndent()
     }
 
+    private fun instantAgeMs(iso: String?): Long? {
+        if (iso == null) return null
+        return try { System.currentTimeMillis() - java.time.Instant.parse(iso).toEpochMilli() } catch (e: Exception) { null }
+    }
+
+    private fun isRecent(iso: String?): Boolean {
+        val age = instantAgeMs(iso) ?: return false
+        return age in 0..FRESH_THRESHOLD_MS
+    }
+
     private fun timeAgo(iso: String): String {
-        return try {
-            val ms = System.currentTimeMillis() - java.time.Instant.parse(iso).toEpochMilli()
-            val mins = (ms / 60000).toInt()
-            when {
-                mins < 1    -> "baru saja"
-                mins < 60   -> "$mins menit lalu"
-                mins < 1440 -> "${mins/60} jam lalu"
-                else        -> "${mins/1440} hari lalu"
-            }
-        } catch (e: Exception) { iso.take(10) }
+        val ms = instantAgeMs(iso) ?: return iso.take(10)
+        val mins = (ms / 60000).toInt()
+        return when {
+            mins < 1    -> "baru saja"
+            mins < 60   -> "$mins menit lalu"
+            mins < 1440 -> "${mins/60} jam lalu"
+            else        -> "${mins/1440} hari lalu"
+        }
     }
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
+
+    companion object {
+        // Worker lokasi jalan tiap 15 menit — 30 menit kasih buffer 1x siklus
+        // untuk keterlambatan Doze/WorkManager sebelum dianggap "tidak aktif".
+        private const val FRESH_THRESHOLD_MS = 30 * 60 * 1000L
+    }
 }

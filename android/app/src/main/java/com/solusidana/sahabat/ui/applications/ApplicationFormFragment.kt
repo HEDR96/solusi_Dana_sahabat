@@ -180,6 +180,15 @@ class ApplicationFormFragment : Fragment() {
             updateEstimasi()
         }
 
+        b.btnPakaiMaks.setOnClickListener {
+            val opts = pinjamanOptions()
+            if (opts.isNotEmpty()) {
+                selectedPinjaman = opts.last()
+                b.ddPinjaman.setText(formatRupiah(selectedPinjaman), false)
+                updateEstimasi()
+            }
+        }
+
         b.etPinjaman.doAfterTextChanged {
             selectedPinjaman = b.etPinjaman.text.toString().toLongOrNull() ?: 0
             updateEstimasi()
@@ -227,23 +236,29 @@ class ApplicationFormFragment : Fragment() {
 
     private fun loadOtrCatalog(token: String) {
         viewLifecycleOwner.lifecycleScope.launch {
-            SupabaseApi.getOtrCatalog(token).onSuccess { rows ->
-                if (_b == null) return@onSuccess
-                otrCatalog = rows
-                // Kalau leasing CMD sudah dipilih SEBELUM katalog ini selesai dimuat,
-                // dropdown brand tadi difilter dari list kosong dan tidak pernah
-                // di-refresh lagi — perbaiki begitu data katalog datang.
-                refreshOtrBrands()
-            }
+            SupabaseApi.getOtrCatalog(token)
+                .onSuccess { rows ->
+                    if (_b == null) return@onSuccess
+                    otrCatalog = rows
+                    // Kalau leasing CMD sudah dipilih SEBELUM katalog ini selesai dimuat,
+                    // dropdown brand tadi difilter dari list kosong dan tidak pernah
+                    // di-refresh lagi — perbaiki begitu data katalog datang.
+                    refreshOtrBrands()
+                }
+                .onFailure { e ->
+                    if (_b == null) return@onFailure
+                    // Tanpa ini kegagalan di sini diam-diam bikin dropdown Brand
+                    // OTR kosong selamanya tanpa penjelasan.
+                    Snackbar.make(b.root, "Gagal memuat katalog OTR: ${e.message}", Snackbar.LENGTH_LONG).show()
+                }
         }
     }
 
-    /** Filter brand OTR sesuai Tipe Unit (Motor→r2 / Mobil→r4) dan isi ulang dropdown. */
+    /** Filter brand OTR sesuai Tipe Unit (Motor/Mobil) dan isi ulang dropdown. */
     private fun refreshOtrBrands() {
         if (_b == null || !isCMD) return
-        val unitType = b.ddUnitType.text.toString().trim()
-        val unitTypeForOtr = if (unitType.lowercase() == "motor") "r2" else "r4"
-        val brands = otrCatalog.filter { it.unitType == null || it.unitType == unitTypeForOtr }.map { it.brand }.distinct().sorted()
+        val wantMotor = b.ddUnitType.text.toString().trim().equals("motor", ignoreCase = true)
+        val brands = otrCatalog.filter { it.isMotor() == wantMotor }.map { it.brand }.distinct().sorted()
         b.ddOtrBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
     }
 
@@ -267,13 +282,15 @@ class ApplicationFormFragment : Fragment() {
 
     private fun pinjamanOptions(): List<Long> {
         val mp = maxPinjaman ?: return emptyList()
-        // Langkah Rp 1 juta mulai dari 5 juta hingga maks
+        if (mp < 5_000_000L) return listOf(mp)
+        // Langkah Rp 1 juta mulai dari 5 juta, lalu pastikan maks sendiri selalu
+        // ada sebagai pilihan terakhir (dulu kalau maks bukan kelipatan bulat
+        // 1 juta di atas 5 juta, nilai maks yang sebenarnya tidak pernah muncul
+        // di dropdown sama sekali).
         val steps = mutableListOf<Long>()
         var v = 5_000_000L
-        while (v <= mp) { steps.add(v); v += 1_000_000L }
-        if (steps.isEmpty() || steps.last() != mp) {
-            // Juga coba dari rate table jika tersedia — tidak ada di sini, pakai langkah 1 juta saja
-        }
+        while (v < mp) { steps.add(v); v += 1_000_000L }
+        steps.add(mp)
         return steps
     }
 

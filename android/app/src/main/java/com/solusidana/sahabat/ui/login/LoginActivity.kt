@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import com.google.android.material.snackbar.Snackbar
 import com.solusidana.sahabat.data.AppLockManager
 import com.solusidana.sahabat.data.SessionManager
@@ -19,6 +20,11 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // targetSdk 35 memaksa edge-to-edge secara default di Android 15 — tanpa
+        // ini, tinggi status bar/nav bar beda-beda tiap merek HP bikin konten
+        // (termasuk tombol) ketiban jam/statusbar atau tombol navigasi gestur.
+        // Kembalikan ke perilaku lama: sistem yang otomatis sisakan ruangnya.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         // Auto-redirect jika sudah login (lewat gerbang kunci jika diaktifkan)
         if (SessionManager(this).isLoggedIn) {

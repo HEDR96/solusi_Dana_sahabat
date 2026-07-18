@@ -92,10 +92,7 @@ class DashboardFragment : Fragment() {
                     }
                 }
                 row.setOnClickListener {
-                    findNavController().navigate(
-                        R.id.action_dashboard_to_detail,
-                        Bundle().apply { putString("appId", app.id) }
-                    )
+                    safeNavigate(R.id.action_dashboard_to_detail, Bundle().apply { putString("appId", app.id) })
                 }
                 b.containerSurveys.addView(row)
             }
@@ -133,10 +130,7 @@ class DashboardFragment : Fragment() {
                     row.findViewById<View>(R.id.statusBar).setBackgroundColor(color)
 
                     row.setOnClickListener {
-                        findNavController().navigate(
-                            R.id.action_dashboard_to_detail,
-                            Bundle().apply { putString("appId", app.id) }
-                        )
+                        safeNavigate(R.id.action_dashboard_to_detail, Bundle().apply { putString("appId", app.id) })
                     }
                     b.containerRecent.addView(row)
                 }
@@ -149,16 +143,16 @@ class DashboardFragment : Fragment() {
         }
 
         b.btnSimulation.setOnClickListener {
-            findNavController().navigate(R.id.action_dashboard_to_simulation)
+            safeNavigate(R.id.action_dashboard_to_simulation)
         }
         b.btnActivities.setOnClickListener {
-            findNavController().navigate(R.id.action_dashboard_to_activities)
+            safeNavigate(R.id.action_dashboard_to_activities)
         }
 
         if (SessionManager(requireContext()).userRole in listOf("owner", "super-admin")) {
             b.btnAgentMap.visibility = View.VISIBLE
             b.btnAgentMap.setOnClickListener {
-                findNavController().navigate(R.id.action_dashboard_to_map)
+                safeNavigate(R.id.action_dashboard_to_map)
             }
         }
 
@@ -187,6 +181,22 @@ class DashboardFragment : Fragment() {
     }
 
     private fun roleLabel(role: String) = com.solusidana.sahabat.data.MasterData.labelFor(requireContext(), "role", role)
+
+    /**
+     * Navigasi lewat action ID scoped ke dashboardFragment. Kalau user tap dua kali
+     * cepat (atau notifikasi memindah destinasi tepat saat klik ini tertunda di
+     * message queue), destinasi saat ini bisa sudah berubah sebelum callback jalan
+     * — action tidak ditemukan dari lokasi baru dan NavController melempar
+     * IllegalArgumentException (force-close). Redam di sini, bukan crash.
+     */
+    private fun safeNavigate(actionId: Int, args: Bundle? = null) {
+        if (!isAdded) return
+        try {
+            findNavController().navigate(actionId, args)
+        } catch (_: IllegalArgumentException) {
+            // Sudah pindah destinasi lain (mis. dari notifikasi) — abaikan tap ini
+        }
+    }
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
 }

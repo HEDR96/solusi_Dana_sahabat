@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -25,7 +26,19 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private var pendingOpenAppId: String? = null
+
+    // Tujuan notifikasi (appId) disimpan di SharedPreferences, BUKAN cuma variabel
+    // instance — kalau Kunci Aplikasi aktif, onStart() mengalihkan ke LockActivity
+    // SEBELUM onResume() sempat baca variabel, dan Android bisa saja mematikan
+    // proses selagi user mengisi PIN. Variabel instance hilang di kondisi itu;
+    // SharedPreferences tetap ada saat proses dibuat ulang.
+    private val navPrefs by lazy { getSharedPreferences("nav_state", MODE_PRIVATE) }
+    private fun setPendingOpenAppId(id: String) = navPrefs.edit().putString(KEY_PENDING_APP_ID, id).apply()
+    private fun consumePendingOpenAppId(): String? {
+        val id = navPrefs.getString(KEY_PENDING_APP_ID, null)
+        if (id != null) navPrefs.edit().remove(KEY_PENDING_APP_ID).apply()
+        return id
+    }
 
     private val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -46,6 +59,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // targetSdk 35 memaksa edge-to-edge di Android 15 — tinggi status/nav bar
+        // beda tiap merek HP bikin bottom nav / toolbar ketiban jam atau tombol
+        // navigasi gestur. Kembalikan ke perilaku lama: sistem sisakan ruangnya.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -61,8 +78,10 @@ class MainActivity : AppCompatActivity() {
         requestNotificationPermission()
         requestAndReportLocation()
 
-        // Simpan appId dari klik notifikasi — navigate saat onResume
-        pendingOpenAppId = intent?.getStringExtra(EXTRA_OPEN_APP_ID)
+        // Simpan appId dari klik notifikasi — navigate saat onResume (setelah
+        // LockActivity, jika ada, selesai). Baca dari intent baru DAN dari
+        // SharedPreferences (kalau proses mati saat terkunci sebelumnya).
+        intent?.getStringExtra(EXTRA_OPEN_APP_ID)?.let { setPendingOpenAppId(it) }
 
         // Jika buka dari LockActivity (fresh unlock), skip relock check di onStart pertama
         if (intent?.getBooleanExtra(EXTRA_JUST_UNLOCKED, false) == true) {
@@ -73,14 +92,20 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val appId = intent.getStringExtra(EXTRA_OPEN_APP_ID) ?: return
-        navigateToAppDetail(appId)
+        setPendingOpenAppId(appId)
+        // Activity sudah aktif (bukan cold-start) — coba navigate langsung.
+        // Kalau nav host belum siap, tetap tersimpan dan akan dipakai onResume().
+        if (navigateToAppDetail(appId)) consumePendingOpenAppId()
     }
 
     override fun onResume() {
         super.onResume()
-        pendingOpenAppId?.let { appId ->
-            pendingOpenAppId = null
-            navigateToAppDetail(appId)
+        consumePendingOpenAppId()?.let { appId ->
+            if (!navigateToAppDetail(appId)) {
+                // Nav host belum siap saat ini — simpan lagi supaya dicoba lagi
+                // di siklus resume berikutnya, jangan sampai tujuannya hilang.
+                setPendingOpenAppId(appId)
+            }
         }
         updateNotifBadge()
     }
@@ -94,13 +119,20 @@ class MainActivity : AppCompatActivity() {
         badge.isVisible = lastPushed > lastSeen
     }
 
-    private fun navigateToAppDetail(appId: String) {
+    /** @return true kalau navigasi berhasil dipicu (nav host siap). */
+    private fun navigateToAppDetail(appId: String): Boolean {
         val navHost = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment ?: return
-        navHost.navController.navigate(
-            R.id.applicationDetailFragment,
-            bundleOf("appId" to appId)
-        )
+            .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment ?: return false
+        return try {
+            navHost.navController.navigate(
+                R.id.applicationDetailFragment,
+                bundleOf("appId" to appId)
+            )
+            true
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Navigate ke detail berkas gagal: ${e.message}")
+            false
+        }
     }
 
     private var justUnlocked = false
@@ -161,6 +193,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_OPEN_APP_ID = "open_app_id"
         const val EXTRA_JUST_UNLOCKED = "just_unlocked"
+        private const val KEY_PENDING_APP_ID = "pending_open_app_id"
     }
 
     @SuppressLint("MissingPermission")

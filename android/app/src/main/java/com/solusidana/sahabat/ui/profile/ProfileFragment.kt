@@ -1,13 +1,16 @@
 package com.solusidana.sahabat.ui.profile
 
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.text.InputType
-import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.GridLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -21,6 +24,10 @@ class ProfileFragment : Fragment() {
 
     private var _b: FragmentProfileBinding? = null
     private val b get() = _b!!
+
+    companion object {
+        private const val PIN_LENGTH = 6
+    }
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _b = FragmentProfileBinding.inflate(i, c, false)
@@ -138,46 +145,114 @@ class ProfileFragment : Fragment() {
     }
 
     private fun showSetPinDialog(lock: AppLockManager) {
-        val et = EditText(requireContext()).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "6 digit angka"
-            setPadding(48, 32, 48, 16)
+        showPinKeypadDialog("Buat PIN Baru", "Ketuk $PIN_LENGTH digit angka") { pin ->
+            confirmPin(lock, pin)
         }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Buat PIN Baru")
-            .setView(et)
-            .setPositiveButton("Lanjut") { _, _ ->
-                val pin = et.text.toString()
-                if (pin.length != 6) {
-                    snack("PIN harus 6 digit")
-                    return@setPositiveButton
-                }
-                confirmPin(lock, pin)
-            }
-            .setNegativeButton("Batal", null)
-            .show()
     }
 
     private fun confirmPin(lock: AppLockManager, firstPin: String) {
-        val et = EditText(requireContext()).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Ulangi PIN"
-            setPadding(48, 32, 48, 16)
+        showPinKeypadDialog("Ulangi PIN", "Ulangi $PIN_LENGTH digit yang sama") { pin ->
+            if (pin == firstPin) {
+                lock.setLock(AppLockManager.TYPE_PIN, firstPin)
+                updateLockStatus(lock)
+                snack("PIN berhasil diatur 🔒")
+            } else {
+                snack("PIN tidak cocok, ulangi dari awal")
+            }
         }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Konfirmasi PIN")
-            .setView(et)
-            .setPositiveButton("Simpan") { _, _ ->
-                if (et.text.toString() == firstPin) {
-                    lock.setLock(AppLockManager.TYPE_PIN, firstPin)
-                    updateLockStatus(lock)
-                    snack("PIN berhasil diatur 🔒")
-                } else {
-                    snack("PIN tidak cocok, ulangi")
+    }
+
+    /**
+     * Dialog PIN dengan keypad angka (klik 0-9), bukan keyboard ketik.
+     * Auto-lanjut begitu [PIN_LENGTH] digit terisi.
+     */
+    private fun showPinKeypadDialog(title: String, subtitle: String, onComplete: (String) -> Unit) {
+        val ctx = requireContext()
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+
+        var entered = ""
+        val dots = mutableListOf<View>()
+
+        val root = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), dp(8))
+        }
+        root.addView(TextView(ctx).apply {
+            text = subtitle; textSize = 13f; setTextColor(0xFF64748B.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(16))
+        })
+
+        val dotsRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                .also { it.bottomMargin = dp(20) }
+        }
+        repeat(PIN_LENGTH) {
+            val dot = View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(12), dp(12)).also { it.marginStart = dp(6); it.marginEnd = dp(6) }
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFE2E8F0.toInt()) }
+            }
+            dots.add(dot)
+            dotsRow.addView(dot)
+        }
+        root.addView(dotsRow)
+
+        fun refreshDots() {
+            dots.forEachIndexed { i, dot ->
+                (dot.background as GradientDrawable).setColor(if (i < entered.length) 0xFF2563EB.toInt() else 0xFFE2E8F0.toInt())
+            }
+        }
+
+        val dialog = MaterialAlertDialogBuilder(ctx)
+            .setTitle(title)
+            .setView(root)
+            .setNegativeButton("Batal", null)
+            .create()
+
+        val grid = GridLayout(ctx).apply {
+            columnCount = 3
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        // Susunan keypad standar: 1-9 lalu baris terakhir kosong / 0 / hapus
+        listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫").forEach { label ->
+            val btn = com.google.android.material.button.MaterialButton(
+                ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = label
+                textSize = 20f
+                cornerRadius = dp(28)
+                layoutParams = GridLayout.LayoutParams().apply {
+                    width = dp(64); height = dp(64)
+                    setMargins(dp(8), dp(8), dp(8), dp(8))
+                }
+                visibility = if (label.isEmpty()) View.INVISIBLE else View.VISIBLE
+            }
+            btn.setOnClickListener {
+                when (label) {
+                    "⌫" -> if (entered.isNotEmpty()) entered = entered.dropLast(1)
+                    else -> if (entered.length < PIN_LENGTH) entered += label
+                }
+                refreshDots()
+                if (entered.length == PIN_LENGTH) {
+                    val result = entered
+                    // Sama seperti fix pola: dialog TIDAK BOLEH dibubarkan langsung
+                    // di sini — masih di dalam dispatch touch event tombol ini
+                    // sendiri di window dialog. Tunda ke giliran berikutnya.
+                    btn.post {
+                        if (!isAdded) return@post
+                        dialog.dismiss()
+                        onComplete(result)
+                    }
                 }
             }
-            .setNegativeButton("Batal", null)
-            .show()
+            grid.addView(btn)
+        }
+        root.addView(grid)
+
+        dialog.show()
     }
 
     private fun showSetPatternDialog(lock: AppLockManager, isConfirm: Boolean, firstPattern: String?) {
@@ -199,16 +274,24 @@ class ProfileFragment : Fragment() {
             if (result.isBlank()) {
                 snack("Pola minimal 4 titik")
             } else {
-                dialog.dismiss()
-                if (!isConfirm) {
-                    // Fragment bisa saja sudah tidak attached saat callback jalan
-                    if (isAdded) showSetPatternDialog(lock, isConfirm = true, firstPattern = result)
-                } else if (result == firstPattern) {
-                    lock.setLock(AppLockManager.TYPE_PATTERN, result)
-                    updateLockStatus(lock)
-                    snack("Pola berhasil diatur 🔒")
-                } else {
-                    snack("Pola tidak cocok, ulangi dari awal")
+                // dialog.dismiss() TIDAK BOLEH dipanggil langsung di sini — callback ini
+                // dipanggil dari dalam PatternLockView.onTouchEvent(ACTION_UP), yaitu
+                // selagi event sentuhan pada window dialog ini SENDIRI masih berlangsung.
+                // Membubarkan dialog di tengah dispatch itu bikin lifecycle-nya rusak
+                // (IllegalStateException: no event down from INITIALIZED) → force-close.
+                // Tunda ke giliran message-loop berikutnya, setelah event ini selesai.
+                pattern.post {
+                    if (!isAdded) return@post
+                    dialog.dismiss()
+                    if (!isConfirm) {
+                        showSetPatternDialog(lock, isConfirm = true, firstPattern = result)
+                    } else if (result == firstPattern) {
+                        lock.setLock(AppLockManager.TYPE_PATTERN, result)
+                        updateLockStatus(lock)
+                        snack("Pola berhasil diatur 🔒")
+                    } else {
+                        snack("Pola tidak cocok, ulangi dari awal")
+                    }
                 }
             }
         }

@@ -113,6 +113,21 @@
                 android:textColor="@color/text_primary"
                 android:layout_marginBottom="8dp" />
 
+            <!-- Leasing dipindah ke urutan pertama di sini (sebelumnya di paling
+                 bawah form) — llCmdOtr di bawah hanya muncul kalau leasing = CMD
+                 Finance sudah dipilih, jadi urutannya harus leasing dulu baru
+                 tipe unit/brand/tipe/tahun, sama seperti alur Simulasi. -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilLeasing"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="Leasing Tujuan *" android:layout_marginBottom="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/ddLeasing"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilUnitType"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
@@ -210,6 +225,15 @@
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#1D4ED8" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPakaiMaks"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="PAKAI MAKS TERSEDIA"
+                        android:textSize="11sp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -278,17 +302,6 @@
                 android:hint="Tenor *" android:layout_marginBottom="12dp">
                 <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddTenor"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:inputType="none" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilLeasing"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Leasing Tujuan *" android:layout_marginBottom="12dp">
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/ddLeasing"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>

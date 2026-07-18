@@ -189,13 +189,26 @@ class SimulationFragment : Fragment() {
     }
 
     private fun pencairaOptions(): List<Long> {
+        val mp = maxPinjaman
+        if (isCMD && mp != null) {
+            // Untuk CMD: opsi tidak lagi dibatasi ke titik-titik yang kebetulan
+            // ada di tabel rate (yang bisa saja semuanya di atas maks OTR,
+            // membuat dropdown/"Pakai Maks Tersedia" kosong dan tidak berbuat
+            // apa-apa) — pakai kelipatan Rp 1 juta dari Rp 5 juta s.d. maks,
+            // sama seperti alur input Berkas. lookupVal() menginterpolasi nilai
+            // di antara titik tabel rate untuk jumlah pencairan berapa pun.
+            if (mp < 5_000_000L) return listOf(mp)
+            val steps = mutableListOf<Long>()
+            var v = 5_000_000L
+            while (v < mp) { steps.add(v); v += 1_000_000L }
+            steps.add(mp)
+            return steps
+        }
         val typeKey = if (isRO) "ro" else if (jenis == "motor") "new" else "reg"
         val angKey = "${jenis}_${typeKey}_ang"
         val table = rateTables[angKey] ?: return emptyList()
         val keys = table.data.keys.mapNotNull { it.toLongOrNull() }.sorted()
-        val all = keys.map { it * 1000L }
-        val mp = maxPinjaman
-        return if (isCMD && mp != null) all.filter { it <= mp } else all
+        return keys.map { it * 1000L }
     }
 
     private fun updatePencairanDropdown() {
@@ -219,9 +232,9 @@ class SimulationFragment : Fragment() {
     }
 
     private fun updateBrandDropdown() {
-        val unitType = if (jenis == "motor") "r2" else "r4"
+        val wantMotor = jenis == "motor"
         val brands = otrCatalog
-            .filter { it.unitType == null || it.unitType == unitType }
+            .filter { it.isMotor() == wantMotor }
             .map { it.brand }.distinct().sorted()
         b.ddBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
         // Reset tipe/tahun jika jenis berubah
@@ -266,13 +279,21 @@ class SimulationFragment : Fragment() {
 
     private fun loadOtrCatalog(token: String) {
         viewLifecycleOwner.lifecycleScope.launch {
-            SupabaseApi.getOtrCatalog(token).onSuccess { rows ->
-                if (_b == null) return@onSuccess
-                otrCatalog = rows
-                updateBrandDropdown()
-                // Isi tahun dropdown
-                b.ddTahun.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, OTR_YEARS.map { it.toString() }))
-            }
+            SupabaseApi.getOtrCatalog(token)
+                .onSuccess { rows ->
+                    if (_b == null) return@onSuccess
+                    otrCatalog = rows
+                    updateBrandDropdown()
+                    // Isi tahun dropdown
+                    b.ddTahun.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, OTR_YEARS.map { it.toString() }))
+                }
+                .onFailure { e ->
+                    if (_b == null) return@onFailure
+                    // Tanpa ini kegagalan di sini diam-diam bikin dropdown Brand
+                    // kosong selamanya tanpa penjelasan — sulit dibedakan dari
+                    // "leasing ini memang belum punya katalog OTR".
+                    Toast.makeText(requireContext(), "Gagal memuat katalog OTR: ${humanError(e)}", Toast.LENGTH_LONG).show()
+                }
         }
     }
 
@@ -294,6 +315,10 @@ class SimulationFragment : Fragment() {
         b.ddTahun.setText("", false)
         b.ddBrand.setText("", false)
         b.ddTipe.setText("", false)
+        // Kalau katalog OTR sudah lebih dulu selesai dimuat (mis. leasing lain
+        // dipilih dulu baru balik ke CMD Finance), isi ulang brand di sini juga —
+        // jangan hanya mengandalkan loadOtrCatalog() yang cuma jalan sekali di awal.
+        if (isCMD) updateBrandDropdown()
 
         showPlaceholder("Memuat tabel rate...")
         b.progress.isVisible = true

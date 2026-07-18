@@ -3,6 +3,7 @@ package com.solusidana.sahabat.ui.lock
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
 import com.solusidana.sahabat.data.AppLockManager
 import com.solusidana.sahabat.data.SessionManager
@@ -21,6 +22,8 @@ class LockActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Sama seperti MainActivity/LoginActivity — cegah tombol tertutup status/nav bar.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityLockBinding.inflate(layoutInflater)
         setContentView(binding.root)
         lock = AppLockManager(this)

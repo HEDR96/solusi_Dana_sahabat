@@ -40,10 +40,7 @@ class ApplicationListFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         adapter = ApplicationAdapter { app ->
-            findNavController().navigate(
-                R.id.action_applications_to_detail,
-                Bundle().apply { putString("appId", app.id) }
-            )
+            safeNavigate(R.id.action_applications_to_detail, Bundle().apply { putString("appId", app.id) })
         }
         b.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         b.recyclerView.adapter = adapter
@@ -100,4 +97,13 @@ class ApplicationListFragment : Fragment() {
     }
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
+
+    /** Redam IllegalArgumentException kalau destinasi sudah berubah (mis. dari notifikasi)
+     * tepat sebelum tap pada item list ini diproses — daripada force-close. */
+    private fun safeNavigate(actionId: Int, args: Bundle? = null) {
+        if (!isAdded) return
+        try {
+            findNavController().navigate(actionId, args)
+        } catch (_: IllegalArgumentException) { }
+    }
 }
