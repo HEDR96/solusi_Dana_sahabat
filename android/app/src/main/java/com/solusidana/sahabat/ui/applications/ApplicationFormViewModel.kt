@@ -16,6 +16,7 @@ import com.solusidana.sahabat.data.LeasingPartner
 import com.solusidana.sahabat.data.MasterData
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
+import com.solusidana.sahabat.data.humanError
 import com.solusidana.sahabat.worker.DraftSyncWorker
 import kotlinx.coroutines.launch
 
@@ -67,7 +68,9 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
                     _leasing.value = aktif
                     if (aktif.isEmpty()) _loadError.value = "Belum ada leasing aktif — hubungi admin"
                 }
-                .onFailure { _loadError.value = "Gagal memuat daftar leasing — periksa koneksi" }
+                // Tampilkan pesan ASLI dari server/exception — pesan generik "periksa
+                // koneksi" dulu menutupi penyebab sebenarnya (mis. RLS/auth), bukan cuma jaringan.
+                .onFailure { e -> _loadError.value = "Gagal memuat daftar leasing: ${humanError(e)}" }
             if (!isAgen) {
                 SupabaseApi.getAgents(token).onSuccess { list ->
                     val aktif = list.filter { it.status == "aktif" }
@@ -75,7 +78,7 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
                     _agents.value = if (session.userRole == "spv-agen")
                         aktif.filter { it.spvId == session.userId }
                     else aktif
-                }.onFailure { _loadError.value = "Gagal memuat daftar agen — periksa koneksi" }
+                }.onFailure { e -> _loadError.value = "Gagal memuat daftar agen: ${humanError(e)}" }
             }
         }
     }

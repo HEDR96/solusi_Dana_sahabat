@@ -42,7 +42,7 @@ const EMPTY = {
 export function AgentList() {
   const { visibleAgents: agents, users, updateAgent, showToast, currentUser } = useApp();
   const navigate = useNavigate();
-  const canManage = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canManage = ['owner', 'super-admin'].includes(currentUser?.role);
   const [search, setSearch]       = useState('');
   const [filterStatus, setStatus] = useState('all');
   const [filterCity, setCity]     = useState('all');

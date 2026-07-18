@@ -22,7 +22,7 @@ const SCHEDULABLE = ['pending', 'cek-data', 'janji-survey', 'survey'];
 export function CalendarPage() {
   const { visibleApplications: applications, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
-  const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canEdit = ['owner', 'super-admin'].includes(currentUser?.role);
   const TODAY = new Date();
   const [currentDate, setCurrentDate] = useState(TODAY);
   const [selectedDay, setSelectedDay] = useState(null);

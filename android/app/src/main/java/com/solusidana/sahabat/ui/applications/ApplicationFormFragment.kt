@@ -62,6 +62,17 @@ class ApplicationFormFragment : Fragment() {
         fun bindDropdowns() {
             b.ddUnitType.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, unitTypes))
             b.ddUnitType.setOnClickListener { b.ddUnitType.showDropDown() }
+            b.ddUnitType.setOnItemClickListener { _, _, _, _ ->
+                // Motor vs Mobil pakai katalog OTR berbeda (r2/r4) — pilihan brand/tipe/tahun
+                // lama jadi tidak relevan lagi dan harus direset, lalu daftar brand di-refresh.
+                if (isCMD) {
+                    selectedOtrBrand = ""; selectedOtrTipe = ""; selectedOtrRow = null; selectedOtrTahun = 0; maxPinjaman = null
+                    b.ddOtrBrand.setText("", false); b.ddOtrTipe.setText("", false); b.ddOtrTahun.setText("", false)
+                    b.tilOtrTipe.isVisible = false; b.tilOtrTahun.isVisible = false; b.llOtrMaks.isVisible = false
+                    resetPinjamanToText()
+                    refreshOtrBrands()
+                }
+            }
             b.ddTenor.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, tenorOptions.map { "$it bulan" }))
             b.ddTenor.setOnClickListener { b.ddTenor.showDropDown() }
             b.ddTenor.setOnItemClickListener { _, _, pos, _ ->
@@ -219,8 +230,21 @@ class ApplicationFormFragment : Fragment() {
             SupabaseApi.getOtrCatalog(token).onSuccess { rows ->
                 if (_b == null) return@onSuccess
                 otrCatalog = rows
+                // Kalau leasing CMD sudah dipilih SEBELUM katalog ini selesai dimuat,
+                // dropdown brand tadi difilter dari list kosong dan tidak pernah
+                // di-refresh lagi — perbaiki begitu data katalog datang.
+                refreshOtrBrands()
             }
         }
+    }
+
+    /** Filter brand OTR sesuai Tipe Unit (Motor→r2 / Mobil→r4) dan isi ulang dropdown. */
+    private fun refreshOtrBrands() {
+        if (_b == null || !isCMD) return
+        val unitType = b.ddUnitType.text.toString().trim()
+        val unitTypeForOtr = if (unitType.lowercase() == "motor") "r2" else "r4"
+        val brands = otrCatalog.filter { it.unitType == null || it.unitType == unitTypeForOtr }.map { it.brand }.distinct().sorted()
+        b.ddOtrBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
     }
 
     private fun onLeasingChanged() {
@@ -232,12 +256,7 @@ class ApplicationFormFragment : Fragment() {
         selectedOtrBrand = ""; selectedOtrTipe = ""; selectedOtrRow = null; selectedOtrTahun = 0; maxPinjaman = null
         b.ddOtrBrand.setText("", false); b.ddOtrTipe.setText("", false); b.ddOtrTahun.setText("", false)
         b.tilOtrTipe.isVisible = false; b.tilOtrTahun.isVisible = false; b.llOtrMaks.isVisible = false
-        if (isCMD) {
-            val unitType = b.ddUnitType.text.toString().trim()
-            val unitTypeForOtr = if (unitType.lowercase() == "motor") "r2" else "r4"
-            val brands = otrCatalog.filter { it.unitType == null || it.unitType == unitTypeForOtr }.map { it.brand }.distinct().sorted()
-            b.ddOtrBrand.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, brands))
-        }
+        refreshOtrBrands()
     }
 
     private fun resetPinjamanToText() {

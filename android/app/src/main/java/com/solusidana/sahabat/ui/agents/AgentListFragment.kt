@@ -53,9 +53,9 @@ class AgentListFragment : Fragment() {
             b.swipeRefresh.isRefreshing = false
         }
 
-        // Owner, admin & spv-agen bisa mendaftarkan agen baru dari APK
+        // Owner & spv-agen bisa mendaftarkan agen baru dari APK
         val role = SessionManager(requireContext()).userRole
-        if (role in listOf("owner", "super-admin", "admin", "spv-agen")) {
+        if (role in listOf("owner", "super-admin", "spv-agen")) {
             b.fabAddAgent.isVisible = true
             b.fabAddAgent.setOnClickListener {
                 findNavController().navigate(R.id.action_agents_to_form)

@@ -27,8 +27,7 @@ object MasterData {
         "activity_outcome" to ACTIVITY_OUTCOMES,
         "role" to listOf(
             "owner" to "Owner", "super-admin" to "Super Admin",
-            "admin" to "Admin / Back Office", "spv-agen" to "Supervisor Agen",
-            "agen" to "Agen", "surveyor" to "Surveyor", "finance" to "Finance"
+            "spv-agen" to "Supervisor Agen", "agen" to "Agen"
         )
     )
 

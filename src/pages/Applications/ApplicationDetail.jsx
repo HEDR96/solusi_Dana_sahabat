@@ -116,7 +116,7 @@ export function ApplicationDetail() {
   const logs = realLogs.length > 0 ? realLogs : [
     { id: 'synthetic-created', appId: id, fromStatus: null, toStatus: app?.status || 'pending', user: app?.agentName || '-', date: app?.inputDate || '-', notes: 'Berkas dibuat' },
   ];
-  const canEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canEdit = ['owner', 'super-admin'].includes(currentUser?.role);
   const needsSurvey = ['janji-survey', 'survey'].includes(newStatus);
 
   const openEdit = () => {
@@ -243,20 +243,13 @@ export function ApplicationDetail() {
           </Section>
 
           {app.status === 'approve' && (() => {
-            const comm    = commissions?.find(c => c.appId === id);
-            const base    = comm?.commissionAmount ?? Math.round((app.approvePinjaman || app.pinjaman) * (settings?.commissionRate ?? 1.5) / 100);
-            const agRate  = settings?.commissionAgentRate ?? 80;
-            const leasing = base;
-            const agent   = Math.round(leasing * agRate / 100);
-            const owner   = leasing - agent;
-            const isOwner = currentUser?.role === 'owner';
+            const comm = commissions?.find(c => c.appId === id);
+            const komisi = comm?.commissionAmount ?? Math.round((app.approvePinjaman || app.pinjaman) * (settings?.commissionRate ?? 1.5) / 100);
             return (
               <Section title="Informasi Komisi" icon={DollarSign}>
                 <div className="rgrid rgrid-2" style={{ gap: 0 }}>
                   <div style={{ paddingRight: 16 }}>
-                    <Row label="Komisi Leasing" value={<span style={{ color: 'var(--c-0f172a)', fontWeight: 700 }}>{formatRupiah(leasing)}</span>} />
-                    <Row label="Komisi Agen" value={<span style={{ color: '#16a34a', fontWeight: 700 }}>{formatRupiah(agent)}</span>} />
-                    {isOwner && <Row label="Keuntungan Owner" value={<span style={{ color: '#1d4ed8', fontWeight: 700 }}>{formatRupiah(owner)}</span>} />}
+                    <Row label="Komisi" value={<span style={{ color: '#16a34a', fontWeight: 700 }}>{formatRupiah(komisi)}</span>} />
                   </div>
                   <div style={{ paddingLeft: 16, borderLeft: '1px solid var(--border-light)' }}>
                     <Row label="Status Komisi" value={<span style={{ fontWeight: 700, color: comm?.status === 'paid' ? '#16a34a' : '#f59e0b' }}>{comm?.status === 'paid' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>} />
@@ -528,9 +521,7 @@ export function ApplicationDetail() {
             const parsed  = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
             const base    = parsed || app.pinjaman;
             const rate    = settings?.commissionRate ?? 1.5;
-            const agRate  = settings?.commissionAgentRate ?? 80;
-            const leasing = Math.round(base * rate / 100);
-            const agent   = Math.round(leasing * agRate / 100);
+            const komisi  = Math.round(base * rate / 100);
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
@@ -548,7 +539,7 @@ export function ApplicationDetail() {
                   <CheckCircle size={15} style={{ flexShrink: 0 }} />
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>Pengajuan akan disetujui · {formatRupiah(base)}</p>
-                    <p style={{ fontSize: 12, marginTop: 2 }}>Komisi leasing <strong>{formatRupiah(leasing)}</strong> · Komisi agen <strong>{formatRupiah(agent)}</strong></p>
+                    <p style={{ fontSize: 12, marginTop: 2 }}>Komisi <strong>{formatRupiah(komisi)}</strong></p>
                   </div>
                 </div>
               </div>

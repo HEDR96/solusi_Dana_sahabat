@@ -34,11 +34,8 @@ const NAV = [
 const FALLBACK_ROLE_LABELS = [
   { value: 'owner',       label: 'Owner' },
   { value: 'super-admin', label: 'Super Admin' },
-  { value: 'admin',       label: 'Admin / Back Office' },
   { value: 'spv-agen',    label: 'Supervisor Agen' },
   { value: 'agen',        label: 'Agen' },
-  { value: 'surveyor',    label: 'Surveyor' },
-  { value: 'finance',     label: 'Finance' },
 ];
 
 export function Sidebar() {

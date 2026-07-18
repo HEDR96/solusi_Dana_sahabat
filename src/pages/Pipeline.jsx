@@ -60,7 +60,7 @@ export function Pipeline() {
 }
 
 function KanbanView({ byStatus, navigate, updateApplicationStatus, currentUser }) {
-  const canDrag = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canDrag = ['owner', 'super-admin'].includes(currentUser?.role);
   const [dragging, setDragging] = useState(null); // { appId, fromStatus }
   const [dragOverCol, setDragOverCol] = useState(null);
 

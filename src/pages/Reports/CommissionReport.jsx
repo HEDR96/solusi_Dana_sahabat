@@ -38,22 +38,19 @@ function ChartTip({ active, payload, label }) {
 }
 
 export function CommissionReport() {
-  const { visibleCommissions: allCommissions, visibleAgents: agents, settings } = useApp();
+  const { visibleCommissions: allCommissions, visibleAgents: agents } = useApp();
   const [dateFrom, setDateFrom]   = useState('');
   const [dateTo, setDateTo]       = useState('');
   const [filterAgent, setAgent]   = useState('all');
-
-  const agentRate = settings?.commissionAgentRate ?? 80;
-  const agentAmt  = c => Math.round(c.commissionAmount * agentRate / 100);
 
   const commissions = allCommissions.filter(c =>
     (!dateFrom || c.approveDate >= dateFrom) && (!dateTo || c.approveDate <= dateTo) &&
     (filterAgent === 'all' || c.agentId === filterAgent)
   );
 
-  const totalAll   = commissions.reduce((s, c) => s + agentAmt(c), 0);
-  const totalPaid  = commissions.filter(c => c.status === 'paid').reduce((s, c) => s + agentAmt(c), 0);
-  const totalUnpaid= commissions.filter(c => c.status === 'unpaid').reduce((s, c) => s + agentAmt(c), 0);
+  const totalAll   = commissions.reduce((s, c) => s + c.commissionAmount, 0);
+  const totalPaid  = commissions.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
+  const totalUnpaid= commissions.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0);
 
   const prevRange = previousPeriod(dateFrom, dateTo);
   const prevTotal = prevRange
@@ -64,9 +61,9 @@ export function CommissionReport() {
     const agComm = commissions.filter(c => c.agentId === ag.id);
     return {
       name:   ag.name.split(' ')[0],
-      total:  agComm.reduce((s, c) => s + agentAmt(c), 0),
-      paid:   agComm.filter(c => c.status === 'paid').reduce((s, c) => s + agentAmt(c), 0),
-      unpaid: agComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + agentAmt(c), 0),
+      total:  agComm.reduce((s, c) => s + c.commissionAmount, 0),
+      paid:   agComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0),
+      unpaid: agComm.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0),
     };
   }).filter(a => a.total > 0);
 

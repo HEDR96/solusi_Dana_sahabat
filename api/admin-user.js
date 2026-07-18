@@ -54,8 +54,7 @@ async function verifyAdmin(req) {
     const profiles = JSON.parse(pText);
     const role = Array.isArray(profiles) ? profiles[0]?.role : null;
     console.log('[verifyAdmin] user:', u.id, 'role:', role);
-    // admin boleh masuk (dibatasi per-method di handler); selain itu owner/super-admin
-    if (!['owner', 'super-admin', 'admin'].includes(role)) {
+    if (!['owner', 'super-admin'].includes(role)) {
       console.error('[verifyAdmin] role not allowed:', role);
       return null;
     }
@@ -86,10 +85,6 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { name, email, password, role, status, agentId } = req.body || {};
     if (!email || !password || !name) return res.status(400).json({ error: 'name, email, password wajib' });
-    // Role admin hanya boleh membuatkan akun agen (dipakai alur "Tambah Agen")
-    if (caller.role === 'admin' && (role || 'agen') !== 'agen') {
-      return res.status(403).json({ error: 'Admin hanya bisa membuat akun agen' });
-    }
 
     const createResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
       method: 'POST', headers,
@@ -119,7 +114,6 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    if (caller.role === 'admin') return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa menghapus user' });
     const { userId } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'userId wajib' });
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, { method: 'DELETE', headers });
@@ -131,7 +125,6 @@ export default async function handler(req, res) {
   // sementara acak). Dulu di-hardcode "password" — lemah & tidak sesuai yang
   // ditampilkan ke admin di UI.
   if (req.method === 'PUT') {
-    if (caller.role === 'admin') return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa reset password' });
     const { userId, password } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'userId wajib' });
     const newPass = (typeof password === 'string' && password.length >= 6)

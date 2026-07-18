@@ -8,7 +8,6 @@ const DEFAULT_SETTINGS = {
   phone: '021-5555-1234',
   email: 'info@mitradana.co.id',
   commissionRate: 1.5,
-  commissionAgentRate: 80, // % dari komisi leasing yang diteruskan ke agen
   autoCommission: true,
 };
 
@@ -308,7 +307,7 @@ export function AppProvider({ children }) {
       setUsers(data.users);
       setDataLoading(false);
       // Sanitasi data satu kali — butuh hak tulis RLS (owner/super-admin/admin)
-      if (['owner', 'super-admin', 'admin'].includes(currentUser.role)) {
+      if (['owner', 'super-admin'].includes(currentUser.role)) {
         try {
           const cleaned = await runDataCleanup(data.applications, data.leasing);
           if (cleaned) {
@@ -328,7 +327,7 @@ export function AppProvider({ children }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dsd_applications' }, payload => {
         const newApp = mapApp(payload.new);
         const isOwn   = newApp.agentId === currentUser.agentId;
-        const canAll  = ['owner', 'super-admin', 'admin', 'spv-agen'].includes(currentUser.role);
+        const canAll  = ['owner', 'super-admin', 'spv-agen'].includes(currentUser.role);
         if (!canAll && !isOwn) return;  // agen hanya melihat berkas sendiri
         setApplications(prev => prev.some(a => a.id === newApp.id) ? prev : [newApp, ...prev]);
         // Toast untuk non-agen (agen sendiri yang input tidak perlu notif)
@@ -577,6 +576,29 @@ export function AppProvider({ children }) {
     showToast(`${ids.length} komisi berhasil dibayarkan`);
   };
 
+  // Update massal dari import Excel: [{ id, commissionAmount, status, paymentDate, paymentMethod, notes }]
+  const bulkUpdateCommissions = async (updates) => {
+    if (!updates.length) return { success: 0, failed: 0 };
+    const results = await Promise.allSettled(updates.map(u => supabase.from('dsd_commissions').update({
+      commission_amount: u.commissionAmount,
+      status: u.status,
+      payment_date: u.paymentDate || null,
+      payment_method: u.paymentMethod || null,
+      notes: u.notes ?? null,
+    }).eq('id', u.id)));
+    const ok = results.map((r, i) => (r.status === 'fulfilled' && !r.value.error) ? updates[i] : null).filter(Boolean);
+    const failed = updates.length - ok.length;
+    const okIds = new Set(ok.map(u => u.id));
+    setCommissions(prev => prev.map(c => {
+      const u = ok.find(x => x.id === c.id);
+      if (!u) return c;
+      return { ...c, commissionAmount: u.commissionAmount, status: u.status, paymentDate: u.paymentDate || null, paymentMethod: u.paymentMethod || null, notes: u.notes ?? null };
+    }));
+    await addAuditLog('Import Excel Komisi', `${ok.length} komisi diperbarui via upload Excel${failed ? `, ${failed} gagal` : ''}`);
+    showToast(`${ok.length} komisi berhasil diperbarui${failed ? `, ${failed} gagal — lihat detail` : ''}`, failed ? 'error' : 'success');
+    return { success: ok.length, failed, okIds };
+  };
+
   const addActivity = async (data) => {
     const row = {
       agent_id: data.agentId, agent_name: data.agentName, date: data.date,
@@ -795,7 +817,7 @@ export function AppProvider({ children }) {
       applications, setApplications, addApplication, updateApplicationStatus, updateApplicationData,
       visibleApplications, visibleCommissions, visibleActivities,
       visibleAgents, managedAgentIds,
-      commissions, setCommissions, payCommission, payCommissionsBulk,
+      commissions, setCommissions, payCommission, payCommissionsBulk, bulkUpdateCommissions,
       agentActivities, setAgentActivities, addActivity,
       agents, setAgents, addAgent, updateAgent,
       leasing, setLeasing, addLeasing, updateLeasing,

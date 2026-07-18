@@ -8,20 +8,14 @@ import { RefreshCw } from 'lucide-react';
 const ROLE_COLOR = {
   'owner':       '#7c3aed',
   'super-admin': '#ef4444',
-  'admin':       '#0ea5e9',
   'spv-agen':    '#f97316',
   'agen':        '#3b82f6',
-  'surveyor':    '#22c55e',
-  'finance':     '#8b5cf6',
 };
 const ROLE_LABEL = {
   'owner':       'Owner',
   'super-admin': 'Super Admin',
-  'admin':       'Admin',
   'spv-agen':    'Supervisor Agen',
   'agen':        'Agen',
-  'surveyor':    'Surveyor',
-  'finance':     'Finance',
 };
 
 function timeAgo(iso) {

@@ -21,10 +21,8 @@ const ACTION_STYLE = {
 
 const ROLE_STYLE = {
   'super-admin': { color: '#dc2626', bg: '#fef2f2' },
-  'admin':       { color: '#2563eb', bg: '#eff6ff' },
   'agen':        { color: '#16a34a', bg: '#f0fdf4' },
-  'surveyor':    { color: '#d97706', bg: '#fffbeb' },
-  'finance':     { color: '#7c3aed', bg: '#f5f3ff' },
+  'spv-agen':    { color: '#f97316', bg: '#fff7ed' },
 };
 
 export function AuditLog() {

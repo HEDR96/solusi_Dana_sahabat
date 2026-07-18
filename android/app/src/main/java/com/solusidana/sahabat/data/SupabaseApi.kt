@@ -705,26 +705,6 @@ object SupabaseApi {
         json.decodeFromString<List<WebNotification>>(text)
     }
 
-    /**
-     * Porsi komisi agen (%) dari Settings web ERP — tersimpan sebagai JSON di
-     * dsd_master_options (category=app_settings, value=global). Default 80 agar
-     * angka yang tampil di aplikasi SAMA dengan yang tampil (dan dibayarkan) di web.
-     */
-    suspend fun getAgentCommissionRate(token: String): Double = io {
-        val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/dsd_master_options?category=eq.app_settings&value=eq.global&select=label&limit=1")
-            .addHeader("apikey", ANON_KEY)
-            .addHeader("Authorization", "Bearer $token")
-            .get()
-            .build()
-        val resp = client.newCall(req).execute()
-        val text = resp.body?.string() ?: "[]"
-        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
-        val label = org.json.JSONArray(text).optJSONObject(0)?.optString("label")
-        if (label.isNullOrBlank()) 80.0
-        else JSONObject(label).optDouble("commissionAgentRate", 80.0)
-    }.getOrDefault(80.0)
-
     // ── Endpoint Vercel (service key/account aman di server) ─────────────────
 
     private const val GDRIVE_API = "https://solusi-dana-sahabat.vercel.app/api/gdrive"

@@ -1,14 +1,61 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { Badge } from '../components/UI/Badge';
 import { Modal } from '../components/UI/Modal';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../data/dummyData';
 import { exportToCsv } from '../utils/exportCsv';
+import { exportToXlsx, parseXlsxFile } from '../utils/excelIO';
 import { useSortableData } from '../utils/useSortableData';
 import { useMasterOptions } from '../utils/useMasterOptions';
 import { SortableTh } from '../components/UI/SortableTh';
-import { Search, Download, CreditCard, DollarSign, TrendingUp, CheckCircle } from 'lucide-react';
+import { Search, Download, Upload, CreditCard, DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
+
+// Kolom template Excel — label ini dipakai untuk export DAN untuk mencocokkan
+// kolom saat parsing upload, jadi harus persis sama di kedua arah.
+const IMPORT_COLUMNS = [
+  { label: 'ID Komisi', key: 'id' },
+  { label: 'No. Berkas', key: 'appId' },
+  { label: 'Nasabah', key: 'customerName' },
+  { label: 'Agen', key: 'agentName' },
+  { label: 'Komisi', key: 'commissionAmount' },
+  { label: 'Status (paid/unpaid)', key: 'status' },
+  { label: 'Tanggal Bayar (YYYY-MM-DD)', key: 'paymentDate' },
+  { label: 'Metode Bayar', key: 'paymentMethod' },
+  { label: 'Catatan', key: 'notes' },
+];
+
+// Validasi satu baris hasil parsing Excel terhadap data komisi yang ada.
+// Kolom "ID Komisi" wajib cocok dengan baris yang sudah ada — import ini
+// hanya untuk MENGUBAH komisi yang sudah ada, bukan membuat baris baru
+// (komisi baru selalu dibuat otomatis oleh sistem saat berkas di-approve).
+function validateImportRow(row, commissions) {
+  const id = Number(row['ID Komisi']);
+  if (!id) return { error: `Baris dilewati: "ID Komisi" kosong atau bukan angka` };
+  const existing = commissions.find(c => c.id === id);
+  if (!existing) return { error: `ID Komisi ${id} tidak ditemukan — baris dilewati` };
+
+  const rawAmount = row['Komisi'];
+  const commissionAmount = Number(rawAmount);
+  if (rawAmount == null || rawAmount === '' || !Number.isFinite(commissionAmount) || commissionAmount < 0) {
+    return { error: `ID Komisi ${id}: nilai "Komisi" tidak valid` };
+  }
+
+  const rawStatus = String(row['Status (paid/unpaid)'] || '').trim().toLowerCase();
+  if (!['paid', 'unpaid'].includes(rawStatus)) {
+    return { error: `ID Komisi ${id}: "Status" harus "paid" atau "unpaid"` };
+  }
+
+  return {
+    row: {
+      id, commissionAmount, status: rawStatus,
+      paymentDate: row['Tanggal Bayar (YYYY-MM-DD)'] ? String(row['Tanggal Bayar (YYYY-MM-DD)']).trim() : null,
+      paymentMethod: row['Metode Bayar'] ? String(row['Metode Bayar']).trim() : null,
+      notes: row['Catatan'] ? String(row['Catatan']).trim() : null,
+      existing,
+    },
+  };
+}
 
 const SORT_GETTERS = {
   appId: r => r.appId, customerName: r => r.customerName, agentName: r => r.agentName,
@@ -17,11 +64,9 @@ const SORT_GETTERS = {
 };
 
 export function Commission() {
-  const { visibleCommissions: commissions, agents, payCommission, payCommissionsBulk, currentUser, settings } = useApp();
-  const canManagePayments = ['owner', 'super-admin', 'admin', 'finance'].includes(currentUser?.role);
-  const isOwner      = currentUser?.role === 'owner';
+  const { visibleCommissions: commissions, agents, payCommission, payCommissionsBulk, bulkUpdateCommissions, currentUser } = useApp();
+  const canManagePayments = ['owner', 'super-admin'].includes(currentUser?.role);
   const isOwnScoped  = currentUser?.role === 'agen';
-  const agentRate    = settings?.commissionAgentRate ?? 80; // % agen dari komisi leasing
 
   const [search, setSearch]         = useState('');
   const [filterStatus, setStatus]   = useState('all');
@@ -36,10 +81,41 @@ export function Commission() {
   const [showBulk, setShowBulk]     = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
 
-  const getBreakdown = (c) => {
-    const leasing = c.commissionAmount;
-    const agent   = Math.round(leasing * agentRate / 100);
-    return { leasing, agent, owner: leasing - agent };
+  // Import Excel
+  const fileInputRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null); // { valid: [], errors: [] }
+  const [importSaving, setImportSaving]   = useState(false);
+
+  const downloadTemplate = () => {
+    exportToXlsx('template-komisi', IMPORT_COLUMNS, filtered.length ? filtered : commissions);
+  };
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const parsedRows = await parseXlsxFile(file);
+      const valid = [];
+      const errors = [];
+      parsedRows.forEach((row, i) => {
+        const result = validateImportRow(row, commissions);
+        if (result.error) errors.push(`Baris ${i + 2}: ${result.error}`);
+        else valid.push(result.row);
+      });
+      if (!parsedRows.length) errors.push('File kosong atau format tidak dikenali');
+      setImportPreview({ valid, errors });
+    } catch {
+      setImportPreview({ valid: [], errors: ['Gagal membaca file — pastikan formatnya .xlsx dan sesuai template'] });
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!importPreview?.valid.length) return;
+    setImportSaving(true);
+    await bulkUpdateCommissions(importPreview.valid);
+    setImportSaving(false);
+    setImportPreview(null);
   };
 
   const filtered = commissions.filter(c => {
@@ -51,11 +127,11 @@ export function Commission() {
     );
   });
 
-  const totalLeasing = filtered.reduce((s, c) => s + getBreakdown(c).leasing, 0);
-  const totalAgent   = filtered.reduce((s, c) => s + getBreakdown(c).agent, 0);
-  const totalOwner   = totalLeasing - totalAgent;
-  const totalPaid    = filtered.filter(c => c.status === 'paid').reduce((s, c) => s + getBreakdown(c).agent, 0);
-  const totalUnpaid  = filtered.filter(c => c.status === 'unpaid').reduce((s, c) => s + getBreakdown(c).agent, 0);
+  // Nominal komisi langsung dari DB (dsd_commissions.commission_amount) — tidak ada
+  // pemecahan porsi agen/owner lagi, apa yang tersimpan itu yang ditampilkan/dibayar.
+  const totalKomisi  = filtered.reduce((s, c) => s + c.commissionAmount, 0);
+  const totalPaid    = filtered.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
+  const totalUnpaid  = filtered.filter(c => c.status === 'unpaid').reduce((s, c) => s + c.commissionAmount, 0);
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(filtered, SORT_GETTERS);
   const PER = 20;
@@ -78,7 +154,7 @@ export function Commission() {
     return next;
   });
   const bulkSelected = commissions.filter(c => checkedIds.has(c.id));
-  const bulkTotalAgent = bulkSelected.reduce((s, c) => s + getBreakdown(c).agent, 0);
+  const bulkTotal = bulkSelected.reduce((s, c) => s + c.commissionAmount, 0);
   const handleBulkPay = async () => {
     setBulkSaving(true);
     await payCommissionsBulk([...checkedIds], payMethod);
@@ -89,8 +165,8 @@ export function Commission() {
 
   const agentSummary = agents.map(ag => {
     const agComm = filtered.filter(c => c.agentId === ag.id);
-    const total  = agComm.reduce((s, c) => s + getBreakdown(c).agent, 0);
-    const paid   = agComm.filter(c => c.status === 'paid').reduce((s, c) => s + getBreakdown(c).agent, 0);
+    const total  = agComm.reduce((s, c) => s + c.commissionAmount, 0);
+    const paid   = agComm.filter(c => c.status === 'paid').reduce((s, c) => s + c.commissionAmount, 0);
     return { ...ag, totalKomisi: total, paidKomisi: paid, unpaidKomisi: total - paid };
   }).filter(a => a.totalKomisi > 0);
 
@@ -98,29 +174,37 @@ export function Commission() {
     { label: 'No. Berkas', key: 'appId' }, { label: 'Nasabah', key: 'customerName' },
     { label: 'Agen', key: 'agentName' }, { label: 'Leasing', key: 'leasingName' },
     { label: 'Pinjaman', key: 'approvePinjaman' }, { label: 'Tgl Approve', key: 'approveDate' },
-    { label: 'Komisi Leasing', get: c => getBreakdown(c).leasing },
-    { label: 'Komisi Agen', get: c => getBreakdown(c).agent },
-    ...(isOwner ? [{ label: 'Keuntungan Owner', get: c => getBreakdown(c).owner }] : []),
+    { label: 'Komisi', key: 'commissionAmount' },
     { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
   ];
 
   const summaryCards = [
-    { label: 'Komisi Agen Belum Dibayar', value: formatRupiah(totalUnpaid), icon: CreditCard, bg: '#fef2f2', border: '#fecaca', color: '#dc2626', val_color: '#dc2626' },
-    { label: 'Komisi Agen Sudah Dibayar', value: formatRupiah(totalPaid), icon: CheckCircle, bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', val_color: '#15803d' },
-    { label: 'Total Komisi Leasing', value: formatRupiah(totalLeasing), icon: DollarSign, bg: 'var(--surface)', border: 'var(--border)', color: 'var(--c-64748b)', val_color: 'var(--c-0f172a)' },
-    ...(isOwner ? [{ label: 'Keuntungan Owner', value: formatRupiah(totalOwner), icon: TrendingUp, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', val_color: '#1e40af' }] : []),
+    { label: 'Komisi Belum Dibayar', value: formatRupiah(totalUnpaid), icon: CreditCard, bg: '#fef2f2', border: '#fecaca', color: '#dc2626', val_color: '#dc2626' },
+    { label: 'Komisi Sudah Dibayar', value: formatRupiah(totalPaid), icon: CheckCircle, bg: '#f0fdf4', border: '#bbf7d0', color: '#16a34a', val_color: '#15803d' },
+    { label: 'Total Komisi', value: formatRupiah(totalKomisi), icon: DollarSign, bg: 'var(--surface)', border: 'var(--border)', color: 'var(--c-64748b)', val_color: 'var(--c-0f172a)' },
   ];
 
-  const colSpan = (isOwner ? 11 : 10) + (canManagePayments ? 1 : 0);
+  const colSpan = 8 + (canManagePayments ? 1 : 0);
 
   return (
     <Layout
       title="Pembayaran Komisi"
       subtitle="Kelola pembayaran komisi agen"
-      actions={<button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', exportColumns, filtered)}><Download size={15} /> Export</button>}
+      actions={
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => exportToCsv('komisi-agen', exportColumns, filtered)}><Download size={15} /> Export CSV</button>
+          {canManagePayments && (
+            <>
+              <button className="btn btn-secondary" onClick={downloadTemplate}><Download size={15} /> Download Template Excel</button>
+              <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> Upload Excel</button>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileSelected} />
+            </>
+          )}
+        </div>
+      }
     >
       {/* Summary */}
-      <div className={`rgrid rgrid-${isOwner ? 4 : 3}`} style={{ gap: 14, marginBottom: 24 }}>
+      <div className="rgrid rgrid-3" style={{ gap: 14, marginBottom: 24 }}>
         {summaryCards.map(({ label, value, icon: Icon, bg, border, color, val_color }) => (
           <div key={label} className="card" style={{ background: bg, border: `1px solid ${border}`, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -180,9 +264,7 @@ export function Commission() {
               <th className="table-th">Leasing</th>
               <SortableTh label="Pinjaman" sortKey="approvePinjaman" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <SortableTh label="Tgl Approve" sortKey="approveDate" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
-              <th className="table-th">Komisi Leasing</th>
-              <th className="table-th">Komisi Agen</th>
-              {isOwner && <th className="table-th">Keuntungan Owner</th>}
+              <th className="table-th">Komisi</th>
               <SortableTh label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <th className="table-th">Aksi</th>
             </tr>
@@ -191,7 +273,6 @@ export function Commission() {
             {sorted.length === 0 ? (
               <tr><td colSpan={colSpan}><div className="empty-state"><div className="empty-icon">💰</div><p>Tidak ada data komisi</p></div></td></tr>
             ) : rows.map(comm => {
-              const { leasing, agent, owner } = getBreakdown(comm);
               return (
                 <tr key={comm.id} className="table-row" style={{ background: checkedIds.has(comm.id) ? 'var(--selected-bg)' : undefined }}>
                   {canManagePayments && (
@@ -207,9 +288,7 @@ export function Commission() {
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{comm.leasingName}</td>
                   <td className="table-td" style={{ fontSize: 13, fontWeight: 600 }}>{formatRupiah(comm.approvePinjaman)}</td>
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{comm.approveDate}</td>
-                  <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(leasing)}</td>
-                  <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{formatRupiah(agent)}</td>
-                  {isOwner && <td className="table-td" style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{formatRupiah(owner)}</td>}
+                  <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{formatRupiah(comm.commissionAmount)}</td>
                   <td className="table-td"><Badge status={comm.status} /></td>
                   <td className="table-td">
                     {comm.status === 'unpaid' ? (
@@ -313,7 +392,7 @@ export function Commission() {
           <div className="alert alert-success">
             <CheckCircle size={15} style={{ flexShrink: 0 }} />
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700 }}>Total Take-Home Agen: {formatRupiah(bulkTotalAgent)}</p>
+              <p style={{ fontSize: 13, fontWeight: 700 }}>Total Komisi: {formatRupiah(bulkTotal)}</p>
               <p style={{ fontSize: 12, marginTop: 2 }}>{checkedIds.size} komisi akan ditandai lunas</p>
             </div>
           </div>
@@ -321,7 +400,7 @@ export function Commission() {
             {bulkSelected.map(c => (
               <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
                 <span style={{ color: 'var(--c-64748b)' }}>{c.customerName} ({c.agentName})</span>
-                <span style={{ fontWeight: 700, color: '#16a34a' }}>{formatRupiah(getBreakdown(c).agent)}</span>
+                <span style={{ fontWeight: 700, color: '#16a34a' }}>{formatRupiah(c.commissionAmount)}</span>
               </div>
             ))}
           </div>
@@ -348,7 +427,6 @@ export function Commission() {
         }
       >
         {selectedComm && (() => {
-          const { leasing, agent, owner } = getBreakdown(selectedComm);
           return (
             <div>
               <div className="alert alert-success" style={{ marginBottom: 20, flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -357,9 +435,7 @@ export function Commission() {
                     { l: 'Agen', v: selectedComm.agentName },
                     { l: 'Nasabah', v: selectedComm.customerName },
                     { l: 'Pinjaman', v: formatRupiah(selectedComm.approvePinjaman) },
-                    { l: 'Komisi Leasing', v: formatRupiah(leasing) },
-                    { l: 'Komisi Agen (Dibayar)', v: formatRupiah(agent) },
-                    ...(isOwner ? [{ l: 'Keuntungan Owner', v: formatRupiah(owner) }] : []),
+                    { l: 'Komisi (Dibayar)', v: formatRupiah(selectedComm.commissionAmount) },
                   ].map(({ l, v }) => (
                     <div key={l}>
                       <p style={{ fontSize: 11, color: '#16a34a', fontWeight: 500 }}>{l}</p>
@@ -377,6 +453,74 @@ export function Commission() {
             </div>
           );
         })()}
+      </Modal>
+
+      {/* Import Excel — preview sebelum diterapkan */}
+      <Modal
+        isOpen={!!importPreview}
+        onClose={() => setImportPreview(null)}
+        title="Preview Import Excel Komisi"
+        size="md"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setImportPreview(null)}>Batal</button>
+            <button className="btn btn-primary" disabled={!importPreview?.valid.length || importSaving} onClick={confirmImport}>
+              {importSaving ? 'Menyimpan...' : `Terapkan ${importPreview?.valid.length || 0} Perubahan`}
+            </button>
+          </>
+        }
+      >
+        {importPreview && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {importPreview.errors.length > 0 && (
+              <div className="alert alert-danger" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  <strong style={{ fontSize: 13 }}>{importPreview.errors.length} baris dilewati</strong>
+                </div>
+                <div style={{ maxHeight: 100, overflowY: 'auto', width: '100%' }}>
+                  {importPreview.errors.map((e, i) => (
+                    <p key={i} style={{ fontSize: 12, marginTop: 2 }}>{e}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importPreview.valid.length > 0 ? (
+              <div className="table-wrap">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead className="table-head">
+                    <tr>
+                      <th className="table-th">Nasabah</th>
+                      <th className="table-th">Komisi (Baru)</th>
+                      <th className="table-th">Status</th>
+                      <th className="table-th">Tgl Bayar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importPreview.valid.map(r => {
+                      const changed = r.existing.commissionAmount !== r.commissionAmount || r.existing.status !== r.status;
+                      return (
+                        <tr key={r.id} className="table-row">
+                          <td className="table-td" style={{ fontSize: 12 }}>{r.existing.customerName}</td>
+                          <td className="table-td" style={{ fontSize: 12, fontWeight: changed ? 700 : 400, color: changed ? '#16a34a' : undefined }}>
+                            {formatRupiah(r.commissionAmount)}
+                            {r.existing.commissionAmount !== r.commissionAmount && (
+                              <span style={{ color: 'var(--c-94a3b8)', fontWeight: 400, marginLeft: 6, textDecoration: 'line-through' }}>{formatRupiah(r.existing.commissionAmount)}</span>
+                            )}
+                          </td>
+                          <td className="table-td"><Badge status={r.status} /></td>
+                          <td className="table-td" style={{ fontSize: 12 }}>{r.paymentDate || '-'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--c-94a3b8)', textAlign: 'center', padding: '16px 0' }}>Tidak ada baris valid untuk diterapkan.</p>
+            )}
+          </div>
+        )}
       </Modal>
     </Layout>
   );

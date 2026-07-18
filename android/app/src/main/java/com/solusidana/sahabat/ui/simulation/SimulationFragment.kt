@@ -71,6 +71,13 @@ class SimulationFragment : Fragment() {
             if (!isChecked) return@addOnButtonCheckedListener
             jenis = if (checkedId == R.id.btnMotor) "motor" else "mobil"
             b.btnNew.text = if (jenis == "motor") "NEW" else "REGULER"
+            // Motor vs Mobil pakai katalog OTR berbeda (r2/r4) — brand/tipe/tahun yang
+            // sudah dipilih jadi tidak relevan; dulu dropdown brand tidak di-refresh
+            // sama sekali di sini sehingga tetap menampilkan brand jenis sebelumnya.
+            selectedBrand = ""; selectedTipe = ""; selectedOtrRow = null; selectedTahun = 0; maxPinjaman = null
+            b.ddBrand.setText("", false); b.ddTipe.setText("", false); b.ddTahun.setText("", false)
+            b.tilTipe.isVisible = false; b.tilTahun.isVisible = false
+            updateBrandDropdown()
             resetPencairan()
             recalc()
         }

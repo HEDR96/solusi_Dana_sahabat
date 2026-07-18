@@ -76,7 +76,7 @@ export function Settings() {
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
 
-  const canAccess = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canAccess = ['owner', 'super-admin'].includes(currentUser?.role);
   if (!canAccess) return (
     <Layout title="Pengaturan">
       <div className="empty-state"><p>Anda tidak memiliki akses ke halaman ini.</p></div>
@@ -220,9 +220,7 @@ export function Settings() {
 
   // Contoh perhitungan komisi live berdasarkan setting saat ini
   const contohPinjaman = 10_000_000;
-  const contohLeasing  = Math.round(contohPinjaman * (localSettings.commissionRate || 0) / 100);
-  const contohAgen     = Math.round(contohLeasing * (localSettings.commissionAgentRate ?? 80) / 100);
-  const contohOwner    = contohLeasing - contohAgen;
+  const contohKomisi   = Math.round(contohPinjaman * (localSettings.commissionRate || 0) / 100);
 
   return (
     <Layout title="Pengaturan Sistem" subtitle="Konfigurasi perusahaan, komisi, dan tampilan — berlaku untuk semua user">
@@ -241,7 +239,6 @@ export function Settings() {
         <Section icon={Percent} title="Aturan Komisi" desc="Berlaku untuk semua user setelah disimpan" color="#16a34a" bg="#f0fdf4">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Rate Komisi Leasing Default (%)" value={localSettings.commissionRate} type="number" onChange={sf('commissionRate')} suffix="%" />
-            <Field label="Porsi Komisi Agen (% dari Komisi Leasing)" value={localSettings.commissionAgentRate ?? 80} type="number" onChange={sf('commissionAgentRate')} suffix="%" />
             <Toggle
               label="Hitung Komisi Otomatis"
               desc="Komisi dibuat otomatis saat pengajuan approve"
@@ -258,16 +255,8 @@ export function Settings() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--c-64748b)' }}>Komisi Leasing ({localSettings.commissionRate || 0}%)</span>
-                  <strong style={{ color: 'var(--c-0f172a)' }}>{formatRupiah(contohLeasing)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--c-64748b)' }}>Komisi Agen ({localSettings.commissionAgentRate ?? 80}% dari komisi leasing)</span>
-                  <strong style={{ color: '#16a34a' }}>{formatRupiah(contohAgen)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 4, marginTop: 2 }}>
-                  <span style={{ color: 'var(--c-64748b)' }}>Keuntungan Owner (selisih)</span>
-                  <strong style={{ color: '#1d4ed8' }}>{formatRupiah(contohOwner)}</strong>
+                  <span style={{ color: 'var(--c-64748b)' }}>Komisi ({localSettings.commissionRate || 0}%)</span>
+                  <strong style={{ color: '#16a34a' }}>{formatRupiah(contohKomisi)}</strong>
                 </div>
               </div>
               <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 8, lineHeight: 1.5 }}>
@@ -350,11 +339,9 @@ export function Settings() {
                     <option value="">-- Pilih role --</option>
                     {[
                       { value: 'agen',       label: 'Agen' },
-                      { value: 'admin',      label: 'Admin' },
                       { value: 'spv-agen',   label: 'Supervisor Agen' },
-                      { value: 'surveyor',   label: 'Surveyor' },
-                      { value: 'finance',    label: 'Finance' },
                       { value: 'owner',      label: 'Owner' },
+                      { value: 'super-admin', label: 'Super Admin' },
                     ].map(r => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}

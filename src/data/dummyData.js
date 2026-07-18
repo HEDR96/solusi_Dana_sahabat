@@ -33,12 +33,9 @@ export const agents = [
 
 export const users = [
   { id: 1, name: 'Super Admin', email: 'admin@finance.co.id', role: 'super-admin', status: 'aktif', agentId: null, lastLogin: '2026-07-07 08:30' },
-  { id: 2, name: 'Admin Proses', email: 'backoffice@finance.co.id', role: 'admin', status: 'aktif', agentId: null, lastLogin: '2026-07-07 08:45' },
   { id: 3, name: 'Reza Pratama', email: 'reza@email.com', role: 'agen', status: 'aktif', agentId: 'AGT001', lastLogin: '2026-07-07 09:00' },
   { id: 4, name: 'Sari Dewi', email: 'sari@email.com', role: 'agen', status: 'aktif', agentId: 'AGT002', lastLogin: '2026-07-06 16:20' },
   { id: 5, name: 'Budi Hartono', email: 'budi.h@email.com', role: 'agen', status: 'aktif', agentId: 'AGT003', lastLogin: '2026-07-07 07:55' },
-  { id: 6, name: 'Surveyor Utama', email: 'surveyor@finance.co.id', role: 'surveyor', status: 'aktif', agentId: null, lastLogin: '2026-07-07 08:10' },
-  { id: 7, name: 'Finance Staff', email: 'finance@finance.co.id', role: 'finance', status: 'aktif', agentId: null, lastLogin: '2026-07-06 17:00' },
 ];
 
 const generateApplicationId = (i) => `BRK${String(2026001 + i).padStart(7, '0')}`;
@@ -203,11 +200,9 @@ export const notifications = [
 
 export const auditLogs = [
   { id: 1, user: 'Reza Pratama', role: 'agen', action: 'Input Berkas Baru', detail: 'Berkas BRK2026003 - Andri Susanto', time: '2026-07-05 14:32', ip: '192.168.1.101' },
-  { id: 2, user: 'Admin Proses', role: 'admin', action: 'Ubah Status', detail: 'BRK2026004: pending → cek-data', time: '2026-07-03 10:15', ip: '192.168.1.100' },
   { id: 3, user: 'Eko Nugroho', role: 'agen', action: 'Input Berkas Baru', detail: 'Berkas BRK2026006 - Siti Aisyah', time: '2026-07-02 11:20', ip: '192.168.1.107' },
   { id: 4, user: 'Super Admin', role: 'super-admin', action: 'Login', detail: 'Login berhasil', time: '2026-07-07 08:30', ip: '192.168.1.1' },
-  { id: 5, user: 'Finance Staff', role: 'finance', action: 'Bayar Komisi', detail: 'Komisi AGT001 - Reza Pratama dibayarkan', time: '2026-06-20 15:00', ip: '192.168.1.105' },
-  { id: 6, user: 'Admin Proses', role: 'admin', action: 'Upload Dokumen', detail: 'Upload BPKB BRK2026001', time: '2026-06-02 09:45', ip: '192.168.1.100' },
+  { id: 5, user: 'Super Admin', role: 'super-admin', action: 'Bayar Komisi', detail: 'Komisi AGT001 - Reza Pratama dibayarkan', time: '2026-06-20 15:00', ip: '192.168.1.105' },
 ];
 
 export const monthlyStats = [

@@ -41,29 +41,42 @@ class NotificationWorker(
         return Result.success()
     }
 
-    // ── 1. Reminder berkas aktif — satu summary ───────────────────────────────
+    // ── 1. Reminder berkas aktif — satu notifikasi TERPISAH per berkas ─────────
+    // Tap → langsung ke detail berkas tsb. ID stabil per app.id supaya siklus
+    // 3-jam berikutnya meng-update notifikasi yang sama (bukan menumpuk duplikat).
     private suspend fun checkActiveApps(token: String, agentId: String?) {
         SupabaseApi.getApplications(token, agentId).onSuccess { apps ->
             val active = apps.filter { it.status !in DONE_STATUSES }
-            if (active.isEmpty()) return@onSuccess
 
-            val title = "${active.size} berkas aktif"
-            val style = NotificationCompat.InboxStyle()
-                .setBigContentTitle(title)
-            active.take(6).forEach { app ->
+            active.forEach { app ->
                 val sla = slaHari(app.inputDate)
-                style.addLine("${app.customerName} — ${statusLabel(app.status)} ($sla hr)")
-            }
-            if (active.size > 6) style.setSummaryText("+${active.size - 6} lainnya")
+                val kota = app.city?.takeIf { it.isNotBlank() } ?: "-"
+                val agen = app.agentName?.takeIf { it.isNotBlank() } ?: "-"
+                val nominal = formatRupiah(app.pinjaman)
 
-            val pending = mainIntent(NOTIF_ACTIVE_SUMMARY)
-            val notif = base(title, "Tap untuk melihat detail berkas", pending)
-                .setStyle(style)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build()
-            nm.notify(NOTIF_ACTIVE_SUMMARY, notif)
+                val shortText = "$nominal · $sla hari · ${statusLabel(app.status)}"
+                val longText = "${app.customerName} · $nominal\n" +
+                    "Agen: $agen · $kota\n" +
+                    "Status: ${statusLabel(app.status)} · sudah berjalan $sla hari\n" +
+                    "Tap untuk lihat detail berkas"
+
+                val notif = base("📋 ${app.customerName}", shortText, appIntent(activeNotifId(app.id), app.id))
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(longText))
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                nm.notify(activeNotifId(app.id), notif)
+            }
+
+            // Berkas yang sudah tidak aktif lagi (approve/reject/cancel sejak siklus
+            // sebelumnya) — hapus notifikasinya supaya tidak nyangkut selamanya.
+            val activeIdsNow = active.map { it.id }.toSet()
+            val prevIds = prefs.getStringSet(KEY_ACTIVE_APP_IDS, null) ?: emptySet()
+            (prevIds - activeIdsNow).forEach { staleId -> nm.cancel(activeNotifId(staleId)) }
+            prefs.edit().putStringSet(KEY_ACTIVE_APP_IDS, activeIdsNow).apply()
         }
     }
+
+    private fun activeNotifId(appId: String): Int = ("active_$appId").hashCode()
 
     // ── 2. Perubahan status berkas ────────────────────────────────────────────
     private suspend fun checkStatusChanges(token: String, agentId: String?) {
@@ -232,13 +245,13 @@ class NotificationWorker(
     }
 
     companion object {
-        private const val NOTIF_ACTIVE_SUMMARY     = 6001
         private const val NOTIF_STATUS_SUMMARY     = 6002
         private const val NOTIF_COMMISSION_SUMMARY = 6003
         private const val NOTIF_PUSH_SUMMARY       = 6004
         private const val KEY_PAID_IDS             = "paid_commission_ids"
         private const val KEY_APP_STATUSES         = "app_statuses"
         private const val KEY_LAST_PUSH_ID         = "last_push_msg_id"
+        private const val KEY_ACTIVE_APP_IDS       = "active_app_ids_notified"
         private val DONE_STATUSES                  = setOf("approve", "reject", "cancel")
     }
 }

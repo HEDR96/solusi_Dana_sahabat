@@ -63,6 +63,12 @@ class ProfileFragment : Fragment() {
                 .navigate(com.solusidana.sahabat.R.id.action_profile_to_commission)
         }
 
+        // Agen dipindah dari bottom nav ke sini (bottom nav slot itu sekarang Aktivitas)
+        b.btnAgents.setOnClickListener {
+            androidx.navigation.fragment.NavHostFragment.findNavController(this)
+                .navigate(com.solusidana.sahabat.R.id.action_profile_to_agents)
+        }
+
         b.btnEditProfile.setOnClickListener {
             androidx.navigation.fragment.NavHostFragment.findNavController(this)
                 .navigate(com.solusidana.sahabat.R.id.action_profile_to_edit)
@@ -71,6 +77,7 @@ class ProfileFragment : Fragment() {
         // Master Data — hanya owner/super-admin yang bisa ubah dropdown sistem
         if (session.userRole in listOf("owner", "super-admin")) {
             b.btnMasterData.visibility = View.VISIBLE
+            b.dividerMasterData.visibility = View.VISIBLE
             b.btnMasterData.setOnClickListener {
                 androidx.navigation.fragment.NavHostFragment.findNavController(this)
                     .navigate(com.solusidana.sahabat.R.id.action_profile_to_masterdata)

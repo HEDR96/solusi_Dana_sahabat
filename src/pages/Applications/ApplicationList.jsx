@@ -53,7 +53,7 @@ const EMPTY = {
 export function ApplicationList() {
   const { visibleApplications: applications, agents, visibleAgents, leasing, addApplication, updateApplicationStatus, currentUser } = useApp();
   const navigate = useNavigate();
-  const canBulkEdit = ['owner', 'super-admin', 'admin'].includes(currentUser?.role);
+  const canBulkEdit = ['owner', 'super-admin'].includes(currentUser?.role);
   const unitTypes    = useMasterOptions('unit_type', ['Mobil', 'Motor', 'Alat Berat', 'Lainnya']);
   const tenorOptions = useMasterOptions('tenor', ['12', '18', '24', '36', '48', '60']);
   const cityOptions  = useMasterOptions('city', ['Medan', 'Binjai', 'Deli Serdang', 'Langkat', 'Tebing Tinggi', 'Pematang Siantar']);
@@ -229,7 +229,10 @@ export function ApplicationList() {
       agentId: ag?.id || form.agentId,
       agentName: ag?.name || form.agentName,
       pinjaman: Number(form.pinjaman),
-      estimasiAngsuran: Number(form.estimasiAngsuran),
+      // form.estimasiAngsuran tidak pernah diisi input mana pun — nilai yang benar
+      // ada di rateResult (hasil kalkulasi tabel angsuran) yang ditampilkan di preview.
+      // Sebelum fix ini, SETIAP berkas dari web tersimpan estimasi_angsuran = 0.
+      estimasiAngsuran: rateResult?.angsuran || 0,
     }, docFiles);
     setShowModal(false);
     setForm(EMPTY);

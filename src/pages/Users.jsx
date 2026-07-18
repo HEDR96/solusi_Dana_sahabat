@@ -20,32 +20,23 @@ const F = memo(({ label, children, error }) => (
 const FALLBACK_ROLES = [
   { value: 'owner',       label: 'Owner' },
   { value: 'super-admin', label: 'Super Admin' },
-  { value: 'admin',       label: 'Admin/Back Office' },
   { value: 'spv-agen',    label: 'Supervisor Agen' },
   { value: 'agen',        label: 'Agen' },
-  { value: 'surveyor',    label: 'Surveyor' },
-  { value: 'finance',     label: 'Finance' },
 ];
 
 const FALLBACK_PERMISSIONS = {
   'owner':       ['Semua akses sistem tanpa batasan', 'Kelola semua user & role', 'Akses semua laporan & data', 'Kelola pengaturan sistem'],
   'super-admin': ['Semua akses sistem', 'Kelola user & role', 'Kelola data leasing', 'Kelola pembayaran komisi', 'Lihat semua laporan', 'Pengaturan sistem'],
-  'admin':       ['Proses & input berkas', 'Ubah status pengajuan', 'Atur jadwal survey', 'Lihat laporan & komisi'],
   'spv-agen':    ['Lihat agen di bawah supervisinya', 'Monitor berkas & komisi agen binaan', 'Lihat aktivitas agen supervised', 'Laporan filtered per agen binaan'],
   'agen':        ['Input berkas baru', 'Lihat berkas milik sendiri', 'Lihat jadwal survey', 'Lihat komisi sendiri'],
-  'surveyor':    ['Lihat jadwal survey', 'Update hasil survey', 'Tambah catatan lapangan'],
-  'finance':     ['Kelola pembayaran komisi', 'Ubah status komisi', 'Lihat laporan pembayaran'],
 };
 
 // Warna badge per role (visual, bukan data) — role baru dapat warna default
 const ROLE_COLORS = {
   'owner':       { color: '#7c3aed', bg: '#f5f3ff' },
   'super-admin': { color: '#ef4444', bg: '#fef2f2' },
-  'admin':       { color: '#3b82f6', bg: '#eff6ff' },
   'spv-agen':    { color: '#f97316', bg: '#fff7ed' },
   'agen':        { color: '#22c55e', bg: '#f0fdf4' },
-  'surveyor':    { color: '#f59e0b', bg: '#fffbeb' },
-  'finance':     { color: '#8b5cf6', bg: '#f5f3ff' },
 };
 const DEFAULT_ROLE_COLOR = { color: '#64748b', bg: 'var(--surface-alt2)' };
 
@@ -74,7 +65,7 @@ function RoleBadge({ role, roles }) {
   );
 }
 
-const EMPTY_USER = { name: '', email: '', password: '', role: 'admin', status: 'aktif', agentId: null };
+const EMPTY_USER = { name: '', email: '', password: '', role: 'agen', status: 'aktif', agentId: null };
 const EMPTY_AGENT = { phone: '', city: '', nik: '', address: '', bank: '', accountNumber: '', accountName: '', target: 10, spvId: '' };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

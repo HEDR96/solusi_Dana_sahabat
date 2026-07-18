@@ -1,79 +1,166 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/background">
 
-    <com.google.android.material.appbar.AppBarLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <androidx.appcompat.widget.Toolbar
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:title="Profil"
-            app:titleTextColor="#FFFFFF" />
-    </com.google.android.material.appbar.AppBarLayout>
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="24dp">
 
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        <!-- ── HERO HEADER (gradient, konsisten dengan Dashboard) ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_header_gradient"
+            android:paddingTop="32dp"
+            android:paddingBottom="24dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/tvAvatar"
+                android:layout_width="84dp"
+                android:layout_height="84dp"
+                android:gravity="center"
+                android:text="?"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_avatar_circle"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:id="@+id/tvName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nama"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvEmail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="email@example.com"
+                android:textSize="12.5sp"
+                android:textColor="#BFDBFE"
+                android:layout_marginTop="3dp" />
+
+            <TextView
+                android:id="@+id/tvRole"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Role"
+                android:textSize="11.5sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:textAllCaps="true"
+                android:letterSpacing="0.04"
+                android:background="@drawable/bg_role_pill"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:layout_marginTop="12dp" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
-            <!-- Avatar -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginBottom="24dp">
+            <!-- ── MENU: navigasi utama ── -->
+            <TextView
+                style="@style/ProfileSectionLabel"
+                android:text="MENU" />
 
-                <TextView
-                    android:id="@+id/tvAvatar"
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:gravity="center"
-                    android:text="?"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF"
-                    android:background="@drawable/bg_avatar_circle"
-                    android:layout_marginBottom="12dp" />
-
-                <TextView
-                    android:id="@+id/tvName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Nama"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary" />
-
-                <TextView
-                    android:id="@+id/tvRole"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Role"
-                    android:textSize="13sp"
-                    android:textColor="#3B82F6"
-                    android:layout_marginTop="4dp" />
-            </LinearLayout>
-
-            <!-- Info card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/background"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/btnEditProfile"
+                        style="@style/ProfileRow">
+                        <TextView style="@style/ProfileRowIcon" android:text="✏️" />
+                        <TextView style="@style/ProfileRowLabel" android:text="Lengkapi Profil" />
+                        <TextView style="@style/ProfileRowChevron" />
+                    </LinearLayout>
+
+                    <View style="@style/ProfileRowDivider" />
+
+                    <LinearLayout
+                        android:id="@+id/btnAgents"
+                        style="@style/ProfileRow">
+                        <TextView style="@style/ProfileRowIcon" android:text="👥" />
+                        <TextView style="@style/ProfileRowLabel" android:text="Agen" />
+                        <TextView style="@style/ProfileRowChevron" />
+                    </LinearLayout>
+
+                    <View style="@style/ProfileRowDivider" />
+
+                    <LinearLayout
+                        android:id="@+id/btnCommission"
+                        style="@style/ProfileRow">
+                        <TextView style="@style/ProfileRowIcon" android:text="💰" />
+                        <TextView style="@style/ProfileRowLabel" android:text="Komisi" />
+                        <TextView style="@style/ProfileRowChevron" />
+                    </LinearLayout>
+
+                    <View
+                        android:id="@+id/dividerMasterData"
+                        android:visibility="gone"
+                        style="@style/ProfileRowDivider" />
+
+                    <LinearLayout
+                        android:id="@+id/btnMasterData"
+                        android:visibility="gone"
+                        style="@style/ProfileRow">
+                        <TextView style="@style/ProfileRowIcon" android:text="🗂️" />
+                        <TextView style="@style/ProfileRowLabel" android:text="Master Data (Dropdown)" />
+                        <TextView style="@style/ProfileRowChevron" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ── KEAMANAN LOGIN ── -->
+            <TextView
+                style="@style/ProfileSectionLabel"
+                android:text="KEAMANAN" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/background"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -85,59 +172,26 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingVertical="10dp">
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
 
                         <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔒"
+                            android:textSize="16sp"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:id="@+id/tvLockStatus"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Email"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary" />
-
-                        <TextView
-                            android:id="@+id/tvEmail"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="email@example.com"
-                            android:textSize="13sp"
+                            android:text="Kunci aplikasi: Nonaktif"
+                            android:textSize="12.5sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
                     </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Keamanan Login -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🔒 Keamanan Login"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginBottom="4dp" />
-
-                    <TextView
-                        android:id="@+id/tvLockStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Kunci aplikasi: Nonaktif"
-                        android:textSize="12sp"
-                        android:textColor="@color/text_secondary"
-                        android:layout_marginBottom="12dp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -147,90 +201,88 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSetPin"
                             android:layout_width="0dp"
-                            android:layout_height="44dp"
+                            android:layout_height="42dp"
                             android:layout_weight="1"
                             android:layout_marginEnd="6dp"
                             android:text="Atur PIN"
-                            android:textSize="12sp"
+                            android:textSize="11.5sp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
                             app:cornerRadius="10dp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSetPattern"
                             android:layout_width="0dp"
-                            android:layout_height="44dp"
+                            android:layout_height="42dp"
                             android:layout_weight="1"
                             android:layout_marginEnd="6dp"
                             android:text="Atur Pola"
-                            android:textSize="12sp"
+                            android:textSize="11.5sp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
                             app:cornerRadius="10dp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnDisableLock"
                             android:layout_width="0dp"
-                            android:layout_height="44dp"
+                            android:layout_height="42dp"
                             android:layout_weight="1"
                             android:text="Nonaktif"
-                            android:textSize="12sp"
-                            android:textColor="#EF4444"
-                            app:strokeColor="#EF4444"
+                            android:textSize="11.5sp"
+                            android:textColor="@color/error"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            app:strokeColor="@color/error"
                             app:cornerRadius="10dp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCommission"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="💰 Komisi"
-                android:textSize="13sp"
-                android:layout_marginBottom="12dp"
-                app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            <!-- ── LAINNYA ── -->
+            <TextView
+                style="@style/ProfileSectionLabel"
+                android:text="LAINNYA" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnEditProfile"
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="✏️ Lengkapi Profil"
-                android:textSize="13sp"
-                android:layout_marginBottom="12dp"
-                app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/background"
+                app:strokeWidth="1dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnMasterData"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="🗂️ Master Data (Dropdown)"
-                android:textSize="13sp"
-                android:layout_marginBottom="12dp"
-                android:visibility="gone"
-                app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnBattery"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="🔋 Izinkan Notifikasi Latar Belakang"
-                android:textSize="13sp"
-                android:layout_marginBottom="12dp"
-                app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    <LinearLayout
+                        android:id="@+id/btnBattery"
+                        style="@style/ProfileRow">
+                        <TextView style="@style/ProfileRowIcon" android:text="🔋" />
+                        <TextView style="@style/ProfileRowLabel" android:text="Izinkan Notifikasi Latar Belakang" />
+                        <TextView style="@style/ProfileRowChevron" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLogout"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:text="Keluar"
-                android:textSize="15sp"
+                android:textSize="14.5sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/error"
                 app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                style="@style/Widget.MaterialComponents.Button" />
 
         </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+    </LinearLayout>
+</ScrollView>

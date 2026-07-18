@@ -45,7 +45,7 @@ function Toggle({ value, onChange, options }) {
 
 // ─── Komponen utama ──────────────────────────────────────────────────────────
 export function Simulation() {
-  const { leasing: leasingList, settings, currentUser } = useApp();
+  const { leasing: leasingList } = useApp();
   const activeLeasings = leasingList.filter(l => l.status === 'aktif');
 
   const [selectedLeasingId, setLeasingId] = useState('');
@@ -373,42 +373,20 @@ export function Simulation() {
                 </div>
               </div>
 
-              {(() => {
-                const agRate  = settings?.commissionAgentRate ?? 80;
-                const agKomisi = Math.round(result.fee * agRate / 100);
-                const ownerKomisi = result.fee - agKomisi;
-                const isOwner = ['owner', 'super-admin'].includes(currentUser?.role);
-                return (
-                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ background:'#f0fdf4', border:'1.5px solid #bbf7d0', borderRadius:14, padding:'18px 20px' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                        <TrendingUp size={16} color="#16a34a" />
-                        <p style={{ fontSize:12, fontWeight:700, color:'#15803d', textTransform:'uppercase', letterSpacing:'.04em' }}>
-                          Komisi Leasing (Gross)
-                        </p>
-                      </div>
-                      <p style={{ fontSize:30, fontWeight:800, color:'#15803d', marginBottom:4 }}>
-                        {formatRupiah(result.fee)}
-                      </p>
-                      <p style={{ fontSize:12, color:'#16a34a' }}>
-                        Per berkas disetujui · {leasingName} · {labelJenis} {labelTipe}
-                      </p>
-                    </div>
-
-                    <div style={{ background:'#eff6ff', border:'1.5px solid #bfdbfe', borderRadius:14, padding:'16px 20px' }}>
-                      <p style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>
-                        Take-Home Agen ({agRate}%)
-                      </p>
-                      <p style={{ fontSize:26, fontWeight:800, color:'#1d4ed8', marginBottom:2 }}>{formatRupiah(agKomisi)}</p>
-                      {isOwner && (
-                        <p style={{ fontSize:12, color:'#3b82f6', marginTop:4 }}>
-                          Keuntungan owner: <strong>{formatRupiah(ownerKomisi)}</strong> ({100 - agRate}%)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+              <div style={{ background:'#f0fdf4', border:'1.5px solid #bbf7d0', borderRadius:14, padding:'18px 20px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                  <TrendingUp size={16} color="#16a34a" />
+                  <p style={{ fontSize:12, fontWeight:700, color:'#15803d', textTransform:'uppercase', letterSpacing:'.04em' }}>
+                    Komisi
+                  </p>
+                </div>
+                <p style={{ fontSize:30, fontWeight:800, color:'#15803d', marginBottom:4 }}>
+                  {formatRupiah(result.fee)}
+                </p>
+                <p style={{ fontSize:12, color:'#16a34a' }}>
+                  Per berkas disetujui · {leasingName} · {labelJenis} {labelTipe}
+                </p>
+              </div>
 
               <div style={{ background:'var(--surface-alt)', borderRadius:10, padding:'12px 14px' }}>
                 <p style={{ fontSize:11, color:'var(--c-64748b)', lineHeight:1.6 }}>

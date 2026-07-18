@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Layout } from '../components/Layout/Layout';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
@@ -19,7 +19,8 @@ const JENIS_STYLE = {
   'Pick Up': { color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
   'Mobil':   { color: '#065f46', bg: '#ecfdf5', border: '#a7f3d0' },
 };
-import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Save, RotateCcw, Edit2, X, Download, Upload } from 'lucide-react';
+import { exportToXlsx, parseXlsxFile } from '../utils/excelIO';
 
 // ─── Dropdown options (kategori) ─────────────────────────────────────────────
 const CATEGORIES = [
@@ -117,6 +118,44 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
     setRows(prev => prev.filter((_, i) => i !== ri));
   };
 
+  // ── Excel: download template (grid saat ini) & upload untuk update massal ──
+  const fileInputRef = useRef(null);
+  const downloadTemplate = () => {
+    const cols = [
+      { label: 'Pinjaman (ribuan)', key: 'pinjaman' },
+      ...def.tenors.map(t => ({ label: String(t), get: r => r.vals[def.tenors.indexOf(t)] })),
+    ];
+    exportToXlsx(`template-${def.tipe}-${leasingKey}`, cols, rows);
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const parsed = await parseXlsxFile(file);
+      if (!parsed.length) { showToast('File kosong atau format tidak dikenali', 'error'); return; }
+      const newRows = [];
+      const errors = [];
+      parsed.forEach((r, i) => {
+        const pinjaman = Number(r['Pinjaman (ribuan)']);
+        if (!pinjaman || pinjaman <= 0) { errors.push(`Baris ${i + 2}: "Pinjaman (ribuan)" tidak valid`); return; }
+        const vals = def.tenors.map(t => {
+          const v = Number(r[String(t)]);
+          return Number.isFinite(v) ? v : 0;
+        });
+        newRows.push({ pinjaman, vals });
+      });
+      if (errors.length) { showToast(errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} lainnya)` : ''), 'error'); }
+      if (!newRows.length) return;
+      setRows(newRows.sort((a, b) => a.pinjaman - b.pinjaman));
+      setEditing(true);
+      showToast(`${newRows.length} baris dimuat dari Excel — periksa lalu klik Simpan`);
+    } catch {
+      showToast('Gagal membaca file — pastikan formatnya .xlsx dan sesuai template', 'error');
+    }
+  };
+
   if (!rows) return <p style={{ fontSize:13, color:'var(--c-94a3b8)', padding:20 }}>Memuat...</p>;
 
   const isFee = def.tipe.includes('fee');
@@ -161,6 +200,13 @@ function RateTableEditor({ def, showToast, leasingKey = 'CMD', leasingName = 'CM
           </>
         ) : (
           <>
+            <button className="btn btn-sm btn-secondary" onClick={downloadTemplate} title="Unduh tabel saat ini sebagai Excel">
+              <Download size={13} /> Download Template
+            </button>
+            <button className="btn btn-sm btn-secondary" onClick={() => fileInputRef.current?.click()} title="Update dari file Excel">
+              <Upload size={13} /> Upload Excel
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportFile} />
             <button className="btn btn-sm btn-secondary" onClick={reset} title="Reset ke default brosur">
               <RotateCcw size={13} /> Reset Default
             </button>
