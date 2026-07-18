@@ -55,7 +55,7 @@ export default function FAQ() {
             <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--navy-deep)' }}>Masih Ada Pertanyaan?</h2>
             <p className="text-sm text-gray-400 mb-5">Hubungi tim agen kami langsung melalui WhatsApp, kami siap membantu.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
+              <a href="https://wa.me/6281265593904" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
                 💬 Chat via WhatsApp
               </a>
               <Link to="/hubungi-kami" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold border transition-all hover:shadow-md" style={{ border: '2px solid var(--navy-deep)', color: 'var(--navy-deep)' }}>

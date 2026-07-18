@@ -40,7 +40,7 @@
                 android:hint="Agen"
                 android:layout_marginBottom="12dp"
                 android:visibility="gone">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddAgent"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -90,7 +90,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Kota *" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView android:id="@+id/etCity"
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/etCity"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -118,7 +118,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Tipe Unit *" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddUnitType"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
@@ -152,7 +152,7 @@
                     android:layout_height="wrap_content"
                     android:hint="Brand Kendaraan"
                     android:layout_marginBottom="10dp">
-                    <AutoCompleteTextView
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/ddOtrBrand"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -167,7 +167,7 @@
                     android:hint="Tipe Kendaraan"
                     android:layout_marginBottom="10dp"
                     android:visibility="gone">
-                    <AutoCompleteTextView
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/ddOtrTipe"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -182,7 +182,7 @@
                     android:hint="Tahun Kendaraan"
                     android:layout_marginBottom="10dp"
                     android:visibility="gone">
-                    <AutoCompleteTextView
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/ddOtrTahun"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -230,7 +230,7 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Tahun Unit" android:layout_marginBottom="12dp"
                 android:visibility="gone">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddUnitYear"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
@@ -254,7 +254,7 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Jumlah Pinjaman *" android:layout_marginBottom="12dp"
                 android:visibility="gone">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddPinjaman"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
@@ -276,7 +276,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Tenor *" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddTenor"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
@@ -287,7 +287,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Leasing Tujuan *" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddLeasing"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />

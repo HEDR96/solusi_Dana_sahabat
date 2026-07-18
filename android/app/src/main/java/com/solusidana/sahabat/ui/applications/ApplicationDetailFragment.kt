@@ -67,7 +67,8 @@ class ApplicationDetailFragment : Fragment() {
         b.toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
 
         val session = SessionManager(requireContext())
-        val canEdit = session.userRole in listOf("owner", "super-admin", "admin", "spv-agen")
+        // Paritas RLS/web: surveyor juga berhak mengubah status berkas
+        val canEdit = session.userRole in listOf("owner", "super-admin", "admin", "spv-agen", "surveyor")
 
         vm.detail.observe(viewLifecycleOwner) { state ->
             when (state) {

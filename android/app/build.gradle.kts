@@ -13,14 +13,14 @@ val localProps = Properties().also { props ->
 
 android {
     namespace = "com.solusidana.sahabat"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "solusidanasahabat.myapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.8"
+        versionCode = 10
+        versionName = "1.9"
 
         buildConfigField("String", "SUPABASE_URL", "\"https://jltdidqhdqdsyiakdaqy.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdGRpZHFoZHFkc3lpYWtkYXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDQ4MzcsImV4cCI6MjA5MzIyMDgzN30.IxAEaotwiKoNpIBlXtq9t9x_n0hOPujlddstAA2TPGo\"")
@@ -48,13 +48,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         viewBinding = true
         buildConfig = true
+    }
+}
+
+// kotlinOptions deprecated sejak Kotlin 2.x — pindah ke compilerOptions
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

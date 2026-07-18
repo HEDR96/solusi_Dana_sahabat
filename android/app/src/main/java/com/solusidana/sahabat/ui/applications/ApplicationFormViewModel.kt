@@ -44,19 +44,38 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
     private val _state = MutableLiveData<FormState>(FormState.Idle)
     val state: LiveData<FormState> = _state
 
+    // Gagal memuat dropdown (leasing/agen) — tampilkan ke user, jangan diam-diam
+    private val _loadError = MutableLiveData<String?>(null)
+    val loadError: LiveData<String?> = _loadError
+
     val isAgen get() = session.userRole == "agen"
 
     fun loadOptions() {
         viewModelScope.launch {
-            val token = session.accessToken ?: return@launch
-            _masterOptions.value = MasterData.load(getApplication(), token)
-            SupabaseApi.getLeasingPartners(token).onSuccess { list ->
-                _leasing.value = list.filter { it.status == null || it.status == "aktif" }
+            _loadError.value = null
+            // Token kadaluarsa ~1 jam — refresh dulu agar request tidak 401 diam-diam
+            // (dulu: 401 senyap → adapter leasing kosong → dropdown "tidak muncul apa-apa")
+            SupabaseApi.refreshSession(session)
+            val token = session.accessToken ?: run {
+                _loadError.value = "Sesi berakhir — silakan login ulang"
+                return@launch
             }
+            _masterOptions.value = MasterData.load(getApplication(), token)
+            SupabaseApi.getLeasingPartners(token)
+                .onSuccess { list ->
+                    val aktif = list.filter { it.status == null || it.status == "aktif" }
+                    _leasing.value = aktif
+                    if (aktif.isEmpty()) _loadError.value = "Belum ada leasing aktif — hubungi admin"
+                }
+                .onFailure { _loadError.value = "Gagal memuat daftar leasing — periksa koneksi" }
             if (!isAgen) {
                 SupabaseApi.getAgents(token).onSuccess { list ->
-                    _agents.value = list.filter { it.status == "aktif" }
-                }
+                    val aktif = list.filter { it.status == "aktif" }
+                    // SPV hanya boleh menginput atas nama agen binaannya (paritas web)
+                    _agents.value = if (session.userRole == "spv-agen")
+                        aktif.filter { it.spvId == session.userId }
+                    else aktif
+                }.onFailure { _loadError.value = "Gagal memuat daftar agen — periksa koneksi" }
             }
         }
     }
@@ -103,11 +122,11 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
             val angsuran = if (tenor > 0) (pinjaman + bunga) / tenor else 0
 
             // Nomor berkas dari sequence DB (anti-tabrakan);
-            // fallback hitung jumlah jika RPC belum di-migrate
+            // fallback max(ID)+1 jika RPC belum di-migrate (count+1 rawan duplikat)
             var idResult = SupabaseApi.nextBrkId(token)
             if (idResult.isFailure) {
-                idResult = SupabaseApi.getApplicationsCount(token).map { count ->
-                    "BRK" + (2026000 + count + 1).toString().padStart(7, '0')
+                idResult = SupabaseApi.getMaxApplicationNumber(token).map { maxNum ->
+                    "BRK" + (maxNum + 1).toString().padStart(7, '0')
                 }
             }
 
@@ -128,12 +147,19 @@ class ApplicationFormViewModel(application: Application) : AndroidViewModel(appl
                 leasingPartner.id, leasingPartner.name, notes
             )
                 .onSuccess { _state.value = FormState.Saved(newId) }
-                .onFailure {
-                    // Gagal kirim (kemungkinan koneksi putus) → draft
-                    saveDraft(agentId, agentName, customerName, nik, phone, city, address,
-                        unitType, unitBrand, unitYear, pinjaman, tenor, angsuran,
-                        leasingPartner, notes)
-                    _state.value = FormState.SavedAsDraft
+                .onFailure { e ->
+                    // Hanya gangguan jaringan yang layak jadi draft. Error server
+                    // (403 RLS, data tidak valid) HARUS tampil ke user — kalau
+                    // disamarkan jadi draft, sync worker akan retry selamanya
+                    // dan berkas tidak pernah benar-benar masuk.
+                    if (e is java.io.IOException) {
+                        saveDraft(agentId, agentName, customerName, nik, phone, city, address,
+                            unitType, unitBrand, unitYear, pinjaman, tenor, angsuran,
+                            leasingPartner, notes)
+                        _state.value = FormState.SavedAsDraft
+                    } else {
+                        _state.value = FormState.Error(e.message ?: "Gagal menyimpan berkas")
+                    }
                 }
         }
     }

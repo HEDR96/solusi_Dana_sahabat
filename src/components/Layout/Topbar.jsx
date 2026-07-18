@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Search, X, FileText, User, CheckCircle, Clock, Users, Menu, UserCircle, LogOut } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp, relativeTime } from '../../context/AppContext';
 import { SECTIONS, canAccessSection } from '../../data/permissions';
 
 const NOTIF_ICONS = {
@@ -212,7 +212,7 @@ export function Topbar({ title, subtitle }) {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, color: 'var(--c-0f172a)', lineHeight: 1.4, fontWeight: n.read ? 400 : 600 }}>{n.message}</p>
-                      <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 3 }}>{n.time}</p>
+                      <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginTop: 3 }}>{relativeTime(n.createdAt) || n.time}</p>
                     </div>
                     {!n.read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', marginTop: 6, flexShrink: 0 }} />}
                   </div>

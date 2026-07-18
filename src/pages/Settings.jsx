@@ -118,7 +118,8 @@ export function Settings() {
       // Cari user account tiap agen, kirim push message
       let sent = 0;
       for (const [agentId, data] of Object.entries(byAgent)) {
-        const user = users.find(u => u.agent_id === agentId);
+        // State `users` memakai camelCase (agentId) — u.agent_id selalu undefined
+        const user = users.find(u => u.agentId === agentId);
         if (!user) continue;
         const list = data.berkas.map(b => {
           const sla = b.input_date

@@ -117,7 +117,7 @@ export function Dashboard() {
     approve:   applications.filter(a => a.status === 'approve').length,
     cancel:    applications.filter(a => a.status === 'cancel').length,
     reject:    applications.filter(a => a.status === 'reject').length,
-    agenAktif: agents.filter(a => a.status === 'aktif').length,
+    agenAktif: visibleAgents.filter(a => a.status === 'aktif').length,
     komisiUnpaid: commissions.filter(c => c.status === 'unpaid').length,
     komisiPaid:   commissions.filter(c => c.status === 'paid').length,
     totalPencairan: applications.filter(a => a.status === 'approve').reduce((acc, a) => acc + (a.approvePinjaman || 0), 0),
@@ -157,7 +157,7 @@ export function Dashboard() {
   const topAgents = [...visibleAgents].sort((a, b) => b.totalApprove - a.totalApprove).slice(0, 5);
 
   /* recent apps */
-  const recentApps = [...applications].sort((a, b) => b.inputDate.localeCompare(a.inputDate)).slice(0, 5);
+  const recentApps = [...applications].sort((a, b) => String(b.inputDate || '').localeCompare(String(a.inputDate || ''))).slice(0, 5);
 
   const secondaryCards = [
     canSee(SECTIONS.AGENTS) && { key: 'agenAktif', icon: Users, label: 'Agen Aktif', value: s.agenAktif, iconBg: '#f0fdf4', iconColor: '#15803d', onClick: () => navigate('/agents') },
@@ -334,7 +334,7 @@ export function Dashboard() {
                   {i + 1}
                 </div>
                 <div className="avatar avatar-sm" style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: '#fff' }}>
-                  {ag.name[0]}
+                  {ag.name?.[0] || '?'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -382,7 +382,7 @@ export function Dashboard() {
                 onMouseLeave={e => e.currentTarget.style.opacity = '1'}
               >
                 <div className="avatar avatar-sm" style={{ background: 'var(--surface-alt2)', color: 'var(--c-64748b)', fontWeight: 700 }}>
-                  {app.customerName[0]}
+                  {app.customerName?.[0] || '?'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

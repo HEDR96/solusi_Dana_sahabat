@@ -134,10 +134,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Kirim lokasi user ke server (untuk Peta Agen — semua role yang login). */
+    /** Kirim lokasi user ke server (untuk Peta Agen — hanya agen & spv-agen). */
     private fun requestAndReportLocation() {
         val session = SessionManager(this)
         if (!session.isLoggedIn) return
+        if (session.userRole !in setOf("agen", "spv-agen")) return
 
         val fine = Manifest.permission.ACCESS_FINE_LOCATION
         if (ContextCompat.checkSelfPermission(this, fine) == PackageManager.PERMISSION_GRANTED) {

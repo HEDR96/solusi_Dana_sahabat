@@ -84,12 +84,14 @@ class AgentFormFragment : Fragment() {
         b.btnSave.isEnabled = false
         b.progress.isVisible = true
 
+        val email = b.etEmail.text.toString().trim()
+
         viewLifecycleOwner.lifecycleScope.launch {
-            SupabaseApi.insertAgent(
+            val insertResult = SupabaseApi.insertAgent(
                 token,
                 name = name,
                 phone = phone,
-                email = b.etEmail.text.toString().trim(),
+                email = email,
                 city = city,
                 address = b.etAddress.text.toString().trim(),
                 nik = nik,
@@ -99,16 +101,33 @@ class AgentFormFragment : Fragment() {
                 target = b.etTarget.text.toString().toIntOrNull() ?: 10,
                 spvId = if (isSpv) session.userId else null
             )
-                .onSuccess { newId ->
-                    Snackbar.make(b.root, "Agen $name terdaftar ($newId) ✅", Snackbar.LENGTH_LONG).show()
-                    findNavController().navigateUp()
-                }
-                .onFailure {
-                    if (_b == null) return@onFailure
-                    b.btnSave.isEnabled = true
-                    b.progress.isVisible = false
-                    Snackbar.make(b.root, it.message ?: "Gagal menyimpan", Snackbar.LENGTH_LONG).show()
-                }
+
+            if (insertResult.isFailure) {
+                if (_b == null) return@launch
+                b.btnSave.isEnabled = true
+                b.progress.isVisible = false
+                Snackbar.make(b.root, insertResult.exceptionOrNull()?.message ?: "Gagal menyimpan", Snackbar.LENGTH_LONG).show()
+                return@launch
+            }
+
+            val newId = insertResult.getOrThrow()
+
+            // Paritas dengan web: buatkan akun login jika email diisi.
+            // Endpoint hanya menerima owner/super-admin/admin — SPV diarahkan ke admin.
+            val message = if (email.isNotBlank() && session.userRole in setOf("owner", "super-admin", "admin")) {
+                SupabaseApi.createAgentLoginAccount(token, name, email, newId).fold(
+                    onSuccess = { pass -> "Agen $name terdaftar ($newId) + akun login dibuat. Password: $pass" },
+                    onFailure = { e -> "Agen terdaftar ($newId), tapi akun login gagal: ${e.message}" }
+                )
+            } else if (email.isNotBlank()) {
+                "Agen $name terdaftar ($newId) ✅ — minta admin membuatkan akun login via web"
+            } else {
+                "Agen $name terdaftar ($newId) ✅"
+            }
+
+            if (_b == null) return@launch
+            Snackbar.make(b.root, message, Snackbar.LENGTH_LONG).show()
+            findNavController().navigateUp()
         }
     }
 

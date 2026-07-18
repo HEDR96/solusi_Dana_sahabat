@@ -55,7 +55,7 @@ export default function Footer() {
 
             <div className="space-y-3">
               <a
-                href="https://wa.me/6281234567890"
+                href="https://wa.me/6281265593904"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-sm hover:text-white transition-colors group"

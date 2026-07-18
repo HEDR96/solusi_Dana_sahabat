@@ -34,8 +34,9 @@ class DraftSyncWorker(
         drafts.forEach { d ->
             var idResult = SupabaseApi.nextBrkId(token)
             if (idResult.isFailure) {
-                idResult = SupabaseApi.getApplicationsCount(token).map { c ->
-                    "BRK" + (2026000 + c + 1).toString().padStart(7, '0')
+                // Fallback max(ID)+1 — count+1 menghasilkan ID duplikat setelah penghapusan
+                idResult = SupabaseApi.getMaxApplicationNumber(token).map { maxNum ->
+                    "BRK" + (maxNum + 1).toString().padStart(7, '0')
                 }
             }
             val newId = idResult.getOrNull() ?: return Result.retry()

@@ -35,10 +35,20 @@ class CommissionViewModel(app: Application) : AndroidViewModel(app) {
             _loading.value = true
             _error.value = null
             val token   = session.accessToken ?: return@launch
-            val agentId = if (session.userRole == "agen") session.agentId else null
+            val isAgen  = session.userRole == "agen"
+            val agentId = if (isAgen) session.agentId else null
 
             SupabaseApi.getCommissions(token, agentId)
-                .onSuccess { list ->
+                .onSuccess { raw ->
+                    // commission_amount di DB = komisi LEASING penuh. Web menampilkan
+                    // porsi agen (commissionAgentRate, default 80%) — samakan di sini
+                    // agar agen tidak melihat angka lebih besar dari yang dibayarkan.
+                    val list = if (isAgen) {
+                        val rate = SupabaseApi.getAgentCommissionRate(token)
+                        raw.map { c ->
+                            c.copy(commissionAmount = Math.round((c.commissionAmount ?: 0L) * rate / 100.0))
+                        }
+                    } else raw
                     _summary.value = CommissionSummary(
                         total  = list.sumOf { it.commissionAmount ?: 0 },
                         paid   = list.filter { it.status == "paid" }.sumOf { it.commissionAmount ?: 0 },

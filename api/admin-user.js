@@ -19,7 +19,7 @@ async function verifyAdmin(req) {
   }
   if (!SERVICE_KEY) {
     console.error('[verifyAdmin] SUPABASE_SERVICE_KEY not set');
-    return { _debug: 'no_service_key' };
+    return null;
   }
   if (!SUPABASE_URL) {
     console.error('[verifyAdmin] SUPABASE_URL not set');
@@ -54,11 +54,12 @@ async function verifyAdmin(req) {
     const profiles = JSON.parse(pText);
     const role = Array.isArray(profiles) ? profiles[0]?.role : null;
     console.log('[verifyAdmin] user:', u.id, 'role:', role);
-    if (!['owner', 'super-admin'].includes(role)) {
+    // admin boleh masuk (dibatasi per-method di handler); selain itu owner/super-admin
+    if (!['owner', 'super-admin', 'admin'].includes(role)) {
       console.error('[verifyAdmin] role not allowed:', role);
       return null;
     }
-    return u;
+    return { ...u, role };
   } catch (e) {
     console.error('[verifyAdmin] exception:', e?.message);
     return null;
@@ -85,6 +86,10 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { name, email, password, role, status, agentId } = req.body || {};
     if (!email || !password || !name) return res.status(400).json({ error: 'name, email, password wajib' });
+    // Role admin hanya boleh membuatkan akun agen (dipakai alur "Tambah Agen")
+    if (caller.role === 'admin' && (role || 'agen') !== 'agen') {
+      return res.status(403).json({ error: 'Admin hanya bisa membuat akun agen' });
+    }
 
     const createResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
       method: 'POST', headers,
@@ -114,6 +119,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    if (caller.role === 'admin') return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa menghapus user' });
     const { userId } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'userId wajib' });
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, { method: 'DELETE', headers });
@@ -121,20 +127,26 @@ export default async function handler(req, res) {
     return res.status(200).json({ deleted: userId });
   }
 
-  // PUT: reset password ke default "password"
+  // PUT: reset password ke nilai yang dikirim caller (Users.jsx men-generate password
+  // sementara acak). Dulu di-hardcode "password" — lemah & tidak sesuai yang
+  // ditampilkan ke admin di UI.
   if (req.method === 'PUT') {
-    const { userId } = req.body || {};
+    if (caller.role === 'admin') return res.status(403).json({ error: 'Hanya owner/super-admin yang bisa reset password' });
+    const { userId, password } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'userId wajib' });
+    const newPass = (typeof password === 'string' && password.length >= 6)
+      ? password
+      : 'SDS' + Math.random().toString(36).slice(2, 10);
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ password: 'password' }),
+      body: JSON.stringify({ password: newPass }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       return res.status(500).json({ error: 'Gagal reset password: ' + (err.message || r.status) });
     }
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, password: newPass });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

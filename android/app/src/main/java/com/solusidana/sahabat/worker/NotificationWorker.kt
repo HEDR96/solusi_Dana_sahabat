@@ -161,6 +161,14 @@ class NotificationWorker(
         if (userId.isEmpty()) return
         val lastId = prefs.getLong(KEY_LAST_PUSH_ID, 0L)
         SupabaseApi.getPushMessages(token, userId, lastId).onSuccess { messages ->
+            // Run pertama (belum ada high-water-mark): jangan memberondong notifikasi
+            // untuk seluruh pesan lama — cukup catat id terakhir sebagai titik awal.
+            if (lastId == 0L) {
+                if (messages.isNotEmpty()) {
+                    prefs.edit().putLong(KEY_LAST_PUSH_ID, messages.maxOf { it.id }).apply()
+                }
+                return@onSuccess
+            }
             when {
                 messages.size == 1 -> {
                     val msg = messages[0]

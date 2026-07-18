@@ -20,7 +20,7 @@ export default function Simulation() {
     setSubmitted(true)
   }
 
-  const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(
+  const waLink = `https://wa.me/6281265593904?text=${encodeURIComponent(
     `Halo Solusi Dana Sahabat, saya ingin konsultasi pengajuan fasilitas dana BPKB ${form.jenis}. Kota: ${form.kota || '-'}. Estimasi dana: ${form.estimasiDana || '-'}.`
   )}`
 

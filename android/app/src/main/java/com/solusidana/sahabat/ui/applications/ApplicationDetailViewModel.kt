@@ -65,7 +65,17 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
             val token    = session.accessToken ?: return@launch
             val userName = session.userName ?: "User"
 
-            SupabaseApi.updateApplicationStatus(token, appId, newStatus, notes, surveyDate, surveyTime, userName)
+            // Berkas yang sedang tampil — untuk from_status di riwayat dan nilai
+            // approve_pinjaman (dibutuhkan trigger komisi di DB)
+            val current = (_detail.value as? DetailState.Success)?.app
+            val approvePinjaman = if (newStatus == "approve")
+                (current?.approvePinjaman ?: current?.pinjaman) else null
+
+            SupabaseApi.updateApplicationStatus(
+                token, appId, newStatus, notes, surveyDate, surveyTime, userName,
+                fromStatus = current?.status,
+                approvePinjaman = approvePinjaman
+            )
                 .onSuccess {
                     load(appId)
                     _update.value = UpdateState.Done

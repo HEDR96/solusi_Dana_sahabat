@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+
+// Inquiry disimpan lewat endpoint publik ERP (service key di server).
+// Insert langsung dengan anon key selalu ditolak RLS — form dulu tidak pernah berhasil.
+const LEAD_API = 'https://solusi-dana-sahabat.vercel.app/api/lead'
 
 export default function Simulasi() {
-  const [form, setForm] = useState({ jenis: 'motor', tahun: '', nilaiKendaraan: '', estimasiDana: '', kota: '', whatsapp: '' })
+  const [form, setForm] = useState({ jenis: 'motor', tahun: '', nilaiKendaraan: '', estimasiDana: '', kota: '', whatsapp: '', website: '' })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -15,55 +18,31 @@ export default function Simulasi() {
     setLoading(true)
     setErrorMsg('')
 
-    // Fetch agent_id owner (Hendrik)
-    const { data: ownerProfile } = await supabase
-      .from('dsd_profiles')
-      .select('agent_id, name')
-      .eq('email', 'hendrik@afss.tech')
-      .single()
-    const ownerAgentId = ownerProfile?.agent_id ?? null
-    const ownerName = ownerProfile?.name ?? 'Hendrik'
-
-    // Generate ID berkas
-    const { data: maxRow } = await supabase
-      .from('dsd_applications')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1)
-      .single()
-    const lastNum = maxRow?.id ? (parseInt(maxRow.id.replace(/\D/g, ''), 10) || 0) : 0
-    const newId = `BRK${String(lastNum + 1).padStart(7, '0')}`
-
-    const dana: Record<string, number> = {
-      'lt5': 3000000, '5-10': 7500000, '10-25': 17500000, '25-50': 37500000, 'gt50': 60000000,
+    try {
+      const resp = await fetch(LEAD_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'inquiry',
+          jenis: form.jenis, tahun: form.tahun, nilaiKendaraan: form.nilaiKendaraan,
+          estimasiDana: form.estimasiDana, kota: form.kota, whatsapp: form.whatsapp,
+          website: form.website,
+        }),
+      })
+      setLoading(false)
+      if (!resp.ok) {
+        const result = await resp.json().catch(() => ({}))
+        setErrorMsg(result.error || 'Gagal mengirim data. Silakan coba lagi.')
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setLoading(false)
+      setErrorMsg('Gagal mengirim data. Periksa koneksi internet Anda.')
     }
-
-    const { error } = await supabase.from('dsd_applications').insert({
-      id: newId,
-      status: 'pending',
-      agent_id: ownerAgentId,
-      agent_name: ownerName,
-      customer_name: form.whatsapp,
-      phone: form.whatsapp,
-      city: form.kota,
-      unit_type: form.jenis === 'motor' ? 'Motor (BPKB)' : 'Mobil (BPKB)',
-      unit_year: form.tahun || null,
-      pinjaman: dana[form.estimasiDana] || 0,
-      tenor: 12,
-      estimasi_angsuran: 0,
-      input_date: new Date().toISOString().split('T')[0],
-      notes: `Inquiry website. Nilai kendaraan: ${form.nilaiKendaraan || '-'}. Estimasi dana: ${form.estimasiDana || '-'}.`,
-    })
-
-    setLoading(false)
-    if (error) {
-      setErrorMsg('Gagal mengirim data. Silakan coba lagi.')
-      return
-    }
-    setSubmitted(true)
   }
 
-  const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(
+  const waLink = `https://wa.me/6281265593904?text=${encodeURIComponent(
     `Halo Solusi Dana Sahabat, saya ingin konsultasi pengajuan fasilitas dana BPKB ${form.jenis}. Kota: ${form.kota || '-'}. Estimasi dana: ${form.estimasiDana || '-'}.`
   )}`
 
@@ -106,6 +85,8 @@ export default function Simulasi() {
             <div className="lg:col-span-3 rounded-2xl p-7 shadow-xl" style={{ background: '#f8faff', border: '1px solid var(--border)' }}>
               {!submitted ? (
                 <form onSubmit={submit} className="space-y-5">
+                  {/* Honeypot anti-bot — tidak terlihat manusia, bot mengisinya */}
+                  <input type="text" name="website" value={form.website} onChange={handle} autoComplete="off" tabIndex={-1} aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, width: 0, opacity: 0 }} />
                   <h2 className="text-xl font-semibold" style={{ color: 'var(--navy-deep)', fontFamily: 'DM Serif Display, serif' }}>Isi Form Simulasi</h2>
 
                   <div>

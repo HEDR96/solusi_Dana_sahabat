@@ -21,6 +21,23 @@ async function verifySupabaseUser(req) {
   } catch { return false; }
 }
 
+// Cek apakah caller berhak melihat berkas ini. Query pakai TOKEN CALLER (bukan
+// service key) sehingga RLS dsd_applications yang memutuskan — agen hanya lolos
+// untuk berkasnya sendiri, spv untuk agen binaannya, dst. Tanpa cek ini, agen
+// mana pun bisa menebak appId berurutan dan membaca dokumen (KTP/KK) orang lain.
+async function callerCanAccessApp(req, appId) {
+  if (!appId) return false;
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/dsd_applications?id=eq.${encodeURIComponent(appId)}&select=id`,
+      { headers: { apikey: SUPABASE_ANON, Authorization: req.headers.authorization || '' } }
+    );
+    if (!r.ok) return false;
+    const rows = await r.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch { return false; }
+}
+
 async function getAccessToken() {
   if (cachedToken && Date.now() < cachedToken.exp - 60000) return cachedToken.token;
 
@@ -70,6 +87,9 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const appId = String(req.query.appId || '').replace(/[^A-Za-z0-9_-]/g, '');
       if (!appId) return res.status(400).json({ error: 'appId wajib' });
+      if (!(await callerCanAccessApp(req, appId))) {
+        return res.status(403).json({ error: 'Tidak berhak mengakses dokumen berkas ini' });
+      }
       const q = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains '${appId}'`);
       const r = await fetch(
         `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,webViewLink,thumbnailLink,createdTime)&orderBy=createdTime desc&pageSize=50&supportsAllDrives=true&includeItemsFromAllDrives=true`,
@@ -85,6 +105,11 @@ export default async function handler(req, res) {
       if (!filename || !dataBase64) return res.status(400).json({ error: 'filename dan dataBase64 wajib' });
 
       const safeName = String(filename).replace(/[^A-Za-z0-9._-]/g, '_');
+      // Nama file selalu berpola <appId>_<jenis>_... — pastikan caller berhak atas berkasnya
+      const appIdFromName = safeName.split('_')[0];
+      if (!(await callerCanAccessApp(req, appIdFromName))) {
+        return res.status(403).json({ error: 'Tidak berhak mengunggah dokumen untuk berkas ini' });
+      }
       const buffer   = Buffer.from(dataBase64, 'base64');
       const metadata = { name: safeName, parents: [folderId] };
       const boundary = 'bnd' + Date.now();

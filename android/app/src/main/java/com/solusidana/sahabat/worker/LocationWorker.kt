@@ -21,14 +21,24 @@ class LocationWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
         val session = SessionManager(applicationContext)
-        // Semua role yang login dilacak lokasinya
         if (!session.isLoggedIn) return Result.success()
+        // Peta Agen di web hanya untuk memantau agen lapangan — role kantor tidak dilacak
+        if (session.userRole !in setOf("agen", "spv-agen")) return Result.success()
+
+        // Tanpa izin lokasi, jangan retry terus-menerus tiap 15 menit
+        val fineGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            applicationContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarseGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            applicationContext, android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!fineGranted && !coarseGranted) return Result.success()
 
         SupabaseApi.refreshSession(session)
         val token  = session.accessToken ?: return Result.success()
         val userId = session.userId ?: return Result.success()
 
-        val location = getLastLocation() ?: return Result.retry()
+        val location = getLastLocation() ?: return Result.success()
 
         val result = SupabaseApi.upsertLocation(
             token, userId,

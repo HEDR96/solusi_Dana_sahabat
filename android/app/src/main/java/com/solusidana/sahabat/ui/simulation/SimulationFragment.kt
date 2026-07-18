@@ -144,12 +144,18 @@ class SimulationFragment : Fragment() {
             recalc()
         }
 
-        val token = SessionManager(requireContext()).accessToken
-        if (token != null) {
-            loadLeasing(token)
-            loadOtrCatalog(token)
-        } else {
-            showPlaceholder("Sesi belum aktif — coba logout dan login ulang")
+        // Refresh token dulu (kadaluarsa ~1 jam) supaya load leasing tidak 401
+        val session = SessionManager(requireContext())
+        viewLifecycleOwner.lifecycleScope.launch {
+            SupabaseApi.refreshSession(session)
+            if (_b == null) return@launch
+            val token = session.accessToken
+            if (token != null) {
+                loadLeasing(token)
+                loadOtrCatalog(token)
+            } else {
+                showPlaceholder("Sesi belum aktif — coba logout dan login ulang")
+            }
         }
     }
 

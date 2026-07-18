@@ -57,7 +57,7 @@ export default function FAQ() {
               Tidak menemukan jawaban yang Anda cari? Hubungi tim kami langsung melalui WhatsApp.
             </p>
             <a
-              href="https://wa.me/6281234567890"
+              href="https://wa.me/6281265593904"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105"

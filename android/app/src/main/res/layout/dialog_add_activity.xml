@@ -17,7 +17,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:hint="Agen" android:layout_marginBottom="12dp"
             android:visibility="gone">
-            <AutoCompleteTextView
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/ddAgent"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:inputType="none" />
@@ -27,7 +27,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:hint="Jenis Aktivitas *" android:layout_marginBottom="12dp">
-            <AutoCompleteTextView
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/ddType"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:inputType="none" />
@@ -47,7 +47,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:hint="Hasil *">
-            <AutoCompleteTextView
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/ddOutcome"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:inputType="none" />

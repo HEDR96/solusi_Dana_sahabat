@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+
+// Lead disimpan lewat endpoint publik ERP (service key di server).
+// Insert langsung dengan anon key selalu ditolak RLS — form dulu tidak pernah berhasil.
+const LEAD_API = 'https://solusi-dana-sahabat.vercel.app/api/lead'
 
 const benefits = [
   { icon: '🏠', text: 'Bisa bekerja dari mana saja, fleksibel waktu' },
@@ -11,7 +14,7 @@ const benefits = [
 ]
 
 export default function Career() {
-  const [form, setForm] = useState({ nama: '', hp: '', kota: '', pengalaman: '' })
+  const [form, setForm] = useState({ nama: '', hp: '', kota: '', pengalaman: '', website: '' })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -24,36 +27,27 @@ export default function Career() {
     setLoading(true)
     setErrorMsg('')
 
-    // Ambil max ID agen untuk generate ID baru
-    const { data: maxRow } = await supabase
-      .from('dsd_agents')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1)
-      .single()
-    const lastNum = maxRow?.id ? (parseInt(maxRow.id.replace(/\D/g, ''), 10) || 0) : 0
-    const newId = `AGT${String(lastNum + 1).padStart(3, '0')}`
-
-    const { error } = await supabase.from('dsd_agents').insert({
-      id: newId,
-      name: form.nama,
-      phone: form.hp,
-      city: form.kota,
-      status: 'nonaktif',
-      notes: form.pengalaman ? `Lead website. Pengalaman sales: ${form.pengalaman}` : 'Lead dari website',
-      join_date: new Date().toISOString().split('T')[0],
-      total_approve: 0,
-      total_reject: 0,
-      total_berkas: 0,
-      target: 0,
-    })
-
-    setLoading(false)
-    if (error) {
-      setErrorMsg('Gagal mengirim data. Silakan coba lagi.')
-      return
+    try {
+      const resp = await fetch(LEAD_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'career',
+          nama: form.nama, hp: form.hp, kota: form.kota, pengalaman: form.pengalaman,
+          website: form.website,
+        }),
+      })
+      setLoading(false)
+      if (!resp.ok) {
+        const result = await resp.json().catch(() => ({}))
+        setErrorMsg(result.error || 'Gagal mengirim data. Silakan coba lagi.')
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setLoading(false)
+      setErrorMsg('Gagal mengirim data. Periksa koneksi internet Anda.')
     }
-    setSubmitted(true)
   }
 
   return (
@@ -133,6 +127,8 @@ export default function Career() {
               <div className="rounded-2xl p-7 shadow-xl sticky top-24" style={{ background: '#f8faff', border: '1px solid var(--border)' }}>
                 {!submitted ? (
                   <form onSubmit={submit} className="space-y-4">
+                    {/* Honeypot anti-bot — tidak terlihat manusia, bot mengisinya */}
+                    <input type="text" name="website" value={form.website} onChange={handle} autoComplete="off" tabIndex={-1} aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, width: 0, opacity: 0 }} />
                     <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--navy-deep)', fontFamily: 'DM Serif Display, serif' }}>Daftar Jadi Agen</h2>
                     <p className="text-sm text-gray-400 mb-4">Isi data di bawah, tim kami akan menghubungi Anda secepatnya.</p>
                     {[{ name: 'nama', label: 'Nama Lengkap', placeholder: 'Masukkan nama lengkap', type: 'text' }, { name: 'hp', label: 'Nomor WhatsApp', placeholder: 'Contoh: 081234567890', type: 'tel' }, { name: 'kota', label: 'Kota Domisili', placeholder: 'Contoh: Surabaya', type: 'text' }].map((f) => (

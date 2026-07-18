@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 const contacts = [
-  { icon: '💬', label: 'WhatsApp', value: '0812-3456-7890', href: 'https://wa.me/6281234567890', color: '#22c55e' },
+  { icon: '💬', label: 'WhatsApp', value: '0812-6559-3904', href: 'https://wa.me/6281265593904', color: '#22c55e' },
   { icon: '✉️', label: 'Email', value: 'info@solusidanasahabat.com', href: 'mailto:info@solusidanasahabat.com', color: '#3b82f6' },
   { icon: '📸', label: 'Instagram', value: '@solusidanasahabat', href: 'https://instagram.com/solusidanasahabat', color: '#ec4899' },
   { icon: '📍', label: 'Alamat', value: 'Jakarta, Indonesia — Melayani Seluruh Wilayah', href: '#', color: '#f59e0b' },
@@ -90,7 +90,7 @@ export default function HubungiKami() {
                   <div className="text-5xl mb-4">📬</div>
                   <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--navy-deep)', fontFamily: 'DM Serif Display, serif' }}>Pesan Terkirim!</h3>
                   <p className="text-sm text-gray-500 leading-relaxed mb-6">Tim Solusi Dana Sahabat akan menghubungi Anda secepatnya melalui WhatsApp yang Anda berikan.</p>
-                  <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
+                  <a href="https://wa.me/6281265593904" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
                     💬 Chat Langsung via WhatsApp
                   </a>
                 </div>

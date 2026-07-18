@@ -579,12 +579,13 @@ export function ApplicationList() {
           {currentUser?.role !== 'agen' && (
             <F label="Agen Penginput" error={errors.agentId}>
               <select className="input" value={form.agentId} onChange={e => {
-                const ag = agents.find(a => a.id === e.target.value);
+                const ag = visibleAgents.find(a => a.id === e.target.value);
                 set('agentId')(e.target.value);
                 set('agentName')(ag?.name || '');
               }} style={errors.agentId ? { borderColor: '#ef4444' } : undefined}>
                 <option value="">-- Pilih Agen --</option>
-                {agents.filter(a => a.status === 'aktif').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {/* visibleAgents: SPV hanya melihat agen binaannya sendiri */}
+                {visibleAgents.filter(a => a.status === 'aktif').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </F>
           )}

@@ -196,9 +196,22 @@ class ApplicationFormFragment : Fragment() {
             }
         }
 
-        val token = SessionManager(requireContext()).accessToken
+        // Kegagalan memuat dropdown (leasing/agen) ditampilkan + bisa dicoba ulang
+        vm.loadError.observe(viewLifecycleOwner) { msg ->
+            if (msg == null) return@observe
+            Snackbar.make(b.root, msg, Snackbar.LENGTH_INDEFINITE)
+                .setAction("Coba lagi") { vm.loadOptions() }
+                .show()
+        }
+
         vm.loadOptions()
-        if (token != null) loadOtrCatalog(token)
+        // OTR juga butuh token segar (refreshSession di-throttle, aman dipanggil ganda)
+        val session = SessionManager(requireContext())
+        viewLifecycleOwner.lifecycleScope.launch {
+            SupabaseApi.refreshSession(session)
+            if (_b == null) return@launch
+            session.accessToken?.let { loadOtrCatalog(it) }
+        }
     }
 
     private fun loadOtrCatalog(token: String) {

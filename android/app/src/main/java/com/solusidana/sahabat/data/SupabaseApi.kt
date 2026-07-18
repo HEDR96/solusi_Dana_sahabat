@@ -2,6 +2,8 @@ package com.solusidana.sahabat.data
 
 import com.solusidana.sahabat.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -73,8 +75,16 @@ object SupabaseApi {
      * Perbarui access token pakai refresh token (token Supabase kadaluarsa ~1 jam).
      * Dipanggil setiap buka app dan di awal setiap worker background.
      */
-    suspend fun refreshSession(session: SessionManager): Boolean {
-        val refresh = session.refreshToken ?: return session.accessToken != null
+    // Refresh token Supabase sekali-pakai (dirotasi tiap refresh). Dua refresh
+    // paralel bisa saling membatalkan → user ter-logout. Serialisasi + throttle.
+    private val refreshMutex = Mutex()
+    @Volatile private var lastRefreshAt = 0L
+
+    suspend fun refreshSession(session: SessionManager): Boolean = refreshMutex.withLock {
+        if (System.currentTimeMillis() - lastRefreshAt < 60_000 && session.accessToken != null) {
+            return@withLock true
+        }
+        val refresh = session.refreshToken ?: return@withLock (session.accessToken != null)
         val result = io {
             val body = """{"refresh_token":"$refresh"}""".toRequestBody(JSON_TYPE)
             val req = Request.Builder()
@@ -85,14 +95,24 @@ object SupabaseApi {
                 .build()
             val resp = client.newCall(req).execute()
             val text = resp.body?.string() ?: ""
-            if (!resp.isSuccessful) error("Refresh gagal: ${resp.code}")
+            if (!resp.isSuccessful) error("Refresh gagal HTTP_${resp.code}")
             json.decodeFromString<AuthResponse>(text)
         }
         result.onSuccess { auth ->
             session.accessToken  = auth.accessToken
             session.refreshToken = auth.refreshToken
+            lastRefreshAt = System.currentTimeMillis()
         }
-        return result.isSuccess || session.accessToken != null
+        result.onFailure { e ->
+            // Refresh token DITOLAK server (bukan gangguan jaringan) → sesi zombie:
+            // access token lama akan selalu 401. Bersihkan agar user diarahkan login ulang.
+            val msg = e.message ?: ""
+            if (msg.contains("HTTP_400") || msg.contains("HTTP_401") || msg.contains("HTTP_403")) {
+                session.clear()
+                return@withLock false
+            }
+        }
+        return@withLock result.isSuccess || session.accessToken != null
     }
 
     suspend fun getProfile(token: String, userId: String): Result<Profile> =
@@ -154,16 +174,27 @@ object SupabaseApi {
         notes: String?,
         surveyDate: String?,
         surveyTime: String?,
-        userName: String
+        userName: String,
+        fromStatus: String? = null,
+        approvePinjaman: Long? = null
     ): Result<Unit> = io {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-        val approveDate = if (newStatus == "approve") today else null
         val patchJson = JSONObject().apply {
             put("status", newStatus)
             if (!notes.isNullOrBlank()) put("notes", notes)
             if (!surveyDate.isNullOrBlank()) put("survey_date", surveyDate)
             if (!surveyTime.isNullOrBlank()) put("survey_time", surveyTime)
-            if (approveDate != null) put("approve_date", approveDate)
+            if (newStatus == "approve") {
+                put("approve_date", today)
+                // Trigger DB (trg_commission_on_approve) hanya membuat komisi jika
+                // approve_pinjaman terisi — tanpa ini, approve dari Android tidak
+                // pernah menghasilkan komisi.
+                if (approvePinjaman != null) put("approve_pinjaman", approvePinjaman)
+            } else if (newStatus == "reject" || newStatus == "cancel") {
+                // Bersihkan agar kalender web tidak menampilkan event approve palsu
+                put("approve_date", JSONObject.NULL)
+                put("approve_pinjaman", JSONObject.NULL)
+            }
         }
         val patchBody = patchJson.toString().toRequestBody(JSON_TYPE)
 
@@ -180,9 +211,10 @@ object SupabaseApi {
             error(supabaseError(patchResp.code, errBody))
         }
 
-        // Insert status log
+        // Insert status log — kegagalan tidak membatalkan update, tapi jangan diam
         val logJson = JSONObject().apply {
             put("app_id", id)
+            if (fromStatus != null) put("from_status", fromStatus)
             put("to_status", newStatus)
             put("user", userName)
             put("date", today)
@@ -196,7 +228,10 @@ object SupabaseApi {
             .addHeader("Prefer", "return=minimal")
             .post(logBody)
             .build()
-        client.newCall(logReq).execute()
+        val logResp = client.newCall(logReq).execute()
+        if (!logResp.isSuccessful) {
+            android.util.Log.w("SupabaseApi", "Status log gagal tersimpan: HTTP ${logResp.code}")
+        }
     }
 
     suspend fun getStatusLogs(token: String, appId: String): Result<List<StatusLog>> =
@@ -272,6 +307,7 @@ object SupabaseApi {
     /** Update nama tampilan user (tabel profiles). */
     suspend fun updateProfileName(token: String, userId: String, name: String): Result<Unit> = io {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val req = Request.Builder()
             .url("$BASE_URL/rest/v1/dsd_profiles?id=eq.$userId")
             .addHeader("apikey", ANON_KEY)
@@ -289,7 +325,8 @@ object SupabaseApi {
         phone: String, city: String, address: String,
         bank: String, accountNumber: String, accountName: String
     ): Result<Unit> = io {
-        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val body = """{"phone":"${esc(phone)}","city":"${esc(city)}","address":"${esc(address)}","bank":"${esc(bank)}","account_number":"${esc(accountNumber)}","account_name":"${esc(accountName)}"}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
@@ -306,6 +343,7 @@ object SupabaseApi {
     /** Ganti password akun (Supabase Auth). */
     suspend fun changePassword(token: String, newPassword: String): Result<Unit> = io {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val req = Request.Builder()
             .url("$BASE_URL/auth/v1/user")
             .addHeader("apikey", ANON_KEY)
@@ -330,17 +368,19 @@ object SupabaseApi {
     ): Result<String> = io {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
 
-        fun countAgents(): Int {
+        // ID baru dari max(nomor ID)+1. Dulu count+1 — setelah ada agen yang dihapus,
+        // count menghasilkan ID yang sudah dipakai dan retry-nya pun selalu gagal.
+        fun maxAgentNum(): Int {
             val resp = client.newCall(
                 Request.Builder()
-                    .url("$BASE_URL/rest/v1/dsd_agents?select=id")
+                    .url("$BASE_URL/rest/v1/dsd_agents?select=id&order=id.desc&limit=1")
                     .addHeader("apikey", ANON_KEY)
                     .addHeader("Authorization", "Bearer $token")
-                    .addHeader("Prefer", "count=exact")
-                    .addHeader("Range", "0-0")
                     .get().build()
             ).execute()
-            return (resp.header("Content-Range") ?: "0/0").substringAfter("/").toIntOrNull() ?: 0
+            val text = resp.body?.string() ?: "[]"
+            val m = Regex("\"id\"\\s*:\\s*\"[A-Za-z]*([0-9]+)\"").find(text)
+            return m?.groupValues?.get(1)?.toIntOrNull() ?: 0
         }
 
         fun buildBody(id: String) = JSONObject().apply {
@@ -362,13 +402,13 @@ object SupabaseApi {
         ).execute()
 
         // First attempt
-        val firstId = "AGT" + (countAgents() + 1).toString().padStart(3, '0')
+        val firstId = "AGT" + (maxAgentNum() + 1).toString().padStart(3, '0')
         val firstResp = tryInsert(firstId)
         if (firstResp.isSuccessful) return@io firstId
 
-        // Retry once on conflict (409) — re-count for a fresh ID
+        // Retry once on conflict (409) — refetch max for a fresh ID
         if (firstResp.code == 409) {
-            val retryId = "AGT" + (countAgents() + 1).toString().padStart(3, '0')
+            val retryId = "AGT" + (maxAgentNum() + 1).toString().padStart(3, '0')
             val retryResp = tryInsert(retryId)
             if (retryResp.isSuccessful) return@io retryId
             error("Gagal tambah agen setelah retry: ${retryResp.code} ${retryResp.body?.string()?.take(200)}")
@@ -392,6 +432,7 @@ object SupabaseApi {
 
     suspend fun insertMasterOption(token: String, category: String, value: String, sort: Int): Result<Unit> = io {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val body = """{"category":"${esc(category)}","value":"${esc(value)}","sort":$sort,"active":true}"""
             .toRequestBody(JSON_TYPE)
         val req = Request.Builder()
@@ -446,6 +487,21 @@ object SupabaseApi {
         text
     }
 
+    /** Nomor tertinggi dari ID berkas (BRKxxxxxxx) — fallback anti-duplikat jika RPC sequence belum ada. */
+    suspend fun getMaxApplicationNumber(token: String): Result<Int> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_applications?select=id&order=id.desc&limit=1")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        Regex("\"id\"\\s*:\\s*\"[A-Za-z]*([0-9]+)\"").find(text)
+            ?.groupValues?.get(1)?.toIntOrNull() ?: 2026000
+    }
+
     suspend fun getApplicationsCount(token: String): Result<Int> = io {
         val req = Request.Builder()
             .url("$BASE_URL/rest/v1/dsd_applications?select=id")
@@ -481,7 +537,8 @@ object SupabaseApi {
         notes: String
     ): Result<Unit> = io {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val body = """{
             "id":"${esc(id)}","status":"pending",
             "agent_id":"${esc(agentId)}","agent_name":"${esc(agentName)}",
@@ -513,7 +570,10 @@ object SupabaseApi {
             .addHeader("Prefer", "return=minimal")
             .post(firstLogBody)
             .build()
-        client.newCall(firstLogReq).execute()
+        val firstLogResp = client.newCall(firstLogReq).execute()
+        if (!firstLogResp.isSuccessful) {
+            android.util.Log.w("SupabaseApi", "Log awal berkas $id gagal: HTTP ${firstLogResp.code}")
+        }
 
         // Notifikasi untuk web ERP
         val notifBody = """{"type":"berkas-baru","message":"Berkas baru dari ${esc(agentName)} - ${esc(customerName)}","time_ago":"Baru saja","read":false,"link":"/applications"}"""
@@ -525,7 +585,10 @@ object SupabaseApi {
             .addHeader("Prefer", "return=minimal")
             .post(notifBody)
             .build()
-        client.newCall(notifReq).execute()
+        val notifResp = client.newCall(notifReq).execute()
+        if (!notifResp.isSuccessful) {
+            android.util.Log.w("SupabaseApi", "Notifikasi berkas $id gagal: HTTP ${notifResp.code}")
+        }
     }
 
     suspend fun getAgentLocations(token: String): Result<List<com.solusidana.sahabat.ui.map.AgentLocation>> = io {
@@ -550,7 +613,8 @@ object SupabaseApi {
         outcome: String,
         relatedAppId: String?
     ): Result<Unit> = io {
-        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
         val body = """{"agent_id":"${esc(agentId)}","agent_name":"${esc(agentName)}","date":"$today","type":"${esc(type)}","description":"${esc(description)}","outcome":"${esc(outcome)}","related_app_id":${if (relatedAppId == null) "null" else "\"${esc(relatedAppId)}\""}}"""
             .toRequestBody(JSON_TYPE)
@@ -612,6 +676,7 @@ object SupabaseApi {
         lng: Double
     ): Result<Unit> = io {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
         val now = java.time.Instant.now().toString()
         val body = """{"user_id":"${esc(userId)}","name":"${esc(name)}","role":"${esc(role)}","lat":$lat,"lng":$lng,"updated_at":"$now"}"""
             .toRequestBody(JSON_TYPE)
@@ -626,9 +691,73 @@ object SupabaseApi {
         if (!resp.isSuccessful) error("Gagal update lokasi: ${resp.code}")
     }
 
-    // ── Google Drive (via endpoint Vercel — service account aman di server) ──
+    /** Notifikasi sistem web ERP (berkas baru, agen baru, lead website, dll). */
+    suspend fun getNotifications(token: String, limit: Int = 50): Result<List<WebNotification>> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_notifications?select=*&order=id.desc&limit=$limit")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        json.decodeFromString<List<WebNotification>>(text)
+    }
+
+    /**
+     * Porsi komisi agen (%) dari Settings web ERP — tersimpan sebagai JSON di
+     * dsd_master_options (category=app_settings, value=global). Default 80 agar
+     * angka yang tampil di aplikasi SAMA dengan yang tampil (dan dibayarkan) di web.
+     */
+    suspend fun getAgentCommissionRate(token: String): Double = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_master_options?category=eq.app_settings&value=eq.global&select=label&limit=1")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        val label = org.json.JSONArray(text).optJSONObject(0)?.optString("label")
+        if (label.isNullOrBlank()) 80.0
+        else JSONObject(label).optDouble("commissionAgentRate", 80.0)
+    }.getOrDefault(80.0)
+
+    // ── Endpoint Vercel (service key/account aman di server) ─────────────────
 
     private const val GDRIVE_API = "https://solusi-dana-sahabat.vercel.app/api/gdrive"
+    private const val ADMIN_API  = "https://solusi-dana-sahabat.vercel.app/api/admin-user"
+
+    /**
+     * Buatkan akun login untuk agen baru (paritas dengan alur web).
+     * Hanya berhasil untuk caller owner/super-admin/admin — server yang memverifikasi.
+     * Return: password default akun tersebut.
+     */
+    suspend fun createAgentLoginAccount(
+        token: String, name: String, email: String, agentId: String
+    ): Result<String> = io {
+        val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val password = "SDS$agentId$year"
+        val body = JSONObject().apply {
+            put("name", name); put("email", email); put("password", password)
+            put("role", "agen"); put("status", "aktif"); put("agentId", agentId)
+        }.toString().toRequestBody(JSON_TYPE)
+        val req = Request.Builder()
+            .url(ADMIN_API)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Content-Type", "application/json")
+            .post(body)
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: ""
+        if (!resp.isSuccessful) {
+            val msg = try { JSONObject(text).optString("error") } catch (_: Exception) { "" }
+            error(if (msg.isNotBlank()) msg else "HTTP ${resp.code}")
+        }
+        password
+    }
 
     data class DriveFile(val name: String, val link: String)
 
@@ -662,16 +791,21 @@ object SupabaseApi {
             .build()
         val resp = client.newCall(req).execute()
         val text = resp.body?.string() ?: "{}"
-        // Parse ringan: pasangan name + webViewLink dari array files
-        Regex("\\{[^{}]*\"name\"\\s*:\\s*\"([^\"]+)\"[^{}]*\"webViewLink\"\\s*:\\s*\"([^\"]+)\"[^{}]*\\}")
-            .findAll(text)
-            .map { DriveFile(it.groupValues[1], it.groupValues[2]) }
-            .toList()
+        // Parse JSON proper — regex lama bergantung pada urutan field respons Drive
+        try {
+            val files = JSONObject(text).optJSONArray("files") ?: return@io emptyList()
+            (0 until files.length()).mapNotNull { i ->
+                val f = files.optJSONObject(i) ?: return@mapNotNull null
+                val name = f.optString("name", "")
+                val link = f.optString("webViewLink", "")
+                if (name.isNotEmpty() && link.isNotEmpty()) DriveFile(name, link) else null
+            }
+        } catch (_: Exception) { emptyList() }
     }
 
     suspend fun getOtrCatalog(token: String): Result<List<OtrCatalogRow>> = io {
         val req = Request.Builder()
-            .url("$BASE_URL/rest/v1/dsd_otr_catalog?leasing_key=eq.CMD&select=id,brand,tipe,ltv,ltv_rule,kategori,unit_type,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015&order=brand&order=tipe")
+            .url("$BASE_URL/rest/v1/dsd_otr_catalog?leasing_key=eq.CMD&select=id,brand,tipe,ltv,ltv_rule,kategori,unit_type,otr_2026,otr_2025,otr_2024,otr_2023,otr_2022,otr_2021,otr_2020,otr_2019,otr_2018,otr_2017,otr_2016,otr_2015&order=brand,tipe")
             .addHeader("apikey", ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
             .get().build()
@@ -734,16 +868,24 @@ object SupabaseApi {
             val text = resp.body?.string() ?: "[]"
             if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             json.decodeFromString<List<PushMessage>>(text)
-        }.getOrElse { emptyList() }
+        }
 
         val targeted = io {
             val resp = client.newCall(buildReq("target_user_id=eq.$userId")).execute()
             val text = resp.body?.string() ?: "[]"
             if (!resp.isSuccessful) error(supabaseError(resp.code, text))
             json.decodeFromString<List<PushMessage>>(text)
-        }.getOrElse { emptyList() }
+        }
 
-        val merged = (broadcast + targeted).distinctBy { it.id }.sortedByDescending { it.id }
+        // Dulu error ditelan (getOrElse emptyList) → layar Notifikasi menampilkan
+        // "belum ada notifikasi" padahal sebenarnya 401/offline. Kalau kedua query
+        // gagal, teruskan error-nya agar UI bisa menampilkan pesan yang benar.
+        if (broadcast.isFailure && targeted.isFailure) {
+            return Result.failure(broadcast.exceptionOrNull() ?: IllegalStateException("Gagal memuat notifikasi"))
+        }
+
+        val merged = (broadcast.getOrElse { emptyList() } + targeted.getOrElse { emptyList() })
+            .distinctBy { it.id }.sortedByDescending { it.id }
         return Result.success(merged)
     }
 }

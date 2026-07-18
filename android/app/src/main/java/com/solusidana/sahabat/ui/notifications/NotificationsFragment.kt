@@ -11,15 +11,24 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
-import com.solusidana.sahabat.data.PushMessage
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.data.humanError
 import com.solusidana.sahabat.databinding.FragmentNotificationsBinding
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** Item tampilan gabungan: push message dari owner + notifikasi sistem ERP. */
+data class NotifItem(
+    val title: String,
+    val body: String,
+    val createdAt: String?,
+    val icon: String,
+    val highlight: Boolean,
+)
 
 class NotificationsFragment : Fragment() {
 
@@ -37,38 +46,88 @@ class NotificationsFragment : Fragment() {
         load()
     }
 
+    private fun iconForType(type: String?): String = when (type) {
+        "berkas-baru"  -> "📋"
+        "agen-baru"    -> "👤"
+        "lead-website" -> "🌐"
+        else            -> "🔔"
+    }
+
     private fun load() {
         val session = SessionManager(requireContext())
-        val token  = session.accessToken ?: return
-        val userId = session.userId ?: return
 
         b.progress.isVisible = true
         b.tvEmpty.isVisible = false
 
         viewLifecycleOwner.lifecycleScope.launch {
-            SupabaseApi.getPushMessages(token, userId, afterId = 0L).onSuccess { messages ->
-                if (_b == null) return@onSuccess
+            // Token kadaluarsa ~1 jam — refresh dulu supaya tidak 401 diam-diam
+            SupabaseApi.refreshSession(session)
+            if (_b == null) return@launch
+            val token  = session.accessToken
+            val userId = session.userId
+            if (token == null || userId == null) {
                 b.progress.isVisible = false
                 b.swipeRefresh.isRefreshing = false
-                val sorted = messages.sortedByDescending { it.id }
-                if (sorted.isEmpty()) {
-                    b.tvEmpty.isVisible = true
-                    b.recycler.adapter = null
-                } else {
-                    b.tvEmpty.isVisible = false
-                    b.recycler.adapter = NotifAdapter(sorted)
-                    // Tandai semua sudah dibaca
-                    val maxId = sorted.maxOf { it.id }
-                    requireContext().getSharedPreferences("notif_state", android.content.Context.MODE_PRIVATE)
-                        .edit().putLong("last_seen_id", maxId).apply()
-                    (activity as? com.solusidana.sahabat.ui.main.MainActivity)?.updateNotifBadge()
-                }
-            }.onFailure { e ->
-                if (_b == null) return@onFailure
-                b.progress.isVisible = false
-                b.swipeRefresh.isRefreshing = false
-                b.tvEmpty.text = humanError(e)
+                b.tvEmpty.text = "Sesi berakhir — silakan login ulang"
                 b.tvEmpty.isVisible = true
+                return@launch
+            }
+
+            val pushDef  = async { SupabaseApi.getPushMessages(token, userId, afterId = 0L) }
+            val notifDef = async { SupabaseApi.getNotifications(token) }
+            val pushRes  = pushDef.await()
+            val notifRes = notifDef.await()
+            if (_b == null) return@launch
+
+            b.progress.isVisible = false
+            b.swipeRefresh.isRefreshing = false
+
+            if (pushRes.isFailure && notifRes.isFailure) {
+                b.tvEmpty.text = humanError(pushRes.exceptionOrNull() ?: Exception())
+                b.tvEmpty.isVisible = true
+                b.recycler.adapter = null
+                return@launch
+            }
+
+            val pushes = pushRes.getOrDefault(emptyList())
+            val items = buildList {
+                pushes.forEach { msg ->
+                    add(NotifItem(
+                        title = msg.title, body = msg.body, createdAt = msg.createdAt,
+                        icon = if (msg.title.contains("Pending") || msg.title.contains("Berkas")) "📋" else "📬",
+                        highlight = msg.targetUserId == null,
+                    ))
+                }
+                // Notifikasi sistem ERP (berkas baru, agen baru, lead website) —
+                // dulu tidak pernah tampil di aplikasi, hanya di lonceng web
+                notifRes.getOrDefault(emptyList()).forEach { n ->
+                    add(NotifItem(
+                        title = when (n.type) {
+                            "berkas-baru"  -> "Berkas Baru"
+                            "agen-baru"    -> "Lamaran Agen"
+                            "lead-website" -> "Lead Website"
+                            else            -> "Info"
+                        },
+                        body = n.message, createdAt = n.createdAt,
+                        icon = iconForType(n.type), highlight = false,
+                    ))
+                }
+            }.sortedByDescending { it.createdAt ?: "" }
+
+            if (items.isEmpty()) {
+                b.tvEmpty.text = "Belum ada notifikasi"
+                b.tvEmpty.isVisible = true
+                b.recycler.adapter = null
+            } else {
+                b.tvEmpty.isVisible = false
+                b.recycler.adapter = NotifAdapter(items)
+            }
+
+            // Tandai push messages sudah dibaca (badge bottom-nav)
+            if (pushes.isNotEmpty()) {
+                requireContext().getSharedPreferences("notif_state", android.content.Context.MODE_PRIVATE)
+                    .edit().putLong("last_seen_id", pushes.maxOf { it.id }).apply()
+                (activity as? com.solusidana.sahabat.ui.main.MainActivity)?.updateNotifBadge()
             }
         }
     }
@@ -76,7 +135,7 @@ class NotificationsFragment : Fragment() {
     override fun onDestroyView() { super.onDestroyView(); _b = null }
 }
 
-class NotifAdapter(private val items: List<PushMessage>) :
+class NotifAdapter(private val items: List<NotifItem>) :
     RecyclerView.Adapter<NotifAdapter.VH>() {
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
@@ -93,16 +152,14 @@ class NotifAdapter(private val items: List<PushMessage>) :
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val msg = items[position]
-        holder.tvTitle.text = msg.title
-        holder.tvBody.text  = msg.body
-        holder.tvTime.text  = formatTime(msg.createdAt)
-        holder.tvIcon.text  = if (msg.title.contains("Pending") || msg.title.contains("Berkas")) "📋"
-                              else "📬"
-        // Broadcast vs targeted
-        if (msg.targetUserId == null) {
-            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(0xFFFFFBEB.toInt())
-        }
+        val item = items[position]
+        holder.tvTitle.text = item.title
+        holder.tvBody.text  = item.body
+        holder.tvTime.text  = formatTime(item.createdAt)
+        holder.tvIcon.text  = item.icon
+        (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
+            if (item.highlight) 0xFFFFFBEB.toInt() else 0xFFFFFFFF.toInt()
+        )
     }
 
     override fun getItemCount() = items.size

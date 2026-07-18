@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { UserPlus, CheckCircle } from 'lucide-react';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const EMPTY = { name: '', phone: '', email: '', city: '', address: '', nik: '' };
+const EMPTY = { name: '', phone: '', email: '', city: '', address: '', nik: '', website: '' };
 
 export function ApplyAgent() {
   const [form, setForm] = useState(EMPTY);
@@ -66,6 +66,8 @@ export function ApplyAgent() {
             </div>
           ) : (
             <form onSubmit={submit}>
+              {/* Honeypot anti-bot — tersembunyi dari manusia */}
+              <input type="text" value={form.website} onChange={set('website')} autoComplete="off" tabIndex={-1} aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, width: 0, opacity: 0 }} />
               <F label="Nama Lengkap *"><input className="input" value={form.name} onChange={set('name')} placeholder="Sesuai KTP" /></F>
               <F label="NIK / KTP (16 digit) *"><input className="input" value={form.nik} onChange={set('nik')} maxLength={16} inputMode="numeric" /></F>
               <F label="Nomor HP / WhatsApp *"><input className="input" value={form.phone} onChange={set('phone')} inputMode="tel" placeholder="08xxxxxxxxxx" /></F>

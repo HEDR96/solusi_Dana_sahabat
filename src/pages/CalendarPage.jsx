@@ -15,7 +15,9 @@ const EVENT_COLORS = {
   'reject':       { dot: '#ef4444', bg: '#fef2f2', text: '#b91c1c', label: 'Reject' },
 };
 
-const SCHEDULABLE = ['pending', 'verifikasi', 'janji-survey', 'survey'];
+// Status yang masih bisa dijadwalkan survey ('verifikasi' dulu salah tulis —
+// status yang benar di sistem adalah 'cek-data')
+const SCHEDULABLE = ['pending', 'cek-data', 'janji-survey', 'survey'];
 
 export function CalendarPage() {
   const { visibleApplications: applications, updateApplicationStatus, currentUser } = useApp();

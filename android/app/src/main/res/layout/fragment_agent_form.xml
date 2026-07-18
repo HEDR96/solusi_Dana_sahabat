@@ -87,7 +87,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Kota *" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView android:id="@+id/etCity"
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/etCity"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -107,7 +107,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:hint="Bank" android:layout_marginBottom="12dp">
-                <AutoCompleteTextView
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/ddBank"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:inputType="none" />

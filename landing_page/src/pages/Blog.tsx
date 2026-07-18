@@ -160,7 +160,7 @@ export default function Blog() {
                 💳 Ajukan Pinjaman Dana
               </Link>
               <a
-                href="https://wa.me/6281234567890"
+                href="https://wa.me/6281265593904"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold text-white border border-white/25 hover:bg-white/10 transition-all"

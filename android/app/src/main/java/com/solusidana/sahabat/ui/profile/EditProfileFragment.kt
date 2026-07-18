@@ -54,12 +54,16 @@ class EditProfileFragment : Fragment() {
                 }
                 master["city"]?.let { cities ->
                     b.etCity.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, cities))
+                    // Field kota bisa diketik; tap juga harus memunculkan daftar
+                    b.etCity.setOnClickListener { b.etCity.showDropDown() }
                 }
                 if (agentId != null) {
                     SupabaseApi.getAgentById(token, agentId).onSuccess { ag ->
                         if (_b == null) return@onSuccess
                         b.etPhone.setText(ag.phone ?: "")
-                        b.etCity.setText(ag.city ?: "")
+                        // setText biasa memicu filter adapter → dropdown tampak kosong;
+                        // argumen false menonaktifkan filtering saat prefill
+                        b.etCity.setText(ag.city ?: "", false)
                         b.etAddress.setText(ag.address ?: "")
                         b.ddBank.setText(ag.bank ?: "", false)
                         b.etAccountNumber.setText(ag.accountNumber ?: "")

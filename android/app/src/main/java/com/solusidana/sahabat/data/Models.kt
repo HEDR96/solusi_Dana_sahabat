@@ -139,6 +139,17 @@ data class OtrCatalogRow(
 
 val OTR_YEARS = listOf(2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015)
 
+/** Notifikasi sistem web ERP (dsd_notifications) — berkas baru, agen baru, dll. */
+@Serializable
+data class WebNotification(
+    val id: Long,
+    val type: String? = null,
+    val message: String,
+    val read: Boolean? = null,
+    val link: String? = null,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
 @Serializable
 data class PushMessage(
     val id: Long,

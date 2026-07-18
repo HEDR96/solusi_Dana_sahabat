@@ -34,6 +34,13 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                 .onSuccess { auth ->
                     SupabaseApi.getProfile(auth.accessToken, auth.user.id)
                         .onSuccess { profile ->
+                            // Akun nonaktif (lamaran agen belum diaktivasi owner) dilarang masuk
+                            if (profile.status != null && profile.status != "aktif") {
+                                _state.value = LoginState.Error(
+                                    "Akun Anda belum aktif. Hubungi admin untuk aktivasi."
+                                )
+                                return@onSuccess
+                            }
                             session.accessToken  = auth.accessToken
                             session.refreshToken = auth.refreshToken
                             session.userId      = auth.user.id

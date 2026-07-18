@@ -12,6 +12,19 @@ const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || '').replace(/^﻿/, ''
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Anti-spam ringan: rate limit per-IP (in-memory per instance lambda)
+const hits = new Map();
+function rateLimited(req, max = 5, windowMs = 60_000) {
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const now = Date.now();
+  const rec = hits.get(ip) || { count: 0, start: now };
+  if (now - rec.start > windowMs) { rec.count = 0; rec.start = now; }
+  rec.count += 1;
+  hits.set(ip, rec);
+  if (hits.size > 5000) hits.clear();
+  return rec.count > max;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -20,7 +33,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!SERVICE_KEY) return res.status(500).json({ error: 'Konfigurasi server belum lengkap' });
 
-  const { name, phone, email, city, address, nik } = req.body || {};
+  const { name, phone, email, city, address, nik, website } = req.body || {};
+  // Honeypot — bot yang mengisi field tersembunyi diberi sukses palsu
+  if (website) return res.status(200).json({ id: 'AGT000' });
+  if (rateLimited(req)) return res.status(429).json({ error: 'Terlalu banyak permintaan — coba lagi sebentar lagi' });
   if (!name?.trim())                       return res.status(400).json({ error: 'Nama wajib diisi' });
   if (!phone?.trim())                      return res.status(400).json({ error: 'No. HP wajib diisi' });
   if (!email?.trim() || !EMAIL_RE.test(email)) return res.status(400).json({ error: 'Email valid wajib diisi — digunakan untuk login' });
@@ -53,10 +69,13 @@ export default async function handler(req, res) {
   }
   const userId = authUser.id;
 
-  // 3. Hitung agent ID baru
-  const cntR   = await fetch(`${SUPABASE_URL}/rest/v1/dsd_agents?select=id`, { headers: h });
-  const allAgt = await cntR.json().catch(() => []);
-  const newId  = 'AGT' + String((Array.isArray(allAgt) ? allAgt.length : 0) + 1).padStart(3, '0');
+  // 3. Agent ID baru = max(nomor ID) + 1. Dulu pakai count+1 yang menghasilkan
+  //    ID duplikat begitu ada agen yang pernah dihapus.
+  const maxR   = await fetch(`${SUPABASE_URL}/rest/v1/dsd_agents?select=id&order=id.desc&limit=1`, { headers: h });
+  const maxRow = await maxR.json().catch(() => []);
+  const lastNum = Array.isArray(maxRow) && maxRow[0]?.id
+    ? (parseInt(String(maxRow[0].id).replace(/\D/g, ''), 10) || 0) : 0;
+  const newId  = 'AGT' + String(lastNum + 1).padStart(3, '0');
 
   // 4. Insert dsd_agents (nonaktif)
   const agtR = await fetch(`${SUPABASE_URL}/rest/v1/dsd_agents`, {

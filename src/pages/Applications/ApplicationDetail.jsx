@@ -21,6 +21,7 @@ export function ApplicationDetail() {
   const [surveyDate, setSurveyDate]       = useState('');
   const [surveyTime, setSurveyTime]       = useState('');
   const [approvePinjaman, setApprovePinjaman] = useState('');
+  const [surveyResult, setSurveyResult]   = useState('');
 
   // Edit berkas
   const [showEdit, setShowEdit]     = useState(false);
@@ -145,10 +146,14 @@ export function ApplicationDetail() {
 
   const handleSave = () => {
     const parsedPinjaman = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
-    updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime, parsedPinjaman || undefined);
+    updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime, parsedPinjaman || undefined, surveyResult || undefined);
     setShowStatus(false);
-    setNotes(''); setSurveyDate(''); setSurveyTime(''); setApprovePinjaman('');
+    setNotes(''); setSurveyDate(''); setSurveyTime(''); setApprovePinjaman(''); setSurveyResult('');
   };
+
+  // Hasil survey diisi setelah survey berlangsung — saat berkas keluar dari
+  // status survey (umumnya lanjut ke komite) atau selagi masih di survey
+  const asksSurveyResult = newStatus && (app?.status === 'survey' || newStatus === 'komite');
 
   const Row = ({ label, value }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border-light)' }}>
@@ -505,6 +510,17 @@ export function ApplicationDetail() {
                 <label className="label">Jam Survey</label>
                 <input className="input" type="time" value={surveyTime} onChange={e => setSurveyTime(e.target.value)} />
               </div>
+            </div>
+          )}
+
+          {asksSurveyResult && (
+            <div>
+              <label className="label">Hasil Survey</label>
+              <textarea
+                className="input textarea" rows={2} value={surveyResult}
+                onChange={e => setSurveyResult(e.target.value)}
+                placeholder="Contoh: kondisi unit baik, dokumen lengkap (opsional)"
+              />
             </div>
           )}
 

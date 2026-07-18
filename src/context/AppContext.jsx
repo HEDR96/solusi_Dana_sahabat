@@ -60,7 +60,7 @@ const mapActivity = r => ({
   relatedAppId: r.related_app_id,
 });
 // "x menit lalu" dihitung dari created_at; fallback ke teks lama jika kolom belum ada
-function relativeTime(iso) {
+export function relativeTime(iso) {
   if (!iso) return null;
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return 'Baru saja';
@@ -69,10 +69,14 @@ function relativeTime(iso) {
   if (hours < 24) return `${hours} jam lalu`;
   return `${Math.floor(hours / 24)} hari lalu`;
 }
-const mapNotif = r => ({
+// `read` per-user dari dsd_notification_reads; flag global lama (r.read) tetap
+// dihormati untuk notifikasi era sebelum migration 010
+const mapNotif = (r, readSet) => ({
   id: r.id, type: r.type, message: r.message,
+  createdAt: r.created_at || null,
   time: relativeTime(r.created_at) || r.time_ago,
-  read: r.read, link: r.link,
+  read: readSet ? (readSet.has(r.id) || !!r.read) : r.read,
+  link: r.link,
 });
 const mapAuditLog = r => ({
   id: r.id, user: r.user, role: r.role, action: r.action,
@@ -123,7 +127,9 @@ async function runDataCleanup(apps, leasingRows) {
     await supabase.from('dsd_leasing_partners').insert({ name: 'CMD Finance', branch: 'Medan', status: 'aktif' });
   }
 
-  const { data: logRows } = await supabase.from('dsd_status_logs').select('app_id');
+  // Paging wajib — tanpa ini cap 1000 baris membuat berkas yang sebenarnya punya
+  // log dianggap kosong lalu di-insert-kan "riwayat awal" palsu
+  const { data: logRows } = await fetchAllRows('dsd_status_logs', 'id');
   const hasLog = new Set((logRows || []).map(r => r.app_id));
   const missing = apps.filter(a => !hasLog.has(a.id));
   if (missing.length) {
@@ -138,7 +144,7 @@ async function runDataCleanup(apps, leasingRows) {
 
   const [{ data: newLeasing }, { data: newLogs }] = await Promise.all([
     supabase.from('dsd_leasing_partners').select('*').order('id'),
-    supabase.from('dsd_status_logs').select('*').order('id'),
+    fetchAllRows('dsd_status_logs', 'id'),
   ]);
   return {
     leasing: (newLeasing || []).map(mapLeasing),
@@ -146,18 +152,37 @@ async function runDataCleanup(apps, leasingRows) {
   };
 }
 
+// PostgREST membatasi 1000 baris per request — tanpa paging, data >1000 terpotong
+// diam-diam (laporan/komisi jadi salah). Helper ini menarik semua halaman.
+async function fetchAllRows(table, orderCol, ascending = true) {
+  const PAGE = 1000;
+  const rows = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select('*')
+      .order(orderCol, { ascending }).range(from, from + PAGE - 1);
+    if (error || !data) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return { data: rows };
+}
+
 async function loadAll() {
   const [apps, agents, leasing, commissions, statusLogs, activities, notifs, auditLogs, profileRows] = await Promise.all([
-    supabase.from('dsd_applications').select('*').order('input_date', { ascending: false }),
+    fetchAllRows('dsd_applications', 'input_date', false),
     supabase.from('dsd_agents').select('*').order('id'),
     supabase.from('dsd_leasing_partners').select('*').order('id'),
-    supabase.from('dsd_commissions').select('*').order('id', { ascending: false }),
-    supabase.from('dsd_status_logs').select('*').order('id'),
-    supabase.from('dsd_agent_activities').select('*').order('date', { ascending: false }),
-    supabase.from('dsd_notifications').select('*').order('id', { ascending: false }),
-    supabase.from('dsd_audit_logs').select('*').order('id', { ascending: false }),
+    fetchAllRows('dsd_commissions', 'id', false),
+    fetchAllRows('dsd_status_logs', 'id'),
+    fetchAllRows('dsd_agent_activities', 'date', false),
+    supabase.from('dsd_notifications').select('*').order('id', { ascending: false }).limit(300),
+    supabase.from('dsd_audit_logs').select('*').order('id', { ascending: false }).limit(1000),
     supabase.from('dsd_profiles').select('*').order('created_at'),
   ]);
+  // Status baca per-user (RLS hanya mengembalikan baris milik user ini);
+  // tabel baru dari migration 010 — kalau belum ada, degradasi ke flag global
+  const { data: readRows } = await supabase.from('dsd_notification_reads').select('notif_id');
+  const readSet = new Set((readRows || []).map(r => r.notif_id));
   return {
     applications: (apps.data || []).map(mapApp),
     agents: (agents.data || []).map(mapAgent),
@@ -165,7 +190,7 @@ async function loadAll() {
     commissions: (commissions.data || []).map(mapCommission),
     statusLogs: (statusLogs.data || []).map(mapStatusLog),
     agentActivities: (activities.data || []).map(mapActivity),
-    notifications: (notifs.data || []).map(mapNotif),
+    notifications: (notifs.data || []).map(r => mapNotif(r, readSet)),
     auditLogs: (auditLogs.data || []).map(mapAuditLog),
     users: (profileRows.data || []).map(r => ({
       id: r.id, name: r.name, email: r.email, role: r.role,
@@ -227,13 +252,22 @@ export function AppProvider({ children }) {
       setAuthLoading(false);
       return;
     }
+    // Sesi milik akun nonaktif tidak dipakai — langsung sign out
+    const resolveProfile = async (userId) => {
+      const profile = await fetchProfile(userId);
+      if (profile?.status && profile.status !== 'aktif') {
+        await supabase.auth.signOut();
+        return null;
+      }
+      return profile;
+    };
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!active) return;
-      if (session?.user) setCurrentUser(await fetchProfile(session.user.id));
+      if (session?.user) setCurrentUser(await resolveProfile(session.user.id));
       setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) setCurrentUser(await fetchProfile(session.user.id));
+      if (session?.user) setCurrentUser(await resolveProfile(session.user.id));
       else setCurrentUser(null);
     });
     return () => { active = false; subscription.unsubscribe(); };
@@ -302,6 +336,26 @@ export function AppProvider({ children }) {
           showToast(`📋 Berkas baru dari ${newApp.agentName}: ${newApp.customerName} (${newApp.id})`);
         }
       })
+      // Perubahan berkas dari sesi lain (web lain / aplikasi Android) ikut ter-sync
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dsd_applications' }, payload => {
+        const upd = mapApp(payload.new);
+        setApplications(prev => prev.map(a => a.id === upd.id ? upd : a));
+      })
+      // Notifikasi baru (berkas dari APK, lead website, lamaran agen) langsung
+      // muncul di lonceng tanpa reload
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dsd_notifications' }, payload => {
+        const n = mapNotif(payload.new);
+        setNotifications(prev => prev.some(x => x.id === n.id) ? prev : [n, ...prev]);
+      })
+      // Komisi dari trigger DB (approve via Android/web lain) ikut ter-sync
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dsd_commissions' }, payload => {
+        const c = mapCommission(payload.new);
+        setCommissions(prev => prev.some(x => x.id === c.id) ? prev : [c, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dsd_commissions' }, payload => {
+        const c = mapCommission(payload.new);
+        setCommissions(prev => prev.map(x => x.id === c.id ? c : x));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id]);
@@ -309,10 +363,19 @@ export function AppProvider({ children }) {
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+    const profile = await fetchProfile(data.user.id);
+    if (!profile) {
+      await supabase.auth.signOut();
+      return { error: 'Profil pengguna tidak ditemukan' };
+    }
+    // Akun nonaktif (mis. lamaran agen yang belum diaktivasi owner) dilarang masuk
+    if (profile.status && profile.status !== 'aktif') {
+      await supabase.auth.signOut();
+      return { error: 'Akun Anda belum aktif. Hubungi admin untuk aktivasi.' };
+    }
     const now = new Date().toISOString();
     await supabase.from('dsd_profiles').update({ last_login: now }).eq('id', data.user.id);
-    const profile = await fetchProfile(data.user.id);
-    if (!profile) return { error: 'Profil pengguna tidak ditemukan' };
+    profile.lastLogin = now;
     setCurrentUser(profile);
     // Sync last_login ke daftar users
     setUsers(prev => prev.map(u => u.id === profile.id ? { ...u, lastLogin: profile.lastLogin } : u));
@@ -344,14 +407,18 @@ export function AppProvider({ children }) {
     if (data) setAuditLogs(prev => [mapAuditLog(data), ...prev]);
   };
 
-  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime, approvePinjaman) => {
+  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime, approvePinjaman, surveyResult) => {
     const app = applications.find(a => a.id === appId);
+    if (!app) { showToast(`Berkas ${appId} tidak ditemukan — muat ulang halaman`, 'error'); return; }
     const updates = { status: newStatus };
     if (surveyDate) updates.survey_date = surveyDate;
     if (surveyTime) updates.survey_time = surveyTime;
+    if (surveyResult) updates.survey_result = surveyResult;
     if (newStatus === 'approve') {
       updates.approve_date = new Date().toISOString().split('T')[0];
       updates.approve_pinjaman = approvePinjaman || app.pinjaman;
+      // Trigger DB menghitung komisi dari kolom ini — sinkronkan dengan rate di Settings
+      updates.commission_rate = settings.commissionRate;
     } else if (['reject', 'cancel'].includes(newStatus)) {
       // Bersihkan approve_date agar kalender tidak tampilkan event palsu
       updates.approve_date = null;
@@ -363,6 +430,7 @@ export function AppProvider({ children }) {
       const u = { ...a, status: newStatus };
       if (surveyDate) u.surveyDate = surveyDate;
       if (surveyTime) u.surveyTime = surveyTime;
+      if (surveyResult) u.surveyResult = surveyResult;
       if (newStatus === 'approve') { u.approveDate = updates.approve_date; u.approvePinjaman = updates.approve_pinjaman; }
       if (['reject', 'cancel'].includes(newStatus)) { u.approveDate = null; u.approvePinjaman = null; }
       return u;
@@ -382,11 +450,13 @@ export function AppProvider({ children }) {
         .select('*').eq('app_id', appId).order('id', { ascending: false }).limit(1);
       let commData = existingComm?.[0] || null;
       if (!commData) {
+        // Pakai nilai pinjaman yang DISETUJUI (bisa berbeda dari pengajuan awal)
+        const basePinjaman = updates.approve_pinjaman;
         const commRow = {
           app_id: appId, customer_name: app.customerName, agent_id: app.agentId, agent_name: app.agentName,
-          leasing_name: app.leasingName, approve_pinjaman: app.pinjaman,
+          leasing_name: app.leasingName, approve_pinjaman: basePinjaman,
           approve_date: new Date().toISOString().split('T')[0], commission_rate: settings.commissionRate,
-          commission_amount: Math.round(app.pinjaman * (settings.commissionRate / 100)), status: 'unpaid',
+          commission_amount: Math.round(basePinjaman * (settings.commissionRate / 100)), status: 'unpaid',
           payment_date: null, payment_method: null, notes: '',
         };
         ({ data: commData } = await supabase.from('dsd_commissions').insert(commRow).select().single());
@@ -421,9 +491,13 @@ export function AppProvider({ children }) {
   };
 
   const addApplication = async (data, docFiles = {}) => {
-    // ID dari sequence DB (anti-tabrakan); fallback ke hitung lokal jika RPC belum ada
+    // ID dari sequence DB (anti-tabrakan); fallback ke max+1 (length+1 rusak setelah penghapusan)
     const { data: rpcId } = await supabase.rpc('dsd_next_brk_id');
-    const newId = rpcId || `BRK${String(2026000 + applications.length + 1).padStart(7, '0')}`;
+    const maxLocal = applications.reduce((mx, a) => {
+      const n = parseInt(String(a.id).replace(/\D/g, ''), 10);
+      return Number.isFinite(n) && n > mx ? n : mx;
+    }, 2026000);
+    const newId = rpcId || `BRK${String(maxLocal + 1).padStart(7, '0')}`;
     const row = {
       id: newId, status: 'pending', agent_id: data.agentId, agent_name: data.agentName,
       customer_name: data.customerName, nik: data.nik, phone: data.phone, city: data.city,
@@ -457,13 +531,14 @@ export function AppProvider({ children }) {
       });
       await Promise.allSettled(fileEntries.map(async ([docName, file]) => {
         const safeType = docName.toLowerCase().replace(/\s+/g, '-');
+        const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
         const dataBase64 = await toBase64(file);
         await fetch('/api/gdrive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             appId: newId,
-            filename: `${newId}_${safeType}_${file.name.split('.').pop()}`,
+            filename: `${newId}_${safeType}_${Date.now()}.${ext}`,
             contentType: file.type || 'application/octet-stream',
             dataBase64,
           }),
@@ -477,8 +552,11 @@ export function AppProvider({ children }) {
   };
 
   const markNotifRead = async (id) => {
-    await supabase.from('dsd_notifications').update({ read: true }).eq('id', id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    // Per-user (migration 010). Fallback ke flag global lama jika tabel belum ada.
+    const { error } = await supabase.from('dsd_notification_reads')
+      .upsert({ user_id: currentUser?.id, notif_id: id }, { onConflict: 'user_id,notif_id' });
+    if (error) await supabase.from('dsd_notifications').update({ read: true }).eq('id', id);
   };
 
   const payCommission = async (id, method) => {
@@ -566,7 +644,7 @@ export function AppProvider({ children }) {
             id: result.id, name: result.name, email: result.email,
             role: 'agen', status: data.status, agentId: newId, lastLogin: '-',
           }]);
-          showToast(`Agen ${data.name} ditambahkan + akun login dibuat (password: "password")`);
+          showToast(`Agen ${data.name} ditambahkan + akun login dibuat (password: SDS${newId}${new Date().getFullYear()})`);
         } else {
           showToast(`Agen tersimpan, tapi akun login gagal: ${result.error || 'coba tambah user manual'}`, 'error');
         }
