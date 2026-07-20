@@ -92,7 +92,7 @@ export function CommissionReport() {
           <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo(''); setAgent('all'); }}>Reset filter</button>
         )}
       </div>
-      <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginBottom: 12 }}>Nilai komisi ditampilkan sebagai take-home agen ({agentRate}% dari komisi leasing)</p>
+      <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginBottom: 12 }}>Nilai komisi ditampilkan sebagai take-home agen</p>
       {prevRange && (
         <p style={{ fontSize: 11, color: 'var(--c-94a3b8)', marginBottom: 16 }}>
           Dibandingkan dengan periode sebelumnya: {prevRange.from} s/d {prevRange.to}
@@ -182,7 +182,7 @@ export function CommissionReport() {
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{c.agentName}</td>
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{c.leasingName}</td>
                 <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(c.approvePinjaman)}</td>
-                <td className="table-td" style={{ fontSize: 14, fontWeight: 800, color: '#059669' }}>{formatRupiah(agentAmt(c))}</td>
+                <td className="table-td" style={{ fontSize: 14, fontWeight: 800, color: '#059669' }}>{formatRupiah(c.commissionAmount)}</td>
                 <td className="table-td"><Badge status={c.status} /></td>
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{c.paymentDate || '-'}</td>
               </tr>
