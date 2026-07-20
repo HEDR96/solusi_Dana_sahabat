@@ -174,7 +174,7 @@ export function Commission() {
     { label: 'No. Berkas', key: 'appId' }, { label: 'Nasabah', key: 'customerName' },
     { label: 'Agen', key: 'agentName' }, { label: 'Leasing', key: 'leasingName' },
     { label: 'Pinjaman', key: 'approvePinjaman' }, { label: 'Tgl Approve', key: 'approveDate' },
-    { label: 'Komisi', key: 'commissionAmount' },
+    { label: 'Komisi', key: 'commissionAmount' }, { label: 'Komisi Leasing', key: 'commissionAmount' },
     { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
   ];
 
@@ -184,7 +184,7 @@ export function Commission() {
     { label: 'Total Komisi', value: formatRupiah(totalKomisi), icon: DollarSign, bg: 'var(--surface)', border: 'var(--border)', color: 'var(--c-64748b)', val_color: 'var(--c-0f172a)' },
   ];
 
-  const colSpan = 8 + (canManagePayments ? 1 : 0);
+  const colSpan = 9 + (canManagePayments ? 1 : 0);
 
   return (
     <Layout
@@ -265,6 +265,7 @@ export function Commission() {
               <SortableTh label="Pinjaman" sortKey="approvePinjaman" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <SortableTh label="Tgl Approve" sortKey="approveDate" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <th className="table-th">Komisi</th>
+              <th className="table-th">Komisi Leasing</th>
               <SortableTh label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={requestSort} />
               <th className="table-th">Aksi</th>
             </tr>
@@ -289,6 +290,7 @@ export function Commission() {
                   <td className="table-td" style={{ fontSize: 13, fontWeight: 600 }}>{formatRupiah(comm.approvePinjaman)}</td>
                   <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{comm.approveDate}</td>
                   <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{formatRupiah(comm.commissionAmount)}</td>
+                  <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{formatRupiah(comm.commissionAmount)}</td>
                   <td className="table-td"><Badge status={comm.status} /></td>
                   <td className="table-td">
                     {comm.status === 'unpaid' ? (
