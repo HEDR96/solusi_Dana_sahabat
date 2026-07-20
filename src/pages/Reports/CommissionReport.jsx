@@ -22,7 +22,8 @@ function previousPeriod(from, to) {
 const COMMISSION_REPORT_COLUMNS = [
   { label: 'No. Berkas', key: 'appId' }, { label: 'Nasabah', key: 'customerName' }, { label: 'Agen', key: 'agentName' },
   { label: 'Leasing', key: 'leasingName' }, { label: 'Pinjaman', key: 'approvePinjaman' },
-  { label: 'Komisi', key: 'commissionAmount' }, { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
+  { label: 'Komisi', key: 'commissionAmount' }, { label: 'Komisi Leasing', key: 'commissionAmount' },
+  { label: 'Status', key: 'status' }, { label: 'Tgl Bayar', key: 'paymentDate' },
 ];
 
 function ChartTip({ active, payload, label }) {
@@ -169,7 +170,7 @@ export function CommissionReport() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead className="table-head">
             <tr>
-              {['No. Berkas', 'Nasabah', 'Agen', 'Leasing', 'Pinjaman', 'Komisi Agen', 'Status', 'Tgl Bayar'].map(h => (
+              {['No. Berkas', 'Nasabah', 'Agen', 'Leasing', 'Pinjaman', 'Komisi Agen', 'Komisi Leasing', 'Status', 'Tgl Bayar'].map(h => (
                 <th key={h} className="table-th">{h}</th>
               ))}
             </tr>
@@ -183,6 +184,7 @@ export function CommissionReport() {
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-64748b)' }}>{c.leasingName}</td>
                 <td className="table-td" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{formatRupiah(c.approvePinjaman)}</td>
                 <td className="table-td" style={{ fontSize: 14, fontWeight: 800, color: '#059669' }}>{formatRupiah(c.commissionAmount)}</td>
+                <td className="table-td" style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-0f172a)' }}>{formatRupiah(c.commissionAmount)}</td>
                 <td className="table-td"><Badge status={c.status} /></td>
                 <td className="table-td" style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>{c.paymentDate || '-'}</td>
               </tr>
