@@ -526,6 +526,28 @@ object SupabaseApi {
         text
     }
 
+    /**
+     * Cek apakah NIK sudah pernah diajukan (lihat migration 019).
+     * Wajib lewat RPC: RLS menyembunyikan berkas agen lain, padahal duplikat
+     * lintas-agen justru yang paling merugikan (komisi diklaim dua kali).
+     * Mengembalikan null kalau bersih atau kalau pengecekan gagal — jangan
+     * sampai gangguan jaringan memblokir agen menginput berkas.
+     */
+    suspend fun checkCustomerNik(token: String, nik: String): Result<NikCheck?> = io {
+        val body = JSONObject().apply { put("p_nik", nik) }.toString().toRequestBody(JSON_TYPE)
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/rpc/dsd_check_customer_nik")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Content-Type", "application/json")
+            .post(body)
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        json.decodeFromString<List<NikCheck>>(text).firstOrNull()?.takeIf { it.jumlah > 0 }
+    }
+
     /** Nomor tertinggi dari ID berkas (BRKxxxxxxx) — fallback anti-duplikat jika RPC sequence belum ada. */
     suspend fun getMaxApplicationNumber(token: String): Result<Int> = io {
         val req = Request.Builder()

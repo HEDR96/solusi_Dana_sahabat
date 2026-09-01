@@ -61,6 +61,18 @@ data class Application(
     @SerialName("fpd_notes") val fpdNotes: String? = null
 )
 
+/** Hasil dsd_check_customer_nik — ringkasan berkas lain dengan NIK yang sama. */
+@Serializable
+data class NikCheck(
+    val jumlah: Int = 0,
+    @SerialName("ada_milik_sendiri") val adaMilikSendiri: Boolean = false,
+    @SerialName("ada_milik_lain") val adaMilikLain: Boolean = false,
+    @SerialName("terakhir_id") val terakhirId: String? = null,
+    @SerialName("terakhir_status") val terakhirStatus: String? = null,
+    @SerialName("terakhir_tanggal") val terakhirTanggal: String? = null,
+    @SerialName("terakhir_agen") val terakhirAgen: String? = null
+)
+
 @Serializable
 data class Agent(
     val id: String,

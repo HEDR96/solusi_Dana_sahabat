@@ -18,7 +18,7 @@ import {
   lookupVal, getPinjamanOptions,
 } from '../../data/rateTables';
 import { OTR_YEARS, getMaxPinjaman } from '../../data/otrCatalog';
-import { Plus, Search, Eye, Download, FileText, SlidersHorizontal, X, CheckSquare, TrendingUp } from 'lucide-react';
+import { Plus, Search, Eye, Download, FileText, SlidersHorizontal, X, CheckSquare, TrendingUp, AlertTriangle } from 'lucide-react';
 
 const DEFAULT_DOC_TYPES = ['KTP', 'Kartu Keluarga', 'STNK / BPKB', 'Slip Gaji', 'Foto Unit', 'Dok. Pendukung'];
 
@@ -64,6 +64,8 @@ export function ApplicationList() {
   const [showModal, setShowModal]   = useState(false);
   const [form, setForm]             = useState(EMPTY);
   const [errors, setErrors]         = useState({});
+  // Hasil pengecekan NIK berulang (lihat migration 019)
+  const [nikCheck, setNikCheck]     = useState(null);
   const [page, setPage]             = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -201,6 +203,24 @@ export function ApplicationList() {
   };
 
   const set = useCallback(k => v => setForm(p => ({ ...p, [k]: v })), []);
+
+  // Cek nasabah berulang begitu NIK lengkap. Dicek ke server (bukan ke daftar
+  // di layar) karena RLS menyembunyikan berkas agen lain — justru duplikat
+  // lintas-agen yang paling perlu ketahuan.
+  const nikToCheck = form.nik?.trim().length === 16 ? form.nik.trim() : '';
+  const debouncedNik = useDebounce(nikToCheck, 400);
+  useEffect(() => {
+    if (!showModal || !debouncedNik) { setNikCheck(null); return; }
+    let batal = false;
+    supabase.rpc('dsd_check_customer_nik', { p_nik: debouncedNik })
+      .then(({ data }) => {
+        if (batal) return;
+        const r = Array.isArray(data) ? data[0] : data;
+        setNikCheck(r?.jumlah > 0 ? r : null);
+      })
+      .catch(() => { if (!batal) setNikCheck(null); });
+    return () => { batal = true; };
+  }, [debouncedNik, showModal]);
 
   const validate = useCallback(() => {
     const e = {};
@@ -447,6 +467,35 @@ export function ApplicationList() {
             <F label="Nama Nasabah" error={errors.customerName}><input className="input" value={form.customerName} onChange={e => set('customerName')(e.target.value)} placeholder="Nama lengkap sesuai KTP" style={errors.customerName ? { borderColor: '#ef4444' } : undefined} /></F>
           </div>
           <F label="NIK / Nomor KTP" error={errors.nik}><input className="input" value={form.nik} onChange={e => set('nik')(e.target.value)} placeholder="16 digit NIK" style={errors.nik ? { borderColor: '#ef4444' } : undefined} /></F>
+          {nikCheck && (
+            <div className="span-2" style={{
+              display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 10, marginTop: -4,
+              background: nikCheck.ada_milik_lain ? '#fef2f2' : '#fffbeb',
+              border: `1px solid ${nikCheck.ada_milik_lain ? '#fecaca' : '#fde68a'}`,
+            }}>
+              <AlertTriangle size={16} color={nikCheck.ada_milik_lain ? '#dc2626' : '#b45309'} style={{ flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: 'var(--c-374151)', lineHeight: 1.5 }}>
+                <strong style={{ color: nikCheck.ada_milik_lain ? '#dc2626' : '#b45309' }}>
+                  NIK ini sudah pernah diajukan{nikCheck.jumlah > 1 ? ` (${nikCheck.jumlah} berkas)` : ''}
+                  {nikCheck.ada_milik_lain && ' oleh agen lain'}
+                </strong>
+                <div style={{ marginTop: 3 }}>
+                  {nikCheck.terakhir_id
+                    ? <>Terakhir: <strong>{nikCheck.terakhir_id}</strong>
+                        {nikCheck.terakhir_status && <> · status <strong>{nikCheck.terakhir_status}</strong></>}
+                        {nikCheck.terakhir_tanggal && <> · {nikCheck.terakhir_tanggal}</>}
+                        {nikCheck.terakhir_agen && <> · agen {nikCheck.terakhir_agen}</>}
+                      </>
+                    : 'Detail berkas tidak dapat ditampilkan karena di luar cakupan Anda — hubungi admin sebelum melanjutkan.'}
+                </div>
+                {nikCheck.ada_milik_lain && (
+                  <div style={{ marginTop: 4, color: '#dc2626' }}>
+                    Pastikan ini bukan pengajuan ganda sebelum lanjut — komisi bisa bentrok.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <F label="Nomor Telepon" error={errors.phone}><input className="input" value={form.phone} onChange={e => set('phone')(e.target.value)} placeholder="08xx-xxxx-xxxx" style={errors.phone ? { borderColor: '#ef4444' } : undefined} /></F>
           <F label="Kota" error={errors.city}>
             <select className="input" value={form.city} onChange={e => set('city')(e.target.value)} style={errors.city ? { borderColor: '#ef4444' } : undefined}>

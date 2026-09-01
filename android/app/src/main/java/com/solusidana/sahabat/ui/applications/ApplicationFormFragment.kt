@@ -350,6 +350,58 @@ class ApplicationFormFragment : Fragment() {
             return
         }
 
+        // Cek nasabah berulang sebelum simpan. Kalau pengecekan gagal (offline —
+        // jalur draft justru dirancang untuk kondisi ini), lanjut saja: jaringan
+        // yang bermasalah tidak boleh menghalangi agen menginput berkas.
+        val token = SessionManager(requireContext()).accessToken
+        if (token == null) { doSave(); return }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val dup = SupabaseApi.checkCustomerNik(token, nik).getOrNull()
+            if (_b == null) return@launch
+            if (dup == null) doSave() else confirmDuplicate(dup)
+        }
+    }
+
+    /** Peringatan sebelum menyimpan berkas dengan NIK yang sudah pernah diajukan. */
+    private fun confirmDuplicate(dup: com.solusidana.sahabat.data.NikCheck) {
+        val pesan = buildString {
+            append("NIK ini sudah pernah diajukan")
+            if (dup.jumlah > 1) append(" (${dup.jumlah} berkas)")
+            if (dup.adaMilikLain) append(" oleh agen lain")
+            append(".\n\n")
+            if (dup.terakhirId != null) {
+                append("Terakhir: ${dup.terakhirId}")
+                dup.terakhirStatus?.let { append(" · status $it") }
+                dup.terakhirTanggal?.let { append(" · $it") }
+                dup.terakhirAgen?.let { append("\nAgen: $it") }
+            } else {
+                append("Detail berkas di luar cakupan Anda — hubungi admin sebelum melanjutkan.")
+            }
+            if (dup.adaMilikLain) {
+                append("\n\nPastikan ini bukan pengajuan ganda — komisi bisa bentrok.")
+            }
+        }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle("⚠️ Nasabah Sudah Pernah Diajukan")
+            .setMessage(pesan)
+            .setPositiveButton("Tetap Simpan") { _, _ -> doSave() }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun doSave() {
+        val name     = b.etCustomerName.text.toString().trim()
+        val nik      = b.etNik.text.toString().trim()
+        val phone    = b.etPhone.text.toString().trim()
+        val city     = b.etCity.text.toString().trim()
+        val unitType = b.ddUnitType.text.toString().trim()
+        val leasing  = selectedLeasing
+        val pinjaman = if (isCMD && b.tilPinjamanDropdown.isVisible) selectedPinjaman
+                       else b.etPinjaman.text.toString().toLongOrNull() ?: 0L
+        val unitYear = if (isCMD && b.tilUnitYearDropdown.isVisible) b.ddUnitYear.text.toString().trim()
+                       else b.etUnitYear.text.toString().trim()
+        val unitBrand = b.etUnitBrand.text.toString().trim()
+
         vm.save(
             agent = selectedAgent,
             customerName = name,
