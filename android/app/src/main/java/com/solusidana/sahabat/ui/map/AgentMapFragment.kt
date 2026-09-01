@@ -60,6 +60,21 @@ class AgentMapFragment : Fragment() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 if (_b == null) return
                 b.progress.isVisible = false
+                // Leaflet/tile OpenStreetMap dimuat dari CDN eksternal (unpkg.com) —
+                // kalau diblokir jaringan (umum di provider seluler/kantor), halaman
+                // tetap "selesai" (onPageFinished tetap terpanggil) tapi `map` tidak
+                // pernah terbentuk, jadi peta tampil blank/putih tanpa pesan apa pun.
+                // Cek langsung ke JS supaya kegagalan ini terlihat oleh user.
+                view?.evaluateJavascript("typeof map !== 'undefined'") { result ->
+                    if (_b == null) return@evaluateJavascript
+                    if (result != "true") {
+                        Snackbar.make(
+                            b.root,
+                            "Gagal memuat peta — CDN peta mungkin diblokir jaringan. Coba jaringan lain lalu tap ulang.",
+                            Snackbar.LENGTH_LONG
+                        ).setAction("Coba Lagi") { load() }.show()
+                    }
+                }
             }
         }
 

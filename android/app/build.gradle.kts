@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
@@ -13,14 +12,14 @@ val localProps = Properties().also { props ->
 
 android {
     namespace = "com.solusidana.sahabat"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "solusidanasahabat.myapp"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 12
-        versionName = "2.1"
+        targetSdk = 36
+        versionCode = 15
+        versionName = "2.4"
 
         buildConfigField("String", "SUPABASE_URL", "\"https://jltdidqhdqdsyiakdaqy.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdGRpZHFoZHFkc3lpYWtkYXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDQ4MzcsImV4cCI6MjA5MzIyMDgzN30.IxAEaotwiKoNpIBlXtq9t9x_n0hOPujlddstAA2TPGo\"")

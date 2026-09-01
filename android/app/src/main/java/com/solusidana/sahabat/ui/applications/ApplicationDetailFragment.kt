@@ -13,12 +13,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.solusidana.sahabat.R
+import com.solusidana.sahabat.data.Application as App
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.STATUSES
 import com.solusidana.sahabat.data.SupabaseApi
@@ -37,6 +41,7 @@ class ApplicationDetailFragment : Fragment() {
     private var _b: FragmentApplicationDetailBinding? = null
     private val b get() = _b!!
     private val vm: ApplicationDetailViewModel by viewModels()
+    private val listVm: ApplicationListViewModel by activityViewModels()
     private var appId = ""
     private var customerPhone: String? = null
     private var customerName: String = ""
@@ -68,6 +73,7 @@ class ApplicationDetailFragment : Fragment() {
 
         val session = SessionManager(requireContext())
         val canEdit = session.userRole in listOf("owner", "super-admin", "spv-agen")
+        val isOwner = session.userRole == "owner"
 
         vm.detail.observe(viewLifecycleOwner) { state ->
             when (state) {
@@ -134,6 +140,10 @@ class ApplicationDetailFragment : Fragment() {
                     // Check-in hanya saat berkas dalam tahap survey
                     b.btnCheckIn.isVisible = app.status in listOf("janji-survey", "survey")
                     b.btnCheckIn.setOnClickListener { requestCheckIn() }
+
+                    b.llOwnerActions.isVisible = isOwner
+                    b.btnEditBerkas.setOnClickListener { showEditDialog(app) }
+                    b.btnDeleteBerkas.setOnClickListener { confirmDelete(app) }
                 }
                 is DetailState.Error -> {
                     b.progress.isVisible = false
@@ -145,9 +155,25 @@ class ApplicationDetailFragment : Fragment() {
         vm.update.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is UpdateState.Done ->
-                    Snackbar.make(b.root, "Status berhasil diperbarui", Snackbar.LENGTH_SHORT).show()
+                    Snackbar.make(b.root, "Berkas berhasil diperbarui", Snackbar.LENGTH_SHORT).show()
                 is UpdateState.Error ->
                     Snackbar.make(b.root, state.message, Snackbar.LENGTH_LONG).show()
+                else -> {}
+            }
+        }
+
+        vm.delete.observe(viewLifecycleOwner) { state ->
+            when (state) {
+                is DeleteState.Deleting -> b.progress.isVisible = true
+                is DeleteState.Done -> {
+                    listVm.needsRefresh = true
+                    Snackbar.make(requireActivity().findViewById(android.R.id.content), "Berkas $appId berhasil dihapus", Snackbar.LENGTH_SHORT).show()
+                    findNavController().navigateUp()
+                }
+                is DeleteState.Error -> {
+                    b.progress.isVisible = false
+                    Snackbar.make(b.root, state.message, Snackbar.LENGTH_LONG).show()
+                }
                 else -> {}
             }
         }
@@ -419,6 +445,120 @@ class ApplicationDetailFragment : Fragment() {
             .setView(notesInput)
             .setPositiveButton(if (isTerminal) "Ya, Konfirmasi" else "Simpan") { _, _ ->
                 vm.updateStatus(id, to, notesInput.text.toString(), surveyDate, surveyTime)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    // ─── Edit & Hapus (owner) ───────────────────────────────────────────────────
+
+    private fun confirmDelete(app: App) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Hapus Berkas ${app.id}?")
+            .setMessage("Nasabah: ${app.customerName}\n\nBerkas yang dihapus tidak dapat dikembalikan. Riwayat status dan dokumen terkait juga akan hilang.")
+            .setPositiveButton("Ya, Hapus") { _, _ -> vm.deleteApplication(app.id) }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun field(label: String, value: String?, inputType: Int = android.text.InputType.TYPE_CLASS_TEXT): Pair<TextInputLayout, TextInputEditText> {
+        val til = TextInputLayout(requireContext(), null, com.google.android.material.R.attr.textInputOutlinedStyle).apply {
+            hint = label
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = (12 * resources.displayMetrics.density).toInt() }
+        }
+        val et = TextInputEditText(til.context).apply {
+            setText(value ?: "")
+            this.inputType = inputType
+        }
+        til.addView(et)
+        return til to et
+    }
+
+    private fun showEditDialog(app: App) {
+        val ctx = requireContext()
+        val dp = resources.displayMetrics.density
+        val pad = (20 * dp).toInt()
+
+        val (tilName, etName)   = field("Nama Nasabah", app.customerName)
+        val (tilNik, etNik)     = field("NIK", app.nik, android.text.InputType.TYPE_CLASS_NUMBER)
+        val (tilPhone, etPhone) = field("Nomor HP", app.phone, android.text.InputType.TYPE_CLASS_PHONE)
+        val (tilCity, etCity)   = field("Kota", app.city)
+        val (tilAddr, etAddr)   = field("Alamat", app.address)
+        val (tilBrand, etBrand) = field("Merk & Model Unit", app.unitBrand)
+        val (tilYear, etYear)   = field("Tahun Unit", app.unitYear?.toString(), android.text.InputType.TYPE_CLASS_NUMBER)
+        val (tilPinjaman, etPinjaman) = field("Pinjaman (Rp)", app.pinjaman?.toString(), android.text.InputType.TYPE_CLASS_NUMBER)
+        val (tilTenor, etTenor) = field("Tenor (bulan)", app.tenor?.toString(), android.text.InputType.TYPE_CLASS_NUMBER)
+        val (tilNotes, etNotes) = field("Catatan", app.notes)
+
+        val container = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            listOf(tilName, tilNik, tilPhone, tilCity, tilAddr, tilBrand, tilYear, tilPinjaman, tilTenor, tilNotes)
+                .forEach { addView(it) }
+        }
+        val scroll = android.widget.ScrollView(ctx).apply { addView(container) }
+
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("Edit Berkas ${app.id}")
+            .setView(scroll)
+            .setPositiveButton("Simpan") { _, _ ->
+                val name = etName.text.toString().trim()
+                if (name.isBlank()) {
+                    Snackbar.make(b.root, "Nama nasabah wajib diisi", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                // Field angka: kalau diisi tapi tidak bisa diparse (mis. salah ketik
+                // "1.500.000" atau ada huruf nyasar), JANGAN kirim null diam-diam ke
+                // server — itu akan menghapus nilai kolom tanpa pemberitahuan.
+                val yearText = etYear.text.toString().trim()
+                val pinjamanText = etPinjaman.text.toString().trim()
+                val tenorText = etTenor.text.toString().trim()
+                val year = yearText.toIntOrNull()
+                val pinjaman = pinjamanText.toLongOrNull()
+                val tenor = tenorText.toIntOrNull()
+                if (yearText.isNotBlank() && year == null) {
+                    Snackbar.make(b.root, "Tahun unit tidak valid", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (pinjamanText.isNotBlank() && pinjaman == null) {
+                    Snackbar.make(b.root, "Nominal pinjaman tidak valid", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (tenorText.isNotBlank() && tenor == null) {
+                    Snackbar.make(b.root, "Tenor tidak valid", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                val nik = etNik.text.toString().trim().ifBlank { null }
+                val phone = etPhone.text.toString().trim().ifBlank { null }
+                val city = etCity.text.toString().trim().ifBlank { null }
+                val address = etAddr.text.toString().trim().ifBlank { null }
+                val unitBrand = etBrand.text.toString().trim().ifBlank { null }
+                val notes = etNotes.text.toString().trim().ifBlank { null }
+
+                // Hanya kirim field yang nilainya benar-benar berubah — field yang
+                // tidak disentuh (atau kosong sejak awal) tidak pernah ikut PATCH,
+                // supaya tidak diam-diam menghapus (NULL-kan) data yang tidak dimaksud.
+                val fields = buildMap<String, Any?> {
+                    if (name != app.customerName) put("customer_name", name)
+                    if (nik != app.nik) put("nik", nik)
+                    if (phone != app.phone) put("phone", phone)
+                    if (city != app.city) put("city", city)
+                    if (address != app.address) put("address", address)
+                    if (unitBrand != app.unitBrand) put("unit_brand", unitBrand)
+                    if (year != app.unitYear) put("unit_year", year)
+                    if (pinjaman != app.pinjaman) put("pinjaman", pinjaman)
+                    if (tenor != app.tenor) put("tenor", tenor)
+                    if (notes != app.notes) put("notes", notes)
+                }
+                if (fields.isEmpty()) {
+                    Snackbar.make(b.root, "Tidak ada perubahan", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                vm.editFields(app.id, fields)
             }
             .setNegativeButton("Batal", null)
             .show()

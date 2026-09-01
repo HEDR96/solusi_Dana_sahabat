@@ -29,7 +29,11 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            val token = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                _error.value = "Sesi belum aktif — coba buka ulang aplikasi"
+                _loading.value = false
+                return@launch
+            }
             SupabaseApi.getAgents(token)
                 .onSuccess { list ->
                     allAgents = list

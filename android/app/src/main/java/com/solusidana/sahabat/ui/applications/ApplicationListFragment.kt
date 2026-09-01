@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
@@ -18,7 +18,10 @@ class ApplicationListFragment : Fragment() {
 
     private var _b: FragmentApplicationListBinding? = null
     private val b get() = _b!!
-    private val vm: ApplicationListViewModel by viewModels()
+    // activityViewModels(): sama dengan instance yang dipakai ApplicationDetailFragment
+    // untuk set needsRefresh setelah hapus/edit — kalau pakai viewModels() di sini,
+    // itu instance Fragment yang beda dan needsRefresh tidak pernah kebaca.
+    private val vm: ApplicationListViewModel by activityViewModels()
     private lateinit var adapter: ApplicationAdapter
 
     private val statusFilters = listOf(
@@ -74,8 +77,14 @@ class ApplicationListFragment : Fragment() {
         }
         vm.error.observe(viewLifecycleOwner) { err ->
             if (err != null) {
-                b.tvEmpty.isVisible = true
-                b.tvEmpty.text = err
+                if (vm.apps.value.isNullOrEmpty()) {
+                    b.tvEmpty.isVisible = true
+                    b.tvEmpty.text = err
+                } else {
+                    // Data cache masih ada — jangan timpa daftar, cukup beri tahu
+                    // singkat bahwa refresh gagal supaya tidak senyap total.
+                    com.google.android.material.snackbar.Snackbar.make(b.root, err, com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show()
+                }
             }
         }
 

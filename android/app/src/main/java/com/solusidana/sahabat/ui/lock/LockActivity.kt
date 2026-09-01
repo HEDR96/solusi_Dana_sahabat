@@ -10,6 +10,7 @@ import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.databinding.ActivityLockBinding
 import com.solusidana.sahabat.ui.login.LoginActivity
 import com.solusidana.sahabat.ui.main.MainActivity
+import com.solusidana.sahabat.util.applySystemBarPadding
 
 /**
  * Gerbang kunci lokal: muncul saat buka app jika PIN/pola sudah diatur.
@@ -26,6 +27,7 @@ class LockActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityLockBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarPadding()
         lock = AppLockManager(this)
 
         when (lock.lockType) {

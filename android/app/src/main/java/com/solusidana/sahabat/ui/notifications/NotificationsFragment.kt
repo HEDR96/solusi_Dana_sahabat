@@ -5,12 +5,16 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.snackbar.Snackbar
+import com.solusidana.sahabat.R
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.data.humanError
@@ -28,6 +32,7 @@ data class NotifItem(
     val createdAt: String?,
     val icon: String,
     val highlight: Boolean,
+    val appId: String? = null,
 )
 
 class NotificationsFragment : Fragment() {
@@ -110,6 +115,7 @@ class NotificationsFragment : Fragment() {
                         },
                         body = n.message, createdAt = n.createdAt,
                         icon = iconForType(n.type), highlight = false,
+                        appId = n.appId,
                     ))
                 }
             }.sortedByDescending { it.createdAt ?: "" }
@@ -120,7 +126,15 @@ class NotificationsFragment : Fragment() {
                 b.recycler.adapter = null
             } else {
                 b.tvEmpty.isVisible = false
-                b.recycler.adapter = NotifAdapter(items)
+                b.recycler.adapter = NotifAdapter(items) { appId ->
+                    if (appId != null) {
+                        findNavController().navigate(
+                            R.id.applicationDetailFragment, bundleOf("appId" to appId)
+                        )
+                    } else {
+                        Snackbar.make(b.root, "Detail tidak tersedia untuk notifikasi ini", Snackbar.LENGTH_SHORT).show()
+                    }
+                }
             }
 
             // Tandai push messages sudah dibaca (badge bottom-nav)
@@ -135,8 +149,10 @@ class NotificationsFragment : Fragment() {
     override fun onDestroyView() { super.onDestroyView(); _b = null }
 }
 
-class NotifAdapter(private val items: List<NotifItem>) :
-    RecyclerView.Adapter<NotifAdapter.VH>() {
+class NotifAdapter(
+    private val items: List<NotifItem>,
+    private val onClick: (appId: String?) -> Unit,
+) : RecyclerView.Adapter<NotifAdapter.VH>() {
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val tvTitle: TextView = view.findViewById(com.solusidana.sahabat.R.id.tvTitle)
@@ -160,6 +176,7 @@ class NotifAdapter(private val items: List<NotifItem>) :
         (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
             if (item.highlight) 0xFFFFFBEB.toInt() else 0xFFFFFFFF.toInt()
         )
+        holder.itemView.setOnClickListener { onClick(item.appId) }
     }
 
     override fun getItemCount() = items.size

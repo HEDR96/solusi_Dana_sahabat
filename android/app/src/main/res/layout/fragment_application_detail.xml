@@ -280,7 +280,40 @@
                 android:text="Update Status Berkas"
                 android:textSize="15sp"
                 android:visibility="gone"
+                android:layout_marginBottom="10dp"
                 app:cornerRadius="12dp" />
+
+            <!-- Edit & Hapus — hanya owner -->
+            <LinearLayout
+                android:id="@+id/llOwnerActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEditBerkas"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="✏️ Edit Berkas"
+                    android:textSize="13sp"
+                    app:cornerRadius="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDeleteBerkas"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:text="🗑️ Hapus Berkas"
+                    android:textSize="13sp"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#EF4444"
+                    app:cornerRadius="12dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>

@@ -9,6 +9,7 @@ import com.solusidana.sahabat.data.Application as App
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.StatusLog
 import com.solusidana.sahabat.data.SupabaseApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 sealed class DetailState {
@@ -24,6 +25,13 @@ sealed class UpdateState {
     data class Error(val message: String) : UpdateState()
 }
 
+sealed class DeleteState {
+    object Idle : DeleteState()
+    object Deleting : DeleteState()
+    object Done : DeleteState()
+    data class Error(val message: String) : DeleteState()
+}
+
 class ApplicationDetailViewModel(application: Application) : AndroidViewModel(application) {
 
     private val session = SessionManager(application)
@@ -34,13 +42,30 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
     private val _update = MutableLiveData<UpdateState>(UpdateState.Idle)
     val update: LiveData<UpdateState> = _update
 
+    private val _delete = MutableLiveData<DeleteState>(DeleteState.Idle)
+    val delete: LiveData<DeleteState> = _delete
+
     fun load(appId: String) {
         viewModelScope.launch {
             _detail.value = DetailState.Loading
-            val token = session.accessToken ?: return@launch
+            // Refresh sesi dulu — cold start dari tap notifikasi sering membuat token
+            // belum diperbarui saat load() dipanggil, sehingga API request pakai token
+            // expired → 401 → spinner tidak pernah hilang karena error tidak terlihat.
+            // refreshSession ber-throttle 60 detik jadi tidak menambah latensi jika
+            // token masih segar.
+            SupabaseApi.refreshSession(session)
+            val token = session.accessToken ?: run {
+                _detail.value = DetailState.Error("Sesi belum aktif — coba buka ulang aplikasi")
+                return@launch
+            }
 
-            val appResult  = SupabaseApi.getApplicationById(token, appId)
-            val logsResult = SupabaseApi.getStatusLogs(token, appId)
+            // Dua request berjalan PARALEL (bukan berurutan) — di sinyal lemah,
+            // menjalankan satu-satu bisa membuat spinner terasa nyangkut lama
+            // setelah tap notifikasi (lihat DashboardViewModel, pola yang sama).
+            val appDef  = async { SupabaseApi.getApplicationById(token, appId) }
+            val logsDef = async { SupabaseApi.getStatusLogs(token, appId) }
+            val appResult  = appDef.await()
+            val logsResult = logsDef.await()
 
             if (appResult.isSuccess) {
                 _detail.value = DetailState.Success(
@@ -53,6 +78,37 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
         }
     }
 
+    fun editFields(appId: String, fields: Map<String, Any?>) {
+        viewModelScope.launch {
+            _update.value = UpdateState.Saving
+            val token = session.accessToken ?: run {
+                _update.value = UpdateState.Error("Sesi belum aktif — coba buka ulang aplikasi")
+                return@launch
+            }
+            SupabaseApi.updateApplicationFields(token, appId, fields)
+                .onSuccess {
+                    load(appId)
+                    _update.value = UpdateState.Done
+                }
+                .onFailure {
+                    _update.value = UpdateState.Error(it.message ?: "Gagal menyimpan perubahan")
+                }
+        }
+    }
+
+    fun deleteApplication(appId: String) {
+        viewModelScope.launch {
+            _delete.value = DeleteState.Deleting
+            val token = session.accessToken ?: run {
+                _delete.value = DeleteState.Error("Sesi belum aktif — coba buka ulang aplikasi")
+                return@launch
+            }
+            SupabaseApi.deleteApplication(token, appId)
+                .onSuccess { _delete.value = DeleteState.Done }
+                .onFailure { _delete.value = DeleteState.Error(it.message ?: "Gagal menghapus berkas") }
+        }
+    }
+
     fun updateStatus(
         appId: String,
         newStatus: String,
@@ -62,7 +118,10 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
     ) {
         viewModelScope.launch {
             _update.value = UpdateState.Saving
-            val token    = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                _update.value = UpdateState.Error("Sesi belum aktif — coba buka ulang aplikasi")
+                return@launch
+            }
             val userName = session.userName ?: "User"
 
             // Berkas yang sedang tampil — untuk from_status di riwayat dan nilai

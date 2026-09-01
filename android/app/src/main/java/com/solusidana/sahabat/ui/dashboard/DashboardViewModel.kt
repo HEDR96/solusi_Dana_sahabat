@@ -42,7 +42,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            val token = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                _error.value = "Sesi belum aktif — coba buka ulang aplikasi"
+                _loading.value = false
+                return@launch
+            }
             val agentId = if (session.userRole == "agen") session.agentId else null
 
             // Tiga request berjalan PARALEL — jauh lebih cepat di sinyal lemah

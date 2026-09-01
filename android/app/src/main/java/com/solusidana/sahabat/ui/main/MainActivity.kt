@@ -21,6 +21,7 @@ import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.databinding.ActivityMainBinding
 import com.solusidana.sahabat.ui.lock.LockActivity
+import com.solusidana.sahabat.util.applySystemBarPadding
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -62,9 +63,12 @@ class MainActivity : AppCompatActivity() {
         // targetSdk 35 memaksa edge-to-edge di Android 15 — tinggi status/nav bar
         // beda tiap merek HP bikin bottom nav / toolbar ketiban jam atau tombol
         // navigasi gestur. Kembalikan ke perilaku lama: sistem sisakan ruangnya.
+        // Di targetSdk 36 opt-out ini tidak lagi berlaku, jadi padding manual di
+        // bawah (applySystemBarPadding) yang menjaga bottomNav tidak ketiban.
         WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarPadding()
 
         val navHost = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment

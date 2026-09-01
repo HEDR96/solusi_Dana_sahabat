@@ -158,6 +158,7 @@ data class WebNotification(
     val message: String,
     val read: Boolean? = null,
     val link: String? = null,
+    @SerialName("app_id") val appId: String? = null,
     @SerialName("created_at") val createdAt: String? = null
 )
 

@@ -167,6 +167,45 @@ object SupabaseApi {
             list.firstOrNull() ?: error("Berkas tidak ditemukan")
         }
 
+    /** Edit field-field dasar berkas (bukan status) — dipakai oleh owner. */
+    suspend fun updateApplicationFields(token: String, id: String, fields: Map<String, Any?>): Result<Unit> = io {
+        val patchJson = JSONObject().apply {
+            fields.forEach { (k, v) -> put(k, v ?: JSONObject.NULL) }
+        }
+        val patchBody = patchJson.toString().toRequestBody(JSON_TYPE)
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_applications?id=eq.$id")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Prefer", "return=representation")
+            .patch(patchBody)
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        // Sama seperti deleteApplication: return=representation array kosong berarti
+        // 0 baris kena update (RLS menolak atau berkas sudah tidak ada) tanpa error
+        // HTTP — PostgREST melaporkan sukses meski tidak ada yang berubah.
+        if (text.trim() == "[]") error("Tidak diizinkan mengubah berkas ini")
+    }
+
+    /** Hapus berkas — hanya owner yang lolos RLS (lihat migration 013). */
+    suspend fun deleteApplication(token: String, id: String): Result<Unit> = io {
+        val req = Request.Builder()
+            .url("$BASE_URL/rest/v1/dsd_applications?id=eq.$id")
+            .addHeader("apikey", ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Prefer", "return=representation")
+            .delete()
+            .build()
+        val resp = client.newCall(req).execute()
+        val text = resp.body?.string() ?: "[]"
+        if (!resp.isSuccessful) error(supabaseError(resp.code, text))
+        // return=representation: array kosong berarti RLS menolak (0 baris) tanpa
+        // error HTTP — PostgREST melaporkan sukses meski tidak ada yang terhapus.
+        if (text.trim() == "[]") error("Tidak diizinkan menghapus berkas ini")
+    }
+
     suspend fun updateApplicationStatus(
         token: String,
         id: String,
@@ -575,8 +614,9 @@ object SupabaseApi {
             android.util.Log.w("SupabaseApi", "Log awal berkas $id gagal: HTTP ${firstLogResp.code}")
         }
 
-        // Notifikasi untuk web ERP
-        val notifBody = """{"type":"berkas-baru","message":"Berkas baru dari ${esc(agentName)} - ${esc(customerName)}","time_ago":"Baru saja","read":false,"link":"/applications"}"""
+        // Notifikasi untuk web ERP — app_id disertakan supaya tap notifikasi di
+        // Android bisa langsung buka detail berkas ini (bukan cuma link generik).
+        val notifBody = """{"type":"berkas-baru","message":"Berkas baru dari ${esc(agentName)} - ${esc(customerName)}","time_ago":"Baru saja","read":false,"link":"/applications","app_id":"${esc(id)}"}"""
             .toRequestBody(JSON_TYPE)
         val notifReq = Request.Builder()
             .url("$BASE_URL/rest/v1/dsd_notifications")

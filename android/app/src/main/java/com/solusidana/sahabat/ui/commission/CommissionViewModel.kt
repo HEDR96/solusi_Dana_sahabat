@@ -34,7 +34,11 @@ class CommissionViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            val token   = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                _error.value = "Sesi belum aktif — coba buka ulang aplikasi"
+                _loading.value = false
+                return@launch
+            }
             val agentId = if (session.userRole == "agen") session.agentId else null
 
             SupabaseApi.getCommissions(token, agentId)

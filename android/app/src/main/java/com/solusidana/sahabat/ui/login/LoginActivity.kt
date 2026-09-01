@@ -12,6 +12,7 @@ import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.databinding.ActivityLoginBinding
 import com.solusidana.sahabat.ui.lock.LockActivity
 import com.solusidana.sahabat.ui.main.MainActivity
+import com.solusidana.sahabat.util.applySystemBarPadding
 
 class LoginActivity : AppCompatActivity() {
 
@@ -39,6 +40,7 @@ class LoginActivity : AppCompatActivity() {
 
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarPadding()
 
         binding.btnLogin.setOnClickListener {
             vm.login(

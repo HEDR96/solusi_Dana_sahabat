@@ -45,7 +45,17 @@ class ApplicationListViewModel(application: Application) : AndroidViewModel(appl
                 }
             }
 
-            val token   = session.accessToken ?: return@launch
+            val token = session.accessToken ?: run {
+                // Tanpa ini _loading tetap true selamanya kalau token belum siap
+                // (mis. tepat setelah tap notifikasi, refreshSession() di
+                // MainActivity belum selesai) — spinner nyangkut tanpa pesan.
+                // Tetap set _error walau ada cache — Fragment yang memutuskan
+                // menampilkannya sebagai layar penuh atau toast singkat, supaya
+                // kegagalan refresh tidak pernah senyap total.
+                _error.value = "Sesi belum aktif — coba buka ulang aplikasi"
+                _loading.value = false
+                return@launch
+            }
             val agentId = if (session.userRole == "agen") session.agentId else null
 
             SupabaseApi.getApplications(token, agentId = agentId)
@@ -55,8 +65,7 @@ class ApplicationListViewModel(application: Application) : AndroidViewModel(appl
                     runCatching { cache.edit().putString("apps", SupabaseApi.json.encodeToString(list)).apply() }
                 }
                 .onFailure {
-                    // Kalau ada data cache, tetap tampilkan — jangan timpa dengan pesan error
-                    _error.value = if (allApps.isEmpty()) humanError(it) else null
+                    _error.value = humanError(it)
                 }
             _loading.value = false
         }

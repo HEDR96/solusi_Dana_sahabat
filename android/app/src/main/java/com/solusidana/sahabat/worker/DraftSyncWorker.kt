@@ -39,7 +39,12 @@ class DraftSyncWorker(
                     "BRK" + (maxNum + 1).toString().padStart(7, '0')
                 }
             }
-            val newId = idResult.getOrNull() ?: return Result.retry()
+            val newId = idResult.getOrNull() ?: return@forEach
+            // return@forEach (bukan `return Result.retry()`): forEach di sini inline, jadi
+            // `return` polos adalah non-local return dari doWork() — draft lain yang SUDAH
+            // terkirim di iterasi sebelumnya (sent > 0) jadi tidak pernah dinotifikasi karena
+            // blok notifikasi di bawah tidak sempat jalan. Lewati draft ini saja, lanjut ke
+            // draft berikutnya; draft yang gagal tetap tersimpan di store untuk retry berikutnya.
 
             val result = SupabaseApi.insertApplication(
                 token, newId, d.agentId, d.agentName, d.customerName, d.nik, d.phone,
