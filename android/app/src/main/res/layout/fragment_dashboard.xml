@@ -227,6 +227,22 @@
                 app:cornerRadius="12dp"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnReport"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="6dp"
+                android:text="📊  Laporan"
+                android:textSize="13sp"
+                android:textColor="#2563EB"
+                android:visibility="gone"
+                app:strokeColor="#BFDBFE"
+                app:strokeWidth="1dp"
+                app:cornerRadius="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
             <!-- ── SURVEY HARI INI ── -->
             <LinearLayout
                 android:id="@+id/sectionSurvey"

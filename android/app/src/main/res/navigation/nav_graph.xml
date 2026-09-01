@@ -20,12 +20,24 @@
         <action
             android:id="@+id/action_dashboard_to_map"
             app:destination="@id/agentMapFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_report"
+            app:destination="@id/reportFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/agentMapFragment"
         android:name="com.solusidana.sahabat.ui.map.AgentMapFragment"
         android:label="Peta Agen" />
+
+    <fragment
+        android:id="@+id/reportFragment"
+        android:name="com.solusidana.sahabat.ui.report.ReportFragment"
+        android:label="Laporan">
+        <action
+            android:id="@+id/action_report_to_detail"
+            app:destination="@id/applicationDetailFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/activityListFragment"

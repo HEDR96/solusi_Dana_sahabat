@@ -149,10 +149,18 @@ class DashboardFragment : Fragment() {
             safeNavigate(R.id.action_dashboard_to_activities)
         }
 
-        if (SessionManager(requireContext()).userRole in listOf("owner", "super-admin")) {
+        val peran = SessionManager(requireContext()).userRole
+        if (peran in listOf("owner", "super-admin")) {
             b.btnAgentMap.visibility = View.VISIBLE
             b.btnAgentMap.setOnClickListener {
                 safeNavigate(R.id.action_dashboard_to_map)
+            }
+        }
+        // Laporan juga untuk spv-agen: mereka yang memantau berkas mandek binaannya
+        if (peran in listOf("owner", "super-admin", "spv-agen")) {
+            b.btnReport.visibility = View.VISIBLE
+            b.btnReport.setOnClickListener {
+                safeNavigate(R.id.action_dashboard_to_report)
             }
         }
 
