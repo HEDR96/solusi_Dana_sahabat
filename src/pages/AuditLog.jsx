@@ -112,9 +112,17 @@ export function AuditLog() {
                   <td className="table-td">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div className="avatar avatar-sm" style={{ background: rStyle.bg, color: rStyle.color, fontSize: 12, fontWeight: 800 }}>
-                        {log.user[0]}
+                        {log.user?.[0] || '?'}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{log.user}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-0f172a)' }}>{log.user || '—'}</span>
+                      {/* Sejak migration 018 identitas diisi server dari auth.uid().
+                          Entri lama tanpa actorId tetap ditampilkan, tapi ditandai
+                          agar tidak dianggap setara sebagai bukti. */}
+                      {log.actorId ? (
+                        <span title="Identitas diverifikasi server" style={{ fontSize: 11, color: '#15803d' }}>✓</span>
+                      ) : (
+                        <span title="Entri lama — identitas tidak terverifikasi" style={{ fontSize: 11, color: 'var(--c-cbd5e1)' }}>○</span>
+                      )}
                     </div>
                   </td>
                   <td className="table-td">

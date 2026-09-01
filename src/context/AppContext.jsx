@@ -83,6 +83,10 @@ const mapNotif = (r, readSet) => ({
 const mapAuditLog = r => ({
   id: r.id, user: r.user, role: r.role, action: r.action,
   detail: r.detail,
+  // actor_id diisi server dari auth.uid() (migration 018). Baris lama bernilai
+  // null: sah, tapi identitasnya tidak bisa diverifikasi karena dulu kolom
+  // "user" cuma teks kiriman client.
+  actorId: r.actor_id || null,
   time: r.time,
   timeDisplay: r.time
     ? new Date(r.time).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
