@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { ToastStack } from '../components/UI/Toast';
 import { supabase } from '../lib/supabaseClient';
+import { FPD_LABELS } from '../data/dummyData';
 
 const DEFAULT_SETTINGS = {
   companyName: 'PT. Mitra Dana Indonesia',
@@ -23,6 +24,8 @@ const mapApp = r => ({
   leasingName: r.leasing_name, inputDate: r.input_date, notes: r.notes,
   surveyDate: r.survey_date, surveyTime: r.survey_time, surveyResult: r.survey_result,
   approveDate: r.approve_date, approvePinjaman: r.approve_pinjaman,
+  fpdStatus: r.fpd_status, fpdAngsuranKe: r.fpd_angsuran_ke,
+  fpdCheckedDate: r.fpd_checked_date, fpdNotes: r.fpd_notes, fpdUpdatedBy: r.fpd_updated_by,
 });
 const mapAgent = r => ({
   id: r.id, name: r.name, phone: r.phone, email: r.email, city: r.city,
@@ -489,6 +492,30 @@ export function AppProvider({ children }) {
     showToast(`Data berkas ${appId} berhasil diperbarui`);
   };
 
+  // Status cicilan awal nasabah (FPD) — diisi manual berdasarkan laporan leasing.
+  // DB (trigger dsd_guard_application_fpd) yang menjaga hanya owner/super-admin
+  // yang boleh mengubah; pengecekan di UI cuma untuk menyembunyikan tombol.
+  const updateApplicationFpd = async (appId, fpd) => {
+    const dbRow = {
+      fpd_status: fpd.status || null,
+      fpd_angsuran_ke: fpd.status && fpd.status !== 'lancar' ? Number(fpd.angsuranKe) || null : null,
+      fpd_checked_date: fpd.status ? (fpd.checkedDate || new Date().toISOString().split('T')[0]) : null,
+      fpd_notes: fpd.notes?.trim() || null,
+    };
+    const { error } = await supabase.from('dsd_applications').update(dbRow).eq('id', appId);
+    if (error) { showToast('Gagal menyimpan status FPD: ' + error.message, 'error'); return false; }
+    setApplications(prev => prev.map(a => a.id !== appId ? a : {
+      ...a,
+      fpdStatus: dbRow.fpd_status, fpdAngsuranKe: dbRow.fpd_angsuran_ke,
+      fpdCheckedDate: dbRow.fpd_checked_date, fpdNotes: dbRow.fpd_notes,
+      fpdUpdatedBy: currentUser?.name || a.fpdUpdatedBy,
+    }));
+    const label = dbRow.fpd_status ? FPD_LABELS[dbRow.fpd_status] : 'belum dicek';
+    await addAuditLog('Update FPD', `${appId}: cicilan awal ditandai ${label}`);
+    showToast(`Status cicilan berkas ${appId}: ${label}`);
+    return true;
+  };
+
   const addApplication = async (data, docFiles = {}) => {
     // ID dari sequence DB (anti-tabrakan); fallback ke max+1 (length+1 rusak setelah penghapusan)
     const { data: rpcId } = await supabase.rpc('dsd_next_brk_id');
@@ -815,6 +842,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       currentUser, authLoading, dataLoading, login, logout, updateProfile,
       applications, setApplications, addApplication, updateApplicationStatus, updateApplicationData,
+      updateApplicationFpd,
       visibleApplications, visibleCommissions, visibleActivities,
       visibleAgents, managedAgentIds,
       commissions, setCommissions, payCommission, payCommissionsBulk, bulkUpdateCommissions,

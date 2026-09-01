@@ -53,7 +53,12 @@ data class Application(
     @SerialName("survey_time") val surveyTime: String? = null,
     @SerialName("survey_result") val surveyResult: String? = null,
     @SerialName("approve_date") val approveDate: String? = null,
-    @SerialName("approve_pinjaman") val approvePinjaman: Long? = null
+    @SerialName("approve_pinjaman") val approvePinjaman: Long? = null,
+    // FPD — status cicilan awal nasabah, diisi owner/super-admin dari web
+    @SerialName("fpd_status") val fpdStatus: String? = null,
+    @SerialName("fpd_angsuran_ke") val fpdAngsuranKe: Int? = null,
+    @SerialName("fpd_checked_date") val fpdCheckedDate: String? = null,
+    @SerialName("fpd_notes") val fpdNotes: String? = null
 )
 
 @Serializable

@@ -9,6 +9,15 @@ export const STATUSES = [
   { key: 'reject', label: 'Reject', color: 'status-reject', hex: '#dc2626' },
 ];
 
+// FPD (First Payment Default) — status cicilan awal nasabah setelah berkas cair.
+// Nasabah yang macet di angsuran pertama berisiko komisi ditarik leasing.
+export const FPD_STATUSES = [
+  { key: 'lancar', label: 'Lancar',      hex: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
+  { key: 'telat',  label: 'Telat Bayar', hex: '#b45309', bg: '#fffbeb', border: '#fde68a' },
+  { key: 'macet',  label: 'Macet (FPD)', hex: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+];
+export const FPD_LABELS = Object.fromEntries(FPD_STATUSES.map(s => [s.key, s.label]));
+
 export const leasingPartners = [
   { id: 1, name: 'Adira Finance', branch: 'Jakarta Pusat', pic: 'Budi Santoso', contact: '08123456701', email: 'budi@adira.co.id', products: 'Kendaraan Bermotor, Elektronik', rate: '1.5%', tenors: '12,24,36,48,60', minPinjaman: 5000000, maxPinjaman: 500000000, status: 'aktif' },
   { id: 2, name: 'BFI Finance', branch: 'Jakarta Selatan', pic: 'Rina Marlina', contact: '08123456702', email: 'rina@bfi.co.id', products: 'Mobil, Motor, Properti', rate: '1.3%', tenors: '12,24,36,48,60', minPinjaman: 10000000, maxPinjaman: 1000000000, status: 'aktif' },

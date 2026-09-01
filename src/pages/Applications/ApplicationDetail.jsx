@@ -5,16 +5,16 @@ import { Badge } from '../../components/UI/Badge';
 import { Modal } from '../../components/UI/Modal';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabaseClient';
-import { formatRupiah, STATUSES } from '../../data/dummyData';
+import { formatRupiah, STATUSES, FPD_STATUSES } from '../../data/dummyData';
 import { useMasterOptions } from '../../utils/useMasterOptions';
-import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight, DollarSign, AlertTriangle } from 'lucide-react';
 
 const DEFAULT_DOC_TYPES = ['KTP', 'KK', 'STNK', 'BPKB', 'Slip Gaji', 'Foto Unit'];
 
 export function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { applications, statusLogs, updateApplicationStatus, updateApplicationData, currentUser, commissions, settings, managedAgentIds } = useApp();
+  const { applications, statusLogs, updateApplicationStatus, updateApplicationData, updateApplicationFpd, currentUser, commissions, settings, managedAgentIds } = useApp();
   const [showStatus, setShowStatus]       = useState(false);
   const [newStatus, setNewStatus]         = useState('');
   const [notes, setNotes]                 = useState('');
@@ -27,6 +27,11 @@ export function ApplicationDetail() {
   const [showEdit, setShowEdit]     = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editFields, setEditFields] = useState({});
+
+  // Status cicilan awal nasabah (FPD)
+  const [showFpd, setShowFpd]     = useState(false);
+  const [fpdSaving, setFpdSaving] = useState(false);
+  const [fpdForm, setFpdForm]     = useState({ status: '', angsuranKe: '', checkedDate: '', notes: '' });
 
   // ── Dokumen Google Drive ──
   const [gdocs, setGdocs]         = useState([]);
@@ -144,6 +149,23 @@ export function ApplicationDetail() {
     setShowEdit(false);
   };
 
+  const openFpd = () => {
+    setFpdForm({
+      status: app.fpdStatus || '',
+      angsuranKe: app.fpdAngsuranKe ? String(app.fpdAngsuranKe) : '',
+      checkedDate: app.fpdCheckedDate || new Date().toISOString().split('T')[0],
+      notes: app.fpdNotes || '',
+    });
+    setShowFpd(true);
+  };
+
+  const handleFpdSave = async () => {
+    setFpdSaving(true);
+    const ok = await updateApplicationFpd(id, fpdForm);
+    setFpdSaving(false);
+    if (ok) setShowFpd(false);
+  };
+
   const handleSave = () => {
     const parsedPinjaman = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
     updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime, parsedPinjaman || undefined, surveyResult || undefined);
@@ -257,6 +279,47 @@ export function ApplicationDetail() {
                     {comm?.paymentMethod && <Row label="Metode" value={comm.paymentMethod} />}
                   </div>
                 </div>
+              </Section>
+            );
+          })()}
+
+          {app.status === 'approve' && (() => {
+            const fpd = FPD_STATUSES.find(s => s.key === app.fpdStatus);
+            return (
+              <Section title="Cicilan Awal Nasabah (FPD)" icon={AlertTriangle}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                  padding: '12px 14px', borderRadius: 10, marginBottom: fpd || canEdit ? 12 : 0,
+                  background: fpd ? fpd.bg : 'var(--surface-alt)',
+                  border: `1px solid ${fpd ? fpd.border : 'var(--border)'}`,
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: fpd ? fpd.hex : 'var(--c-94a3b8)' }}>
+                    {fpd ? fpd.label : 'Belum dicek'}
+                  </span>
+                  {app.fpdStatus && app.fpdStatus !== 'lancar' && app.fpdAngsuranKe && (
+                    <span style={{ fontSize: 12, color: 'var(--c-64748b)' }}>
+                      mulai angsuran ke-{app.fpdAngsuranKe}
+                    </span>
+                  )}
+                  <div style={{ flex: 1 }} />
+                  {canEdit && (
+                    <button className="btn btn-secondary btn-sm" onClick={openFpd}>
+                      <Edit2 size={13} /> {app.fpdStatus ? 'Ubah' : 'Isi Status'}
+                    </button>
+                  )}
+                </div>
+                {app.fpdStatus && (
+                  <>
+                    <Row label="Terakhir Dicek" value={app.fpdCheckedDate} />
+                    <Row label="Dicek Oleh" value={app.fpdUpdatedBy} />
+                    {app.fpdNotes && <Row label="Catatan" value={app.fpdNotes} />}
+                  </>
+                )}
+                {!app.fpdStatus && !canEdit && (
+                  <p style={{ fontSize: 12, color: 'var(--c-94a3b8)' }}>
+                    Status pembayaran cicilan awal belum diperbarui oleh admin.
+                  </p>
+                )}
               </Section>
             );
           })()}
@@ -457,6 +520,83 @@ export function ApplicationDetail() {
             </div>
           );
         })()}
+      </Modal>
+
+      {/* ── FPD modal ── */}
+      <Modal
+        isOpen={showFpd}
+        onClose={() => setShowFpd(false)}
+        title="Status Cicilan Awal Nasabah"
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowFpd(false)}>Batal</button>
+            <button className="btn btn-primary" disabled={fpdSaving} onClick={handleFpdSave}>
+              {fpdSaving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: 12, color: 'var(--c-94a3b8)', background: 'var(--surface-alt)', padding: '8px 12px', borderRadius: 8 }}>
+            Diisi berdasarkan laporan dari pihak leasing. Nasabah yang macet di angsuran
+            awal berisiko membuat komisi ditarik kembali.
+          </p>
+
+          <div>
+            <label className="label">Status Pembayaran</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              {FPD_STATUSES.map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setFpdForm(p => ({ ...p, status: p.status === s.key ? '' : s.key }))}
+                  style={{
+                    padding: '10px 8px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                    border: `2px solid ${fpdForm.status === s.key ? s.hex : 'var(--border)'}`,
+                    background: fpdForm.status === s.key ? s.bg : 'var(--surface)',
+                    color: fpdForm.status === s.key ? s.hex : 'var(--c-64748b)',
+                    transition: 'border-color .15s, background .15s',
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {fpdForm.status && (
+              <button
+                onClick={() => setFpdForm(p => ({ ...p, status: '', angsuranKe: '' }))}
+                style={{ marginTop: 8, fontSize: 11, color: 'var(--c-94a3b8)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+              >
+                Kosongkan (kembali ke belum dicek)
+              </button>
+            )}
+          </div>
+
+          {fpdForm.status && fpdForm.status !== 'lancar' && (
+            <div>
+              <label className="label">Bermasalah Sejak Angsuran Ke-</label>
+              <select className="input" value={fpdForm.angsuranKe} onChange={e => setFpdForm(p => ({ ...p, angsuranKe: e.target.value }))}>
+                <option value="">— pilih —</option>
+                {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>Angsuran ke-{n}</option>)}
+              </select>
+            </div>
+          )}
+
+          {fpdForm.status && (
+            <div>
+              <label className="label">Tanggal Pengecekan</label>
+              <input className="input" type="date" value={fpdForm.checkedDate}
+                     onChange={e => setFpdForm(p => ({ ...p, checkedDate: e.target.value }))} />
+            </div>
+          )}
+
+          <div>
+            <label className="label">Catatan</label>
+            <textarea className="input textarea" rows={2} value={fpdForm.notes}
+                      onChange={e => setFpdForm(p => ({ ...p, notes: e.target.value }))}
+                      placeholder="Contoh: sudah dihubungi, janji bayar tanggal 20 (opsional)" />
+          </div>
+        </div>
       </Modal>
 
       {/* ── Status modal ── */}

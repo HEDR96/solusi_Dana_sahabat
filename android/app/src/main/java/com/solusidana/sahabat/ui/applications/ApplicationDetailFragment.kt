@@ -107,6 +107,8 @@ class ApplicationDetailFragment : Fragment() {
                     b.tvNotes.text = if (!app.notes.isNullOrBlank()) "Catatan: ${app.notes}" else ""
                     b.tvNotes.isVisible = !app.notes.isNullOrBlank()
 
+                    bindFpd(app)
+
                     // Status logs
                     b.containerLogs.removeAllViews()
                     if (state.logs.isEmpty()) {
@@ -375,6 +377,45 @@ class ApplicationDetailFragment : Fragment() {
                     Snackbar.make(b.root, it.message ?: "Check-in gagal", Snackbar.LENGTH_LONG).show()
                 }
         }
+    }
+
+    /**
+     * Status cicilan awal nasabah (FPD). Read-only di APK — pengisiannya lewat web
+     * oleh owner/super-admin (dijaga trigger DB), tapi agen perlu melihatnya karena
+     * nasabah yang macet di angsuran awal berdampak ke komisi dan kuota mereka.
+     */
+    private fun bindFpd(app: App) {
+        val show = app.status == "approve"
+        b.cardFpd.isVisible = show
+        if (!show) return
+
+        val (label, color) = when (app.fpdStatus) {
+            "lancar" -> "✅ Lancar"        to 0xFF15803D.toInt()
+            "telat"  -> "⚠️ Telat Bayar"   to 0xFFB45309.toInt()
+            "macet"  -> "🔴 Macet (FPD)"   to 0xFFDC2626.toInt()
+            else     -> "Belum dicek"      to 0xFF94A3B8.toInt()
+        }
+        b.tvFpdStatus.text = label
+        b.tvFpdStatus.setTextColor(color)
+
+        val detail = buildString {
+            if (app.fpdStatus != null && app.fpdStatus != "lancar" && app.fpdAngsuranKe != null) {
+                append("Bermasalah sejak angsuran ke-${app.fpdAngsuranKe}")
+            }
+            if (!app.fpdCheckedDate.isNullOrBlank()) {
+                if (isNotEmpty()) append(" · ")
+                append("dicek ${app.fpdCheckedDate}")
+            }
+            if (!app.fpdNotes.isNullOrBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(app.fpdNotes)
+            }
+            if (isEmpty() && app.fpdStatus == null) {
+                append("Belum diperbarui oleh admin.")
+            }
+        }
+        b.tvFpdDetail.text = detail
+        b.tvFpdDetail.isVisible = detail.isNotBlank()
     }
 
     private fun setRow(row: com.solusidana.sahabat.databinding.RowInfoBinding, label: String, value: String) {
