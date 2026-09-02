@@ -355,9 +355,17 @@ class ApplicationFormFragment : Fragment() {
         // yang bermasalah tidak boleh menghalangi agen menginput berkas.
         val token = SessionManager(requireContext()).accessToken
         if (token == null) { doSave(); return }
+        // Kunci tombol selama pengecekan. Tanpa ini ada jeda jaringan yang tidak
+        // terlihat sama sekali oleh pengguna: agen mengira tap-nya tidak masuk,
+        // menekan lagi, dan justru terkirim berkas ganda — persis yang hendak
+        // dicegah fitur ini. FormState.Saving baru mengunci setelah doSave().
+        b.btnSave.isEnabled = false
+        b.progress.isVisible = true
         viewLifecycleOwner.lifecycleScope.launch {
             val dup = SupabaseApi.checkCustomerNik(token, nik).getOrNull()
             if (_b == null) return@launch
+            b.btnSave.isEnabled = true
+            b.progress.isVisible = false
             if (dup == null) doSave() else confirmDuplicate(dup)
         }
     }

@@ -76,10 +76,7 @@ class ReportFragment : Fragment() {
                 setPadding(0, 10, 0, 10)
                 setTextColor(0xFF334155.toInt())
                 setOnClickListener {
-                    findNavController().navigate(
-                        R.id.action_report_to_detail,
-                        bundleOf("appId" to t.app.id)
-                    )
+                    safeNavigate(R.id.action_report_to_detail, bundleOf("appId" to t.app.id))
                 }
             }
             b.containerTelat.addView(tv)
@@ -105,6 +102,18 @@ class ReportFragment : Fragment() {
             }
             b.containerAgen.addView(tv)
         }
+    }
+
+    /**
+     * Tap kedua yang terlanjur masuk setelah pindah destinasi membuat
+     * findNavController().navigate() melempar IllegalArgumentException dan
+     * aplikasi tertutup paksa — pola sama dipakai di Dashboard & Daftar Berkas.
+     */
+    private fun safeNavigate(actionId: Int, args: Bundle? = null) {
+        if (!isAdded) return
+        try {
+            findNavController().navigate(actionId, args)
+        } catch (_: IllegalArgumentException) { }
     }
 
     override fun onDestroyView() { super.onDestroyView(); _b = null }
