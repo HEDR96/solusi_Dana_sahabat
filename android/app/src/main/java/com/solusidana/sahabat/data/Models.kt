@@ -58,7 +58,10 @@ data class Application(
     @SerialName("fpd_status") val fpdStatus: String? = null,
     @SerialName("fpd_angsuran_ke") val fpdAngsuranKe: Int? = null,
     @SerialName("fpd_checked_date") val fpdCheckedDate: String? = null,
-    @SerialName("fpd_notes") val fpdNotes: String? = null
+    @SerialName("fpd_notes") val fpdNotes: String? = null,
+    // Hasil survey terstruktur (migration 020)
+    @SerialName("survey_recommendation") val surveyRecommendation: String? = null,
+    @SerialName("survey_by") val surveyBy: String? = null
 )
 
 /** Hasil dsd_check_customer_nik — ringkasan berkas lain dengan NIK yang sama. */

@@ -215,7 +215,10 @@ object SupabaseApi {
         surveyTime: String?,
         userName: String,
         fromStatus: String? = null,
-        approvePinjaman: Long? = null
+        approvePinjaman: Long? = null,
+        surveyResult: String? = null,
+        surveyChecklist: Map<String, String>? = null,
+        surveyRecommendation: String? = null
     ): Result<Unit> = io {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
         val patchJson = JSONObject().apply {
@@ -234,6 +237,15 @@ object SupabaseApi {
                 put("approve_date", JSONObject.NULL)
                 put("approve_pinjaman", JSONObject.NULL)
             }
+            // Hasil survey terstruktur (migration 020). survey_by & survey_filled_at
+            // diisi trigger di server, bukan dari sini.
+            if (!surveyResult.isNullOrBlank()) put("survey_result", surveyResult)
+            if (!surveyChecklist.isNullOrEmpty()) {
+                put("survey_checklist", JSONObject().apply {
+                    surveyChecklist.forEach { (k, v) -> put(k, v) }
+                })
+            }
+            if (!surveyRecommendation.isNullOrBlank()) put("survey_recommendation", surveyRecommendation)
         }
         val patchBody = patchJson.toString().toRequestBody(JSON_TYPE)
 

@@ -5,7 +5,7 @@ import { Badge } from '../../components/UI/Badge';
 import { Modal } from '../../components/UI/Modal';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabaseClient';
-import { formatRupiah, STATUSES, FPD_STATUSES } from '../../data/dummyData';
+import { formatRupiah, STATUSES, FPD_STATUSES, SURVEY_CHECKLIST, SURVEY_RECOMMENDATIONS } from '../../data/dummyData';
 import { useMasterOptions } from '../../utils/useMasterOptions';
 import { ArrowLeft, Edit2, Printer, CheckCircle, User, Calendar, FileText, ChevronRight, DollarSign, AlertTriangle } from 'lucide-react';
 
@@ -22,6 +22,8 @@ export function ApplicationDetail() {
   const [surveyTime, setSurveyTime]       = useState('');
   const [approvePinjaman, setApprovePinjaman] = useState('');
   const [surveyResult, setSurveyResult]   = useState('');
+  const [checklist, setChecklist]         = useState({});
+  const [surveyRec, setSurveyRec]         = useState('');
 
   // Edit berkas
   const [showEdit, setShowEdit]     = useState(false);
@@ -168,9 +170,14 @@ export function ApplicationDetail() {
 
   const handleSave = () => {
     const parsedPinjaman = approvePinjaman ? parseInt(approvePinjaman.replace(/\D/g, ''), 10) || 0 : 0;
-    updateApplicationStatus(id, newStatus, notes, surveyDate, surveyTime, parsedPinjaman || undefined, surveyResult || undefined);
+    updateApplicationStatus(
+      id, newStatus, notes, surveyDate, surveyTime,
+      parsedPinjaman || undefined, surveyResult || undefined,
+      { checklist, recommendation: surveyRec || undefined },
+    );
     setShowStatus(false);
     setNotes(''); setSurveyDate(''); setSurveyTime(''); setApprovePinjaman(''); setSurveyResult('');
+    setChecklist({}); setSurveyRec('');
   };
 
   // Hasil survey diisi setelah survey berlangsung — saat berkas keluar dari
@@ -324,13 +331,43 @@ export function ApplicationDetail() {
             );
           })()}
 
-          {app.surveyDate && (
-            <Section title="Informasi Survey" icon={Calendar}>
-              <Row label="Tanggal Survey" value={app.surveyDate} />
-              <Row label="Jam Survey" value={app.surveyTime} />
-              <Row label="Hasil Survey" value={app.surveyResult || 'Belum diisi'} />
-            </Section>
-          )}
+          {(app.surveyDate || app.surveyRecommendation) && (() => {
+            const rec = SURVEY_RECOMMENDATIONS.find(r => r.key === app.surveyRecommendation);
+            const cl = app.surveyChecklist || {};
+            const terisi = SURVEY_CHECKLIST.filter(i => cl[i.key]);
+            return (
+              <Section title="Informasi Survey" icon={Calendar}>
+                <Row label="Tanggal Survey" value={app.surveyDate} />
+                <Row label="Jam Survey" value={app.surveyTime} />
+
+                {rec && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                    padding: '10px 14px', borderRadius: 10, margin: '12px 0',
+                    background: rec.bg, border: `1px solid ${rec.border}`,
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: rec.hex }}>{rec.label}</span>
+                    {app.surveyBy && (
+                      <span style={{ fontSize: 11, color: 'var(--c-64748b)' }}>
+                        oleh {app.surveyBy}
+                        {app.surveyFilledAt && ` · ${new Date(app.surveyFilledAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {terisi.length > 0 && (
+                  <div className="rgrid rgrid-2" style={{ gap: 0 }}>
+                    {terisi.map(i => (
+                      <Row key={i.key} label={i.label} value={cl[i.key]} />
+                    ))}
+                  </div>
+                )}
+
+                <Row label="Catatan Survey" value={app.surveyResult || 'Belum diisi'} />
+              </Section>
+            );
+          })()}
 
           <Section title="Dokumen Diupload" icon={FileText}>
             {docTypes.length === 0 ? (
@@ -647,14 +684,63 @@ export function ApplicationDetail() {
           )}
 
           {asksSurveyResult && (
-            <div>
-              <label className="label">Hasil Survey</label>
-              <textarea
-                className="input textarea" rows={2} value={surveyResult}
-                onChange={e => setSurveyResult(e.target.value)}
-                placeholder="Contoh: kondisi unit baik, dokumen lengkap (opsional)"
-              />
-            </div>
+            <>
+              <div>
+                <label className="label">Checklist Survey</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {SURVEY_CHECKLIST.map(item => (
+                    <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 12, color: 'var(--c-64748b)', flex: 1 }}>{item.label}</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {item.options.map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setChecklist(p => ({ ...p, [item.key]: p[item.key] === opt ? undefined : opt }))}
+                            style={{
+                              padding: '5px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                              border: `1.5px solid ${checklist[item.key] === opt ? '#2563eb' : 'var(--border)'}`,
+                              background: checklist[item.key] === opt ? 'var(--selected-bg)' : 'var(--surface)',
+                              color: checklist[item.key] === opt ? '#2563eb' : 'var(--c-64748b)',
+                            }}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Rekomendasi Surveyor</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {SURVEY_RECOMMENDATIONS.map(r => (
+                    <button
+                      key={r.key}
+                      onClick={() => setSurveyRec(p => p === r.key ? '' : r.key)}
+                      style={{
+                        padding: '9px 6px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                        border: `2px solid ${surveyRec === r.key ? r.hex : 'var(--border)'}`,
+                        background: surveyRec === r.key ? r.bg : 'var(--surface)',
+                        color: surveyRec === r.key ? r.hex : 'var(--c-64748b)',
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Catatan Survey</label>
+                <textarea
+                  className="input textarea" rows={2} value={surveyResult}
+                  onChange={e => setSurveyResult(e.target.value)}
+                  placeholder="Hal yang tidak tertangkap checklist — sering justru yang paling penting (opsional)"
+                />
+              </div>
+            </>
           )}
 
           {newStatus === 'approve' && (() => {

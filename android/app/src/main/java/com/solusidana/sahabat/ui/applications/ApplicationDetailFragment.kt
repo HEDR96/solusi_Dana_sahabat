@@ -25,8 +25,11 @@ import com.solusidana.sahabat.R
 import com.solusidana.sahabat.data.Application as App
 import com.solusidana.sahabat.data.SessionManager
 import com.solusidana.sahabat.data.STATUSES
+import com.solusidana.sahabat.data.SURVEY_CHECKLIST
+import com.solusidana.sahabat.data.SURVEY_RECOMMENDATIONS
 import com.solusidana.sahabat.data.SupabaseApi
 import com.solusidana.sahabat.data.formatRupiah
+import com.solusidana.sahabat.data.surveyRecLabel
 import com.solusidana.sahabat.data.statusColor
 import com.solusidana.sahabat.data.statusLabel
 import com.solusidana.sahabat.databinding.FragmentApplicationDetailBinding
@@ -101,7 +104,17 @@ class ApplicationDetailFragment : Fragment() {
                     setRow(b.rowUnit,      "Unit",        "${app.unitType ?: ""} ${app.unitBrand ?: ""} ${app.unitYear ?: ""}".trim().ifBlank { "-" })
                     setRow(b.rowCity,      "Kota",        app.city ?: "-")
                     setRow(b.rowInputDate, "Tgl Masuk",   app.inputDate ?: "-")
-                    setRow(b.rowSurvey,    "Survey",      if (!app.surveyDate.isNullOrBlank()) "${app.surveyDate} ${app.surveyTime ?: ""}".trim() else "-")
+                    setRow(b.rowSurvey, "Survey", buildString {
+                        if (!app.surveyDate.isNullOrBlank()) {
+                            append("${app.surveyDate} ${app.surveyTime ?: ""}".trim())
+                        }
+                        surveyRecLabel(app.surveyRecommendation)?.let { rec ->
+                            if (isNotEmpty()) append("\n")
+                            append("Hasil: $rec")
+                            app.surveyBy?.let { append(" (oleh $it)") }
+                        }
+                        if (isEmpty()) append("-")
+                    })
                     setRow(b.rowApprove,   "Approve",     if (!app.approveDate.isNullOrBlank()) "${app.approveDate} · ${formatRupiah(app.approvePinjaman)}" else "-")
 
                     b.tvNotes.text = if (!app.notes.isNullOrBlank()) "Catatan: ${app.notes}" else ""
@@ -439,11 +452,98 @@ class ApplicationDetailFragment : Fragment() {
     }
 
     private fun showConfirmUpdate(id: String, from: String, to: String) {
-        if (to == "janji-survey") {
-            pickDateThenTime { date, time -> doConfirmUpdate(id, from, to, date, time) }
-        } else {
-            doConfirmUpdate(id, from, to, "", "")
+        when {
+            to == "janji-survey" ->
+                pickDateThenTime { date, time -> doConfirmUpdate(id, from, to, date, time) }
+            // Hasil survey diisi setelah survey berlangsung — saat berkas keluar
+            // dari status survey (umumnya lanjut ke komite). Aturan sama dengan web.
+            from == "survey" || to == "komite" ->
+                showSurveyChecklist(id, from, to)
+            else -> doConfirmUpdate(id, from, to, "", "")
         }
+    }
+
+    /**
+     * Checklist survey terstruktur. Sebelumnya hasil survey hanya teks bebas,
+     * sehingga tidak bisa dibandingkan antar berkas padahal inilah dasar
+     * keputusan komite. Semua isian opsional — memaksa lengkap justru membuat
+     * petugas mengisi asal supaya bisa lanjut.
+     */
+    private fun showSurveyChecklist(id: String, from: String, to: String) {
+        val ctx = requireContext()
+        val dp = resources.displayMetrics.density
+        val jawaban = mutableMapOf<String, String>()
+        var rekomendasi: String? = null
+
+        val container = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), 0)
+        }
+
+        SURVEY_CHECKLIST.forEach { item ->
+            container.addView(TextView(ctx).apply {
+                text = item.label
+                textSize = 13f
+                setTextColor(0xFF334155.toInt())
+                setPadding(0, (10 * dp).toInt(), 0, (4 * dp).toInt())
+            })
+            val group = com.google.android.material.chip.ChipGroup(ctx).apply {
+                isSingleSelection = true
+            }
+            item.options.forEach { opt ->
+                group.addView(com.google.android.material.chip.Chip(ctx).apply {
+                    text = opt
+                    isCheckable = true
+                    setOnCheckedChangeListener { _, checked ->
+                        if (checked) jawaban[item.key] = opt
+                        else if (jawaban[item.key] == opt) jawaban.remove(item.key)
+                    }
+                })
+            }
+            container.addView(group)
+        }
+
+        container.addView(TextView(ctx).apply {
+            text = "Rekomendasi Surveyor"
+            textSize = 13f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(0xFF0F172A.toInt())
+            setPadding(0, (16 * dp).toInt(), 0, (4 * dp).toInt())
+        })
+        val recGroup = com.google.android.material.chip.ChipGroup(ctx).apply {
+            isSingleSelection = true
+        }
+        SURVEY_RECOMMENDATIONS.forEach { r ->
+            recGroup.addView(com.google.android.material.chip.Chip(ctx).apply {
+                text = r.label
+                isCheckable = true
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked) rekomendasi = r.key
+                    else if (rekomendasi == r.key) rekomendasi = null
+                }
+            })
+        }
+        container.addView(recGroup)
+
+        val catatan = com.google.android.material.textfield.TextInputEditText(ctx).apply {
+            hint = "Catatan survey (opsional)"
+            setPadding(0, (16 * dp).toInt(), 0, 0)
+        }
+        container.addView(catatan)
+
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("Hasil Survey")
+            .setView(android.widget.ScrollView(ctx).apply { addView(container) })
+            .setPositiveButton("Lanjut") { _, _ ->
+                doConfirmUpdate(
+                    id, from, to, "", "",
+                    surveyResult = catatan.text.toString().trim().ifBlank { null },
+                    surveyChecklist = jawaban.toMap().ifEmpty { null },
+                    surveyRecommendation = rekomendasi
+                )
+            }
+            .setNegativeButton("Batal", null)
+            .show()
     }
 
     private fun pickDateThenTime(onPicked: (date: String, time: String) -> Unit) {
@@ -468,7 +568,12 @@ class ApplicationDetailFragment : Fragment() {
         ).show()
     }
 
-    private fun doConfirmUpdate(id: String, from: String, to: String, surveyDate: String, surveyTime: String) {
+    private fun doConfirmUpdate(
+        id: String, from: String, to: String, surveyDate: String, surveyTime: String,
+        surveyResult: String? = null,
+        surveyChecklist: Map<String, String>? = null,
+        surveyRecommendation: String? = null
+    ) {
         val notesInput = android.widget.EditText(requireContext()).apply {
             hint = "Catatan (opsional)"
             setPadding(48, 24, 48, 8)
@@ -485,7 +590,12 @@ class ApplicationDetailFragment : Fragment() {
             .setMessage(message)
             .setView(notesInput)
             .setPositiveButton(if (isTerminal) "Ya, Konfirmasi" else "Simpan") { _, _ ->
-                vm.updateStatus(id, to, notesInput.text.toString(), surveyDate, surveyTime)
+                vm.updateStatus(
+                    id, to, notesInput.text.toString(), surveyDate, surveyTime,
+                    surveyResult = surveyResult,
+                    surveyChecklist = surveyChecklist,
+                    surveyRecommendation = surveyRecommendation
+                )
             }
             .setNegativeButton("Batal", null)
             .show()

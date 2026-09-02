@@ -23,6 +23,8 @@ const mapApp = r => ({
   estimasiAngsuran: r.estimasi_angsuran, leasingId: r.leasing_id,
   leasingName: r.leasing_name, inputDate: r.input_date, notes: r.notes,
   surveyDate: r.survey_date, surveyTime: r.survey_time, surveyResult: r.survey_result,
+  surveyChecklist: r.survey_checklist || null, surveyRecommendation: r.survey_recommendation,
+  surveyBy: r.survey_by, surveyFilledAt: r.survey_filled_at,
   approveDate: r.approve_date, approvePinjaman: r.approve_pinjaman,
   fpdStatus: r.fpd_status, fpdAngsuranKe: r.fpd_angsuran_ke,
   fpdCheckedDate: r.fpd_checked_date, fpdNotes: r.fpd_notes, fpdUpdatedBy: r.fpd_updated_by,
@@ -413,13 +415,19 @@ export function AppProvider({ children }) {
     if (data) setAuditLogs(prev => [mapAuditLog(data), ...prev]);
   };
 
-  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime, approvePinjaman, surveyResult) => {
+  // surveyExtra: { checklist, recommendation } — dikirim sebagai objek, bukan
+  // parameter posisi ke-8 dan ke-9, agar urutan argumen tidak makin rapuh.
+  const updateApplicationStatus = async (appId, newStatus, notes, surveyDate, surveyTime, approvePinjaman, surveyResult, surveyExtra) => {
     const app = applications.find(a => a.id === appId);
     if (!app) { showToast(`Berkas ${appId} tidak ditemukan — muat ulang halaman`, 'error'); return; }
     const updates = { status: newStatus };
     if (surveyDate) updates.survey_date = surveyDate;
     if (surveyTime) updates.survey_time = surveyTime;
     if (surveyResult) updates.survey_result = surveyResult;
+    if (surveyExtra?.checklist && Object.keys(surveyExtra.checklist).length > 0) {
+      updates.survey_checklist = surveyExtra.checklist;
+    }
+    if (surveyExtra?.recommendation) updates.survey_recommendation = surveyExtra.recommendation;
     if (newStatus === 'approve') {
       updates.approve_date = new Date().toISOString().split('T')[0];
       updates.approve_pinjaman = approvePinjaman || app.pinjaman;
@@ -437,6 +445,8 @@ export function AppProvider({ children }) {
       if (surveyDate) u.surveyDate = surveyDate;
       if (surveyTime) u.surveyTime = surveyTime;
       if (surveyResult) u.surveyResult = surveyResult;
+      if (updates.survey_checklist) u.surveyChecklist = updates.survey_checklist;
+      if (updates.survey_recommendation) u.surveyRecommendation = updates.survey_recommendation;
       if (newStatus === 'approve') { u.approveDate = updates.approve_date; u.approvePinjaman = updates.approve_pinjaman; }
       if (['reject', 'cancel'].includes(newStatus)) { u.approveDate = null; u.approvePinjaman = null; }
       return u;

@@ -114,7 +114,10 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
         newStatus: String,
         notes: String,
         surveyDate: String,
-        surveyTime: String
+        surveyTime: String,
+        surveyResult: String? = null,
+        surveyChecklist: Map<String, String>? = null,
+        surveyRecommendation: String? = null
     ) {
         viewModelScope.launch {
             _update.value = UpdateState.Saving
@@ -133,7 +136,10 @@ class ApplicationDetailViewModel(application: Application) : AndroidViewModel(ap
             SupabaseApi.updateApplicationStatus(
                 token, appId, newStatus, notes, surveyDate, surveyTime, userName,
                 fromStatus = current?.status,
-                approvePinjaman = approvePinjaman
+                approvePinjaman = approvePinjaman,
+                surveyResult = surveyResult,
+                surveyChecklist = surveyChecklist,
+                surveyRecommendation = surveyRecommendation
             )
                 .onSuccess {
                     load(appId)

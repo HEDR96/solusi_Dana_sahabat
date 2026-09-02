@@ -1069,7 +1069,14 @@ input[type="checkbox"] {
 }
 
 /* ── Print ─────────────────────────────────────── */
+/* Kop cetak hanya muncul di hasil print/PDF, tidak di layar */
+.print-header { display: none; }
+
 @media print {
+  /* Margin halaman: tanpa ini isi menempel ke tepi kertas dan sebagian
+     terpotong di banyak printer. */
+  @page { margin: 14mm 12mm; }
+
   :root, [data-theme="dark"] {
     --c-0f172a: #0f172a; --c-374151: #374151; --c-64748b: #64748b;
     --c-94a3b8: #64748b; --c-cbd5e1: #94a3b8;
@@ -1082,4 +1089,27 @@ input[type="checkbox"] {
   .main-content { margin-left: 0 !important; padding-top: 0 !important; }
   .page-content { padding: 0 !important; }
   .card, .table-wrap { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+
+  /* ── Kop dokumen ── */
+  .print-header { display: block !important; margin-bottom: 14px; }
+  .print-header-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; padding-bottom: 10px; border-bottom: 2px solid #0f172a;
+  }
+  .print-header-right { text-align: right; }
+  .print-company { font-size: 15pt; font-weight: 800; color: #0f172a; }
+  .print-meta { font-size: 8pt; color: #475569; line-height: 1.5; }
+  .print-title-block { margin-top: 10px; }
+  .print-title { font-size: 12pt; font-weight: 700; color: #0f172a; }
+
+  /* ── Perilaku antar-halaman ──
+     Tanpa ini tabel panjang terpotong tanpa header di halaman kedua dan
+     kartu terbelah di tengah — dua hal yang membuat arsip sulit dibaca. */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, .timeline-item { break-inside: avoid; page-break-inside: avoid; }
+  .card { break-inside: avoid; page-break-inside: avoid; }
+  /* Kartu ringkasan boleh terbelah kalau memang lebih tinggi dari satu
+     halaman — kalau dipaksa utuh justru menyisakan halaman kosong. */
+  .table-wrap, .rgrid { break-inside: auto; page-break-inside: auto; }
 }
