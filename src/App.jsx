@@ -23,6 +23,7 @@ const ApplicationReport = lazyPage(() => import('./pages/Reports/ApplicationRepo
 const CommissionReport  = lazyPage(() => import('./pages/Reports/CommissionReport'), 'CommissionReport');
 const Users             = lazyPage(() => import('./pages/Users'), 'Users');
 const AuditLog          = lazyPage(() => import('./pages/AuditLog'), 'AuditLog');
+const Messages          = lazyPage(() => import('./pages/Messages'), 'Messages');
 const Settings          = lazyPage(() => import('./pages/Settings'), 'Settings');
 const Profile           = lazyPage(() => import('./pages/Profile'), 'Profile');
 const AgentActivity     = lazyPage(() => import('./pages/AgentActivity'), 'AgentActivity');
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/reports/applications" element={<ProtectedRoute><ApplicationReport /></ProtectedRoute>} />
         <Route path="/reports/commission" element={<ProtectedRoute><CommissionReport /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+        <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/audit" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

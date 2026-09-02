@@ -353,15 +353,20 @@ class ApplicationDetailFragment : Fragment() {
         val client = com.google.android.gms.location.LocationServices
             .getFusedLocationProviderClient(requireActivity())
 
+        // Callback Play Services TIDAK terikat lifecycle view. Fix GPS di dalam
+        // gedung bisa 10-20 detik; kalau agen keburu menekan back, onDestroyView
+        // sudah menjadikan _b null dan b.root melempar NPE — force close.
         client.getCurrentLocation(
             com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
         ).addOnSuccessListener { location ->
+            if (_b == null) return@addOnSuccessListener
             if (location == null) {
                 Snackbar.make(b.root, "Lokasi tidak tersedia. Aktifkan GPS.", Snackbar.LENGTH_LONG).show()
                 return@addOnSuccessListener
             }
             submitCheckIn(location.latitude, location.longitude)
         }.addOnFailureListener {
+            if (_b == null) return@addOnFailureListener
             Snackbar.make(b.root, "Gagal mengambil lokasi", Snackbar.LENGTH_LONG).show()
         }
     }

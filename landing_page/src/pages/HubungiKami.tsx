@@ -1,5 +1,10 @@
 import { useState } from 'react'
 
+// Lead disimpan lewat endpoint publik ERP (service key di server).
+// Sebelumnya submit hanya setSent(true) — pengunjung membaca "Pesan Terkirim!"
+// padahal tidak ada apa pun yang dikirim, dan semua lead dari halaman ini hilang.
+const LEAD_API = 'https://solusi-dana-sahabat.vercel.app/api/lead'
+
 const contacts = [
   { icon: '💬', label: 'WhatsApp', value: '0812-6559-3904', href: 'https://wa.me/6281265593904', color: '#22c55e' },
   { icon: '✉️', label: 'Email', value: 'info@solusidanasahabat.com', href: 'mailto:info@solusidanasahabat.com', color: '#3b82f6' },
@@ -8,13 +13,43 @@ const contacts = [
 ]
 
 export default function HubungiKami() {
-  const [form, setForm] = useState({ nama: '', hp: '', pesan: '' })
+  const [form, setForm] = useState({ nama: '', hp: '', pesan: '', website: '' })
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
-  const submit = (e: React.FormEvent) => { e.preventDefault(); setSent(true) }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg('')
+
+    try {
+      const resp = await fetch(LEAD_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'kontak',
+          nama: form.nama, hp: form.hp, pesan: form.pesan,
+          website: form.website,
+        }),
+      })
+      setLoading(false)
+      if (!resp.ok) {
+        const result = await resp.json().catch(() => ({}))
+        setErrorMsg(result.error || 'Gagal mengirim pesan. Silakan coba lagi.')
+        return
+      }
+      setSent(true)
+    } catch {
+      setLoading(false)
+      // Jangan tampilkan "terkirim" kalau tidak benar-benar terkirim — arahkan
+      // ke WhatsApp supaya pengunjung tidak menunggu balasan yang tak akan datang.
+      setErrorMsg('Gagal mengirim pesan. Periksa koneksi Anda, atau hubungi kami langsung via WhatsApp.')
+    }
+  }
 
   return (
     <>
@@ -81,8 +116,27 @@ export default function HubungiKami() {
                     <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--navy-deep)' }}>Pesan / Pertanyaan *</label>
                     <textarea name="pesan" value={form.pesan} onChange={handle} required rows={4} placeholder="Tuliskan pertanyaan atau kebutuhan Anda..." className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none" style={{ border: '1px solid var(--border)', background: 'white' }} />
                   </div>
-                  <button type="submit" className="w-full py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-[1.02]" style={{ background: 'var(--gold)' }}>
-                    Kirim Pesan →
+                  {/* Honeypot: tersembunyi dari manusia, diisi bot. Server membalas
+                      sukses palsu bila terisi (lihat api/lead.js). */}
+                  <input
+                    type="text" name="website" value={form.website} onChange={handle}
+                    tabIndex={-1} autoComplete="off" aria-hidden="true"
+                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1 }}
+                  />
+
+                  {errorMsg && (
+                    <div className="text-sm rounded-xl px-4 py-3" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+                      {errorMsg}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100"
+                    style={{ background: 'var(--gold)' }}
+                  >
+                    {loading ? 'Mengirim…' : 'Kirim Pesan →'}
                   </button>
                 </form>
               ) : (

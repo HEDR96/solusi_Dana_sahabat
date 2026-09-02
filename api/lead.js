@@ -2,6 +2,7 @@
 // Dua jenis:
 //   type "career"  → calon agen (form Career)  → dsd_agents (status nonaktif)
 //   type "inquiry" → pengajuan dana (Simulasi) → dsd_applications (status pending)
+//   type "kontak"  → pesan Hubungi Kami        → dsd_contact_messages
 //
 // Dulu landing page insert LANGSUNG ke tabel dengan anon key — selalu ditolak RLS
 // (policy hanya untuk authenticated), jadi semua lead website hilang.
@@ -115,6 +116,32 @@ async function handleInquiry(body, res) {
   return res.status(200).json({ ok: true, id: newId });
 }
 
+async function handleKontak(body, res) {
+  const { nama, hp, pesan } = body;
+  if (!nama?.trim())  return res.status(400).json({ error: 'Nama wajib diisi' });
+  if (!hp?.trim())    return res.status(400).json({ error: 'No. WhatsApp wajib diisi' });
+  if (!pesan?.trim()) return res.status(400).json({ error: 'Pesan wajib diisi' });
+
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/dsd_contact_messages`, {
+    method: 'POST',
+    headers: { ...H(), Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      name: nama.trim(),
+      phone: hp.trim(),
+      // Batasi panjang agar satu kiriman tidak bisa dipakai membanjiri tabel
+      message: pesan.trim().slice(0, 2000),
+      status: 'baru',
+    }),
+  });
+  if (!r.ok) return res.status(500).json({ error: 'Gagal menyimpan data' });
+
+  // Isi pesan disertakan di notifikasi supaya owner bisa langsung menindaklanjuti
+  // lewat lonceng, tanpa harus membuka halaman lain.
+  const cuplikan = pesan.trim().slice(0, 120);
+  await notify(`Pesan dari website — ${nama.trim()} (${hp.trim()}): ${cuplikan}`, '/messages');
+  return res.status(200).json({ ok: true });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -131,5 +158,6 @@ export default async function handler(req, res) {
 
   if (body.type === 'career')  return handleCareer(body, res);
   if (body.type === 'inquiry') return handleInquiry(body, res);
+  if (body.type === 'kontak')  return handleKontak(body, res);
   return res.status(400).json({ error: 'type tidak dikenal' });
 }

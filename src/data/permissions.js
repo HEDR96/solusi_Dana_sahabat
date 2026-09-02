@@ -15,6 +15,7 @@ export const SECTIONS = {
   MAP: 'map',
   MASTERDATA: 'masterdata',
   USERS: 'users',
+  MESSAGES: 'messages',
   AUDIT: 'audit',
   SETTINGS: 'settings',
 };
@@ -55,6 +56,7 @@ export const ROUTE_SECTION = [
   { prefix: '/map', section: SECTIONS.MAP },
   { prefix: '/masterdata', section: SECTIONS.MASTERDATA },
   { prefix: '/users', section: SECTIONS.USERS },
+  { prefix: '/messages', section: SECTIONS.MESSAGES },
   { prefix: '/audit', section: SECTIONS.AUDIT },
   { prefix: '/settings', section: SECTIONS.SETTINGS },
 ];
